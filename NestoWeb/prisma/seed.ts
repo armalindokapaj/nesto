@@ -1,0 +1,502 @@
+import { PrismaClient } from "../src/generated/prisma";
+import bcrypt from "bcryptjs";
+import { ROLES } from "../src/lib/constants";
+
+const db = new PrismaClient();
+
+const DEMO_PASSWORD = "Nesto2026!";
+
+// Mirrors src/server/number-series.ts's format/atomicity contract, duplicated
+// here (rather than imported) so this script doesn't depend on the "@/"
+// path-alias resolution the app's tsconfig sets up for Next.js — tsx runs
+// this file standalone.
+const SEED_SERIES_CONFIG: Record<string, { prefix: string; seqLength: number; includeYear: boolean }> = {
+  CONTRACT: { prefix: "CON", seqLength: 5, includeYear: true },
+  CONTRACTOR: { prefix: "CTR", seqLength: 6, includeYear: false },
+  SUPPLIER: { prefix: "SUP", seqLength: 6, includeYear: false },
+  PURCHASE_ORDER: { prefix: "PO", seqLength: 5, includeYear: true },
+};
+
+async function allocateSeedNumber(tenantId: string, entityType: keyof typeof SEED_SERIES_CONFIG): Promise<string> {
+  const config = SEED_SERIES_CONFIG[entityType];
+  const existing = await db.numberSeries.findUnique({ where: { tenantId_entityType: { tenantId, entityType } } });
+  const sequence = existing ? existing.nextValue : 1;
+
+  if (existing) {
+    await db.numberSeries.update({ where: { id: existing.id }, data: { nextValue: { increment: 1 } } });
+  } else {
+    await db.numberSeries.create({ data: { tenantId, entityType, prefix: config.prefix, nextValue: 2 } });
+  }
+
+  const seq = String(sequence).padStart(config.seqLength, "0");
+  return config.includeYear ? `${config.prefix}-${new Date().getFullYear()}-${seq}` : `${config.prefix}-${seq}`;
+}
+
+async function main() {
+  console.log("Seeding Nesto demo data…");
+
+  const passwordHash = await bcrypt.hash(DEMO_PASSWORD, 10);
+
+  const tenant = await db.tenant.create({
+    data: { name: "BuildCore Group", slug: "buildcore" },
+  });
+
+  const company = await db.company.create({
+    data: {
+      tenantId: tenant.id,
+      name: "BuildCore Group",
+      legalName: "BuildCore Group Sh.p.k.",
+      countryCode: "AL",
+      planName: "Enterprise",
+      seatLimit: 50,
+    },
+  });
+
+  await db.branch.create({
+    data: { companyId: company.id, name: "Tirana HQ", address: "Rruga e Kavajës, Tirana", isRegisteredBranch: true },
+  });
+
+  // --- Users -----------------------------------------------------------
+  const users = await Promise.all(
+    [
+      { username: "arben.kola", email: "arben.kola@buildcore.com", displayName: "Arben Kola", color: "#B8863C" },
+      { username: "elira.doda", email: "elira.doda@buildcore.com", displayName: "Elira Doda", color: "#4a3aa7" },
+      { username: "gentian.hoxha", email: "gentian.hoxha@buildcore.com", displayName: "Gentian Hoxha", color: "#2457C5" },
+      { username: "sara.mema", email: "sara.mema@buildcore.com", displayName: "Sara Mema", color: "#e87ba4" },
+      { username: "besnik.lala", email: "besnik.lala@buildcore.com", displayName: "Besnik Lala", color: "#1A7F4E" },
+      { username: "fatjon.dervishi", email: "fatjon.dervishi@buildcore.com", displayName: "Fatjon Dervishi", color: "#eb6834" },
+      { username: "ana.krasniqi", email: "ana.krasniqi@buildcore.com", displayName: "Ana Krasniqi", color: "#1baf7a" },
+    ].map(({ color, ...u }) => db.userIdentity.create({ data: { ...u, avatarColor: color, passwordHash } }))
+  );
+  const [arben, elira, gentian, sara, besnik, fatjon, ana] = users;
+
+  await Promise.all([
+    db.companyMembership.create({ data: { tenantId: tenant.id, userId: arben.id, role: "OWNER", department: "Management", position: "Company Owner" } }),
+    db.companyMembership.create({ data: { tenantId: tenant.id, userId: elira.id, role: "ARCHITECT", department: "Design Team", position: "Lead Architect" } }),
+    db.companyMembership.create({ data: { tenantId: tenant.id, userId: gentian.id, role: "PM", department: "Projects", position: "Project Manager" } }),
+    db.companyMembership.create({ data: { tenantId: tenant.id, userId: sara.id, role: "ARCHITECT", department: "Design Team", position: "Architect" } }),
+    db.companyMembership.create({ data: { tenantId: tenant.id, userId: besnik.id, role: "STOCK", department: "Construction", position: "Site Manager" } }),
+    db.companyMembership.create({ data: { tenantId: tenant.id, userId: fatjon.id, role: "FINANCE", department: "Finance", position: "Finance Manager" } }),
+    db.companyMembership.create({ data: { tenantId: tenant.id, userId: ana.id, role: "HR", department: "Human Resources", position: "HR Manager" } }),
+  ]);
+
+  await db.invitation.createMany({
+    data: [
+      { tenantId: tenant.id, email: "new.architect@buildcore.com", role: "ARCHITECT" },
+      { tenantId: tenant.id, email: "pm@buildcore.com", role: "PM" },
+      { tenantId: tenant.id, email: "site.manager@buildcore.com", role: "STOCK" },
+    ],
+  });
+
+  // --- Projects ----------------------------------------------------------
+  const projectSeeds = [
+    { name: "Riverside Towers", clientName: "Riverside Holdings", location: "Tirana, Albania", budget: 4_200_000, contractValue: 4_500_000, status: "ON_TRACK", progressPct: 68 },
+    { name: "Metro Mall", clientName: "Metro Retail Group", location: "Durrës, Albania", budget: 2_800_000, contractValue: 3_000_000, status: "ON_TRACK", progressPct: 54 },
+    { name: "Green Valley Resort", clientName: "Green Valley SH.A", location: "Vlorë, Albania", budget: 1_900_000, contractValue: 2_100_000, status: "AT_RISK", progressPct: 37 },
+    { name: "Skyline Apartments", clientName: "Skyline Developers", location: "Tirana, Albania", budget: 1_500_000, contractValue: 1_650_000, status: "DELAYED", progressPct: 24 },
+  ];
+
+  const projects = await Promise.all(
+    projectSeeds.map((p, i) =>
+      db.project.create({
+        data: {
+          tenantId: tenant.id,
+          companyId: company.id,
+          code: `PRJ-2026-${String(i + 1).padStart(6, "0")}`,
+          ...p,
+        },
+      })
+    )
+  );
+  const [riverside, metroMall, greenValley, skyline] = projects;
+
+  await Promise.all(
+    projects.map((p) =>
+      db.projectMember.createMany({
+        data: [
+          { projectId: p.id, userId: gentian.id, roleOnProject: "Project Manager" },
+          { projectId: p.id, userId: elira.id, roleOnProject: "Architect" },
+        ],
+      })
+    )
+  );
+
+  // --- Tasks ---------------------------------------------------------------
+  const taskSeeds: { title: string; projectId: string; status: string; priority: string; responsibleId: string }[] = [
+    { title: "Facade material schedule review", projectId: riverside.id, status: "IN_PROGRESS", priority: "HIGH", responsibleId: elira.id },
+    { title: "Structural inspection — Block A", projectId: riverside.id, status: "REVIEW", priority: "MEDIUM", responsibleId: besnik.id },
+    { title: "Client floor-plan revision request", projectId: riverside.id, status: "TO_DO", priority: "MEDIUM", responsibleId: sara.id },
+    { title: "MEP coordination set — Level 3", projectId: metroMall.id, status: "IN_PROGRESS", priority: "MEDIUM", responsibleId: elira.id },
+    { title: "Retail unit handover checklist", projectId: metroMall.id, status: "COMPLETED", priority: "LOW", responsibleId: gentian.id },
+    { title: "Landscape design package approval", projectId: greenValley.id, status: "NEEDS_REVISION", priority: "HIGH", responsibleId: sara.id },
+    { title: "Foundation delay root-cause report", projectId: skyline.id, status: "OVERDUE", priority: "CRITICAL", responsibleId: gentian.id },
+    { title: "Roof drain locations RFI response", projectId: skyline.id, status: "TO_DO", priority: "MEDIUM", responsibleId: elira.id },
+  ];
+
+  await Promise.all(
+    taskSeeds.map((t, i) =>
+      db.task.create({
+        data: {
+          tenantId: tenant.id,
+          code: `TSK-2026-${String(i + 1).padStart(6, "0")}`,
+          title: t.title,
+          projectId: t.projectId,
+          status: t.status,
+          priority: t.priority,
+          createdById: gentian.id,
+          mainResponsibleId: t.responsibleId,
+        },
+      })
+    )
+  );
+
+  // Seeded projects/tasks above use hand-assigned codes (not allocateNumber),
+  // so the NumberSeries counters they'd otherwise bump start at 1 — without
+  // this, the very first real "Create Project" in the UI collides with
+  // PRJ-2026-000001 (the project code format includes the year, same as the
+  // seed's hand-assigned codes, so they can collide exactly; TASK's format
+  // omits the year so it never collides today, but is seeded here too for
+  // correctness in case that config ever changes).
+  await db.numberSeries.createMany({
+    data: [
+      { tenantId: tenant.id, entityType: "PROJECT", prefix: "PRJ", nextValue: projectSeeds.length + 1 },
+      { tenantId: tenant.id, entityType: "TASK", prefix: "TSK", nextValue: taskSeeds.length + 1 },
+    ],
+  });
+
+  // --- Finance ---------------------------------------------------------
+  await db.financeAccount.createMany({
+    data: [
+      { tenantId: tenant.id, name: "Operating Account", type: "OPERATING", balance: 620_000 },
+      { tenantId: tenant.id, name: "Payroll Account", type: "PAYROLL", balance: 210_000 },
+      { tenantId: tenant.id, name: "Savings Account", type: "SAVINGS", balance: 400_000 },
+      { tenantId: tenant.id, name: "Tax Account", type: "TAX", balance: 70_000 },
+      { tenantId: tenant.id, name: "Petty Cash", type: "PETTY_CASH", balance: 5_000 },
+    ],
+  });
+
+  const now = new Date();
+  function daysAgo(n: number) {
+    return new Date(now.getTime() - n * 24 * 60 * 60 * 1000);
+  }
+  function daysFromNow(n: number) {
+    return new Date(now.getTime() + n * 24 * 60 * 60 * 1000);
+  }
+  function monthsAgo(n: number) {
+    const d = new Date(now);
+    d.setMonth(d.getMonth() - n);
+    return d;
+  }
+
+  const invoiceSeeds = [
+    { number: "INV-2026-048", type: "INVOICE", description: "Progress billing — Riverside Towers", amount: 85_000, status: "PAID", projectId: riverside.id, issuedDate: daysAgo(2) },
+    { number: "PAY-2026-031", type: "PAYMENT", description: "Payment to supplier", amount: -25_000, status: "COMPLETED", projectId: metroMall.id, issuedDate: daysAgo(3) },
+    { number: "INV-2026-047", type: "INVOICE", description: "Progress billing — Green Valley Resort", amount: 65_000, status: "SENT", projectId: greenValley.id, issuedDate: daysAgo(3) },
+    { number: "EXP-2026-018", type: "EXPENSE", description: "Employee salaries", amount: -120_000, status: "COMPLETED", projectId: null, issuedDate: daysAgo(4) },
+    { number: "EXP-2026-017", type: "EXPENSE", description: "Material purchase", amount: -45_000, status: "COMPLETED", projectId: skyline.id, issuedDate: daysAgo(5) },
+  ];
+
+  // Spread additional invoices across the past several months so the cash-flow
+  // trend chart has real month-over-month movement, not a single data point.
+  for (let m = 5; m >= 0; m--) {
+    invoiceSeeds.push(
+      { number: `INV-2026-${100 + m}`, type: "INVOICE", description: `Monthly billing — ${[riverside, metroMall, greenValley, skyline][m % 4].name}`, amount: 60_000 + m * 8_000, status: "PAID", projectId: [riverside, metroMall, greenValley, skyline][m % 4].id, issuedDate: monthsAgo(m) },
+      { number: `EXP-2026-${200 + m}`, type: "EXPENSE", description: "Monthly operating costs", amount: -(40_000 + m * 5_000), status: "COMPLETED", projectId: null, issuedDate: monthsAgo(m) }
+    );
+  }
+
+  await Promise.all(
+    invoiceSeeds.map((inv) =>
+      db.invoice.create({
+        data: {
+          tenantId: tenant.id,
+          number: inv.number,
+          type: inv.type,
+          description: inv.description,
+          amount: inv.amount,
+          status: inv.status,
+          projectId: inv.projectId,
+          issuedDate: inv.issuedDate,
+        },
+      })
+    )
+  );
+
+  await Promise.all(
+    [
+      { number: "BILL-2026-011", description: "Supplier Payment", amount: -35_000, status: "PENDING", dueDate: daysAgo(1) },
+      { number: "TAX-2026-005", description: "Tax Payment (VAT)", amount: -18_500, status: "PENDING", dueDate: daysFromNow(3) },
+      { number: "BILL-2026-012", description: "Rent Payment", amount: -8_000, status: "PENDING", dueDate: daysFromNow(6) },
+      { number: "BILL-2026-013", description: "Insurance Payment", amount: -12_000, status: "PENDING", dueDate: daysFromNow(8) },
+    ].map((b) =>
+      db.invoice.create({
+        data: { tenantId: tenant.id, type: "BILL", ...b },
+      })
+    )
+  );
+
+  // --- HR ----------------------------------------------------------------
+  const employeeSeeds = [
+    { fullName: "Arben Kola", position: "Company Owner", department: "Management", hireDate: monthsAgo(30), userId: arben.id, color: "#B8863C" },
+    { fullName: "Elira Doda", position: "Lead Architect", department: "Design Team", hireDate: monthsAgo(20), userId: elira.id, color: "#4a3aa7" },
+    { fullName: "Gentian Hoxha", position: "Project Manager", department: "Projects", hireDate: monthsAgo(16), userId: gentian.id, color: "#2457C5" },
+    { fullName: "Sara Mema", position: "Architect", department: "Design Team", hireDate: monthsAgo(3), userId: sara.id, color: "#e87ba4" },
+    { fullName: "Besnik Lala", position: "Site Manager", department: "Construction", hireDate: monthsAgo(9), userId: besnik.id, color: "#1A7F4E" },
+    { fullName: "Fatjon Dervishi", position: "Finance Manager", department: "Finance", hireDate: monthsAgo(12), userId: fatjon.id, color: "#eb6834" },
+    { fullName: "Ana Krasniqi", position: "HR Manager", department: "Human Resources", hireDate: monthsAgo(14), userId: ana.id, color: "#1baf7a" },
+    { fullName: "Drilon Meta", position: "Site Engineer", department: "Construction", hireDate: daysAgo(20), color: "#e34948", birthday: new Date(1990, 7, 12) },
+    { fullName: "Klea Basha", position: "Quantity Surveyor", department: "Construction", hireDate: daysAgo(45), color: "#eda100", birthday: new Date(1988, 7, 20) },
+  ];
+
+  const employees = await Promise.all(
+    employeeSeeds.map((e) =>
+      db.employee.create({
+        data: {
+          tenantId: tenant.id,
+          fullName: e.fullName,
+          position: e.position,
+          department: e.department,
+          hireDate: e.hireDate,
+          userId: e.userId,
+          avatarColor: e.color,
+          birthday: e.birthday,
+        },
+      })
+    )
+  );
+
+  await db.leaveRequest.createMany({
+    data: [
+      { tenantId: tenant.id, employeeId: employees[3].id, startDate: daysFromNow(5), endDate: daysFromNow(10), status: "PENDING", reason: "Annual leave" },
+      { tenantId: tenant.id, employeeId: employees[4].id, startDate: daysAgo(2), endDate: daysFromNow(2), status: "APPROVED", reason: "Sick leave" },
+    ],
+  });
+
+  // --- HR calendar appointments -------------------------------------------
+  await db.hrAppointment.createMany({
+    data: [
+      { tenantId: tenant.id, title: "Interview — Site Engineer", type: "INTERVIEW", candidateName: "Endrit Berisha", scheduledAt: daysFromNow(3), createdById: ana.id, notes: "Second-round technical interview." },
+      { tenantId: tenant.id, title: "Interview — QA Inspector", type: "INTERVIEW", candidateName: "Mirela Cani", scheduledAt: daysFromNow(6), createdById: ana.id },
+      { tenantId: tenant.id, title: "Quarterly HR Review", type: "INTERNAL", scheduledAt: daysFromNow(9), createdById: ana.id, notes: "Department heads sync on headcount planning." },
+    ],
+  });
+
+  // --- Architecture: drawings & RFIs --------------------------------------
+  await db.drawing.createMany({
+    data: [
+      { tenantId: tenant.id, projectId: riverside.id, packageName: "A1.0 — Overall Plans", discipline: "Architecture", revisionCode: "Rev. 3", status: "IN_REVIEW" },
+      { tenantId: tenant.id, projectId: metroMall.id, packageName: "A2.3 — Floor Plans", discipline: "Architecture", revisionCode: "Rev. 2", status: "APPROVED" },
+      { tenantId: tenant.id, projectId: skyline.id, packageName: "A5.1 — Elevations", discipline: "Architecture", revisionCode: "Rev. 4", status: "NEEDS_REVISION" },
+      { tenantId: tenant.id, projectId: greenValley.id, packageName: "A0.1 — Cover Sheet", discipline: "Architecture", revisionCode: "Rev. 1", status: "DRAFT" },
+      { tenantId: tenant.id, projectId: riverside.id, packageName: "S1.2 — Structural Plan", discipline: "Structural", revisionCode: "Rev. 2", status: "APPROVED" },
+      { tenantId: tenant.id, projectId: metroMall.id, packageName: "M1.0 — MEP Coordination", discipline: "MEP", revisionCode: "Rev. 1", status: "IN_REVIEW" },
+    ],
+  });
+
+  await db.rFI.createMany({
+    data: [
+      { tenantId: tenant.id, projectId: riverside.id, code: "RFI-023", title: "Stair guard height", status: "OPEN", dueDate: daysFromNow(2) },
+      { tenantId: tenant.id, projectId: metroMall.id, code: "RFI-022", title: "Window type clarification", status: "ANSWERED" },
+      { tenantId: tenant.id, projectId: skyline.id, code: "RFI-021", title: "Roof drain locations", status: "OPEN", dueDate: daysAgo(1) },
+      { tenantId: tenant.id, projectId: greenValley.id, code: "RFI-020", title: "Door hardware specs", status: "ANSWERED" },
+    ],
+  });
+
+  // --- Teams ---------------------------------------------------------------
+  const designTeam = await db.team.create({
+    data: { tenantId: tenant.id, name: "Design Team", description: "Architecture and drawing production." },
+  });
+  const siteOpsTeam = await db.team.create({
+    data: { tenantId: tenant.id, name: "Site Operations", description: "On-site execution and supervision." },
+  });
+  await db.teamMember.createMany({
+    data: [
+      { teamId: designTeam.id, userId: elira.id },
+      { teamId: designTeam.id, userId: sara.id },
+      { teamId: siteOpsTeam.id, userId: besnik.id },
+      { teamId: siteOpsTeam.id, userId: gentian.id },
+    ],
+  });
+
+  // --- Contractors & Contracts ---------------------------------------------
+  const contractorSeeds = [
+    { name: "Elektro Al Shpk", tradeType: "Electrical", email: "info@elektroal.al", status: "APPROVED", riskRating: "LOW" },
+    { name: "HidroPlumb Sh.p.k.", tradeType: "Plumbing", email: "contact@hidroplumb.al", status: "APPROVED", riskRating: "LOW" },
+    { name: "Metal Frame Construction", tradeType: "Structural Steel", email: "office@metalframe.al", status: "PENDING", riskRating: "MEDIUM" },
+  ];
+  // Sequential (not Promise.all) — allocateSeedNumber's read-then-write isn't
+  // wrapped in a transaction here, so concurrent calls for the same
+  // entityType would race on the NumberSeries upsert.
+  const contractors = [];
+  for (const c of contractorSeeds) {
+    const number = await allocateSeedNumber(tenant.id, "CONTRACTOR");
+    contractors.push(await db.contractor.create({ data: { tenantId: tenant.id, number, ...c } }));
+  }
+  const [elektro, hidroplumb, metalFrame] = contractors;
+
+  const contractSeeds = [
+    { title: "Electrical Installation — Riverside Towers", value: 240_000, projectId: riverside.id, contractorId: elektro.id, status: "ACTIVE", startDate: monthsAgo(4), endDate: daysFromNow(90) },
+    { title: "Plumbing Works — Metro Mall", value: 180_000, projectId: metroMall.id, contractorId: hidroplumb.id, status: "ACTIVE", startDate: monthsAgo(2), endDate: daysFromNow(120) },
+    { title: "Structural Steel Frame — Skyline Apartments", value: 310_000, projectId: skyline.id, contractorId: metalFrame.id, status: "DRAFT", startDate: daysFromNow(14), endDate: daysFromNow(300) },
+  ];
+  for (const c of contractSeeds) {
+    const number = await allocateSeedNumber(tenant.id, "CONTRACT");
+    await db.contract.create({ data: { tenantId: tenant.id, number, currency: "EUR", ...c } });
+  }
+
+  // --- Clients ---------------------------------------------------------------
+  const clientSeeds = [
+    { name: "Riverside Holdings", contactName: "Mira Basha", email: "mira@riversideholdings.al", phone: "+355 69 200 1122", createdById: gentian.id, project: riverside },
+    { name: "Metro Retail Group", contactName: "Dritan Hoxha", email: "dritan@metroretail.al", phone: "+355 69 200 3344", createdById: gentian.id, project: metroMall },
+  ];
+  const clients = [];
+  for (const c of clientSeeds) {
+    const { project, ...clientData } = c;
+    clients.push(
+      await db.client.create({ data: { tenantId: tenant.id, ...clientData, projects: { connect: { id: project.id } } } })
+    );
+  }
+  const [riversideClient] = clients;
+
+  await db.comment.create({
+    data: {
+      tenantId: tenant.id,
+      authorId: gentian.id,
+      targetType: "Client",
+      targetId: riversideClient.id,
+      body: "Client requested an accelerated facade delivery schedule — coordinating with the design team.",
+    },
+  });
+
+  // --- Documents -------------------------------------------------------------
+  await db.documentFile.createMany({
+    data: [
+      { tenantId: tenant.id, projectId: riverside.id, name: "Riverside Towers — Structural Calculations.pdf", category: "Engineering", version: 2, status: "APPROVED", uploadedById: elira.id },
+      { tenantId: tenant.id, projectId: riverside.id, name: "Site Safety Plan.pdf", category: "HSE", version: 1, status: "SUBMITTED", uploadedById: besnik.id },
+      { tenantId: tenant.id, projectId: metroMall.id, name: "MEP Coordination Set.pdf", category: "Engineering", version: 3, status: "APPROVED", uploadedById: elira.id },
+      { tenantId: tenant.id, projectId: skyline.id, name: "Client Handover Checklist.docx", category: "General", version: 1, status: "DRAFT", uploadedById: gentian.id },
+    ],
+  });
+
+  // --- Meetings ----------------------------------------------------------
+  await db.meeting.createMany({
+    data: [
+      { tenantId: tenant.id, projectId: riverside.id, title: "Weekly Site Coordination", scheduledAt: daysAgo(3), location: "Site Office — Tirana", organiserId: gentian.id, status: "HELD", notes: "Reviewed facade delivery schedule; no blockers." },
+      { tenantId: tenant.id, projectId: metroMall.id, title: "MEP Design Review", scheduledAt: daysFromNow(2), location: "HQ Meeting Room 2", organiserId: elira.id, status: "PLANNED" },
+      { tenantId: tenant.id, projectId: skyline.id, title: "Delay Root-Cause Review", scheduledAt: daysFromNow(1), location: "Video Call", organiserId: gentian.id, status: "PLANNED" },
+    ],
+  });
+
+  // --- Assets --------------------------------------------------------------
+  await db.asset.createMany({
+    data: [
+      { tenantId: tenant.id, projectId: riverside.id, name: "Tower Crane TC-4810", type: "EQUIPMENT", status: "IN_USE", purchaseValue: 180_000 },
+      { tenantId: tenant.id, projectId: metroMall.id, name: "Concrete Mixer Truck", type: "VEHICLE", status: "IN_USE", purchaseValue: 95_000 },
+      { tenantId: tenant.id, name: "Total Station Surveying Kit", type: "TOOL", status: "AVAILABLE", purchaseValue: 12_000 },
+    ],
+  });
+
+  // --- Tenant settings -------------------------------------------------------
+  await db.tenantSettings.create({
+    data: { tenantId: tenant.id, defaultCurrency: "EUR", dateFormat: "DD/MM/YYYY", timeFormat: "24H", calendarDefault: "MONTH" },
+  });
+
+  // --- HSE reports -------------------------------------------------------
+  await db.hseReport.createMany({
+    data: [
+      { tenantId: tenant.id, projectId: riverside.id, title: "Exposed rebar near stairwell", description: "Uncapped rebar found near the east stairwell on level 3 — trip and impalement hazard.", severity: "HIGH", status: "OPEN", reportedById: besnik.id },
+      { tenantId: tenant.id, projectId: metroMall.id, title: "Missing guardrail — Level 2 edge", description: "Guardrail section missing along the north edge of the level 2 slab.", severity: "CRITICAL", status: "IN_PROGRESS", reportedById: besnik.id },
+      { tenantId: tenant.id, projectId: skyline.id, title: "Blocked fire exit", description: "Stored materials partially blocking the ground-floor fire exit route.", severity: "MEDIUM", status: "RESOLVED", reportedById: besnik.id },
+    ],
+  });
+
+  // --- Procurement: suppliers & purchase orders ---------------------------
+  const supplierSeeds = [
+    { name: "SteelWorks Albania", category: "Steel" },
+    { name: "Beton Elite Sh.p.k.", category: "Concrete" },
+    { name: "ElectroSupply Tirana", category: "Electrical" },
+  ];
+  const suppliers = [];
+  for (const s of supplierSeeds) {
+    const number = await allocateSeedNumber(tenant.id, "SUPPLIER");
+    suppliers.push(await db.supplier.create({ data: { tenantId: tenant.id, number, status: "ACTIVE", ...s } }));
+  }
+  const [steelworks, betonElite, electroSupply] = suppliers;
+
+  const purchaseOrderSeeds = [
+    { supplierId: steelworks.id, projectId: riverside.id, description: "Structural steel — Block A frame", amount: 145_000, status: "ORDERED" },
+    { supplierId: betonElite.id, projectId: metroMall.id, description: "Ready-mix concrete — foundation pour", amount: 62_000, status: "SUBMITTED" },
+    { supplierId: electroSupply.id, projectId: skyline.id, description: "MEP electrical rough-in materials", amount: 28_500, status: "DRAFT" },
+  ];
+  for (const po of purchaseOrderSeeds) {
+    const number = await allocateSeedNumber(tenant.id, "PURCHASE_ORDER");
+    await db.purchaseOrder.create({ data: { tenantId: tenant.id, number, currency: "EUR", requestedById: gentian.id, ...po } });
+  }
+
+  // --- Suggestions -----------------------------------------------------------
+  await db.suggestion.create({
+    data: { tenantId: tenant.id, userId: gentian.id, message: "It would help to get a mobile push notification when a task I'm responsible for becomes overdue." },
+  });
+
+  // --- Per-role test accounts ------------------------------------------------
+  // One account per entry in lib/constants.ts ROLES, for quickly testing what
+  // each permission tier can see — not meant to look like real staff (see the
+  // named seed users above for that). Username/display name is the role in
+  // title case (e.g. "CEO" -> "Ceo"), password is "1" for every one of them.
+  const TEST_ACCOUNT_PASSWORD = "1";
+  const testAccountPasswordHash = await bcrypt.hash(TEST_ACCOUNT_PASSWORD, 10);
+  const testAccountColors = ["#B8863C", "#4a3aa7", "#2457C5", "#e87ba4", "#1A7F4E", "#eb6834", "#1baf7a", "#e34948"];
+
+  function titleCase(role: string) {
+    return role.charAt(0) + role.slice(1).toLowerCase();
+  }
+
+  for (let i = 0; i < ROLES.length; i++) {
+    const role = ROLES[i];
+    const name = titleCase(role);
+    const user = await db.userIdentity.create({
+      data: {
+        username: name,
+        email: `${name.toLowerCase()}@nesto.test`,
+        displayName: name,
+        avatarColor: testAccountColors[i % testAccountColors.length],
+        passwordHash: testAccountPasswordHash,
+      },
+    });
+    await db.companyMembership.create({
+      data: { tenantId: tenant.id, userId: user.id, role, department: "Testing", position: `${name} Test Account` },
+    });
+  }
+
+  // --- Audit / notifications ----------------------------------------------
+  await db.auditEvent.createMany({
+    data: [
+      { tenantId: tenant.id, actorId: arben.id, action: "USER_CREATED", targetType: "UserIdentity", targetId: elira.id, metadata: JSON.stringify({ role: "ARCHITECT" }) },
+      { tenantId: tenant.id, actorId: arben.id, action: "ROLE_UPDATED", targetType: "CompanyMembership", targetId: besnik.id },
+      { tenantId: tenant.id, actorId: arben.id, action: "ACCESS_REVOKED", targetType: "UserIdentity" },
+      { tenantId: tenant.id, actorId: arben.id, action: "INVITATION_SENT", targetType: "Invitation" },
+    ],
+  });
+
+  await db.notification.createMany({
+    data: [
+      { tenantId: tenant.id, userId: arben.id, type: "USER_CREATED", title: "New user created", body: "Elira Doda was added as Architect" },
+      { tenantId: tenant.id, userId: arben.id, type: "TASK_OVERDUE", title: "Task overdue", body: "Foundation delay root-cause report is overdue" },
+      { tenantId: tenant.id, userId: arben.id, type: "INVOICE_OVERDUE", title: "Invoice overdue", body: "Supplier Payment (€35,000) is overdue" },
+    ],
+  });
+
+  console.log("Seed complete.");
+  console.log(`Demo login → username: arben.kola  password: ${DEMO_PASSWORD}`);
+  console.log("Other seeded logins: elira.doda (Architect), fatjon.dervishi (Finance), ana.krasniqi (HR) — same password.");
+  console.log(`Per-role test logins (password "${TEST_ACCOUNT_PASSWORD}" for all): ${ROLES.map(titleCase).join(", ")}`);
+}
+
+main()
+  .catch((e) => {
+    console.error(e);
+    process.exit(1);
+  })
+  .finally(async () => {
+    await db.$disconnect();
+  });

@@ -1,0 +1,719 @@
+// Nesto — Phase 0/1 data model.
+//
+// Datasource is SQLite for zero-dependency local development (no Docker/Postgres
+// available in this environment). Every tenant-owned model carries a `tenantId`
+// column so switching `provider` to "postgresql" later is a config change, not a
+// schema rewrite. Status/role fields are plain strings (validated at the app layer
+// via lib/constants.ts) rather than Prisma enums, since SQLite has no native enum
+// support — this also means the same schema works unmodified on Postgres.
+
+generator client {
+  provider = "prisma-client-js"
+  output   = "../src/generated/prisma"
+}
+
+datasource db {
+  provider = "sqlite"
+  url      = env("DATABASE_URL")
+}
+
+// ---------------------------------------------------------------------------
+// Identity & Tenancy
+// ---------------------------------------------------------------------------
+
+model Tenant {
+  id        String   @id @default(cuid())
+  name      String
+  slug      String   @unique
+  createdAt DateTime @default(now())
+
+  companies      Company[]
+  memberships    CompanyMembership[]
+  projects       Project[]
+  tasks          Task[]
+  comments       Comment[]
+  timelineEvents TimelineEvent[]
+  notifications  Notification[]
+  auditEvents    AuditEvent[]
+  invoices       Invoice[]
+  financeAccounts FinanceAccount[]
+  employees      Employee[]
+  leaveRequests  LeaveRequest[]
+  drawings       Drawing[]
+  rfis           RFI[]
+  invitations    Invitation[]
+  teams          Team[]
+  contracts      Contract[]
+  contractors    Contractor[]
+  documentFiles  DocumentFile[]
+  meetings       Meeting[]
+  assets         Asset[]
+  settings       TenantSettings?
+  numberSeries   NumberSeries[]
+  dimensionDefinitions DimensionDefinition[]
+  recordDimensions     RecordDimension[]
+  financialLedgerEntries FinancialLedgerEntry[]
+  suggestions    Suggestion[]
+  hrAppointments HrAppointment[]
+  clients        Client[]
+  hseReports     HseReport[]
+  suppliers      Supplier[]
+  purchaseOrders PurchaseOrder[]
+}
+
+model Company {
+  id              String   @id @default(cuid())
+  tenantId        String
+  tenant          Tenant   @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  name            String
+  legalName       String?
+  isParent        Boolean  @default(false)
+  parentCompanyId String?
+  parentCompany   Company? @relation("CompanyHierarchy", fields: [parentCompanyId], references: [id])
+  childCompanies  Company[] @relation("CompanyHierarchy")
+  logoUrl         String?
+  countryCode     String   @default("AL")
+  planName        String   @default("Enterprise")
+  seatLimit       Int      @default(50)
+  createdAt       DateTime @default(now())
+
+  branches Branch[]
+  projects Project[]
+}
+
+model Branch {
+  id                 String   @id @default(cuid())
+  companyId          String
+  company            Company  @relation(fields: [companyId], references: [id], onDelete: Cascade)
+  name               String
+  address            String?
+  isRegisteredBranch Boolean  @default(false)
+  createdAt          DateTime @default(now())
+}
+
+// Global login identity — one record per person, may hold memberships in
+// multiple tenants (Section 3: "one login, many contexts").
+model UserIdentity {
+  id           String   @id @default(cuid())
+  email        String   @unique
+  username     String   @unique
+  passwordHash String
+  displayName  String
+  avatarColor  String   @default("#B8860B")
+  createdAt    DateTime @default(now())
+
+  memberships       CompanyMembership[]
+  projectMembers    ProjectMember[]
+  createdTasks      Task[]              @relation("TaskCreator")
+  responsibleTasks  Task[]              @relation("TaskResponsible")
+  taskContributions TaskContribution[]
+  comments          Comment[]
+  notifications     Notification[]
+  employeeRecord    Employee?
+  teamMemberships   TeamMember[]
+  uploadedDocuments DocumentFile[]
+  organisedMeetings Meeting[]
+  postedLedgerEntries FinancialLedgerEntry[]
+  notificationPreferences NotificationPreference[]
+  suggestions       Suggestion[]
+  hrAppointments    HrAppointment[]
+  createdClients    Client[]
+  hseReports        HseReport[]
+  purchaseOrdersRequested PurchaseOrder[]
+}
+
+// Links an identity to a tenant workspace with a role, department and access mode.
+model CompanyMembership {
+  id         String   @id @default(cuid())
+  tenantId   String
+  tenant     Tenant   @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  userId     String
+  user       UserIdentity @relation(fields: [userId], references: [id], onDelete: Cascade)
+  role       String   // see lib/constants.ts ROLES
+  department String?
+  position   String?
+  managerId  String?
+  accessMode String   @default("STANDARD") // STANDARD | VIEW_ONLY | SUSPENDED | ARCHIVED
+  createdAt  DateTime @default(now())
+
+  @@unique([tenantId, userId])
+}
+
+model Invitation {
+  id          String   @id @default(cuid())
+  tenantId    String
+  tenant      Tenant   @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  email       String
+  role        String
+  status      String   @default("PENDING") // PENDING | ACCEPTED | EXPIRED | REVOKED
+  invitedAt   DateTime @default(now())
+  respondedAt DateTime?
+}
+
+// ---------------------------------------------------------------------------
+// Projects & Tasks
+// ---------------------------------------------------------------------------
+
+model Project {
+  id            String   @id @default(cuid())
+  tenantId      String
+  tenant        Tenant   @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  companyId     String
+  company       Company  @relation(fields: [companyId], references: [id], onDelete: Cascade)
+  code          String
+  name          String
+  clientName    String?
+  clientId      String?
+  client        Client?  @relation(fields: [clientId], references: [id])
+  location      String?
+  budget        Float?
+  contractValue Float?
+  startDate     DateTime?
+  endDate       DateTime?
+  status        String   @default("ACTIVE") // ACTIVE | ON_TRACK | AT_RISK | DELAYED | COMPLETED | ARCHIVED
+  progressPct   Int      @default(0)
+  createdAt     DateTime @default(now())
+
+  members       ProjectMember[]
+  tasks         Task[]
+  drawings      Drawing[]
+  rfis          RFI[]
+  invoices      Invoice[]
+  contracts     Contract[]
+  documentFiles DocumentFile[]
+  meetings      Meeting[]
+  assets        Asset[]
+  hseReports    HseReport[]
+  purchaseOrders PurchaseOrder[]
+
+  @@unique([tenantId, code])
+}
+
+model ProjectMember {
+  id        String   @id @default(cuid())
+  projectId String
+  project   Project  @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  userId    String
+  user      UserIdentity @relation(fields: [userId], references: [id], onDelete: Cascade)
+  roleOnProject String?
+  createdAt DateTime @default(now())
+
+  @@unique([projectId, userId])
+}
+
+model Task {
+  id                  String   @id @default(cuid())
+  tenantId            String
+  tenant              Tenant   @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  projectId           String?
+  project             Project? @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  clientId            String?
+  client              Client?  @relation(fields: [clientId], references: [id], onDelete: Cascade)
+  code                String
+  title               String
+  description         String?
+  visibility          String   @default("COMPANY_PUBLIC") // PRIVATE | DEPARTMENT_PUBLIC | COMPANY_PUBLIC
+  status              String   @default("TO_DO") // TO_DO | IN_PROGRESS | REVIEW | APPROVED | COMPLETED | BLOCKED | ON_HOLD | NEEDS_REVISION | REJECTED | OVERDUE
+  priority            String   @default("MEDIUM") // LOW | MEDIUM | HIGH | CRITICAL
+  dueDate             DateTime?
+  createdById         String
+  createdBy           UserIdentity @relation("TaskCreator", fields: [createdById], references: [id])
+  mainResponsibleId   String?
+  mainResponsible     UserIdentity? @relation("TaskResponsible", fields: [mainResponsibleId], references: [id])
+  createdAt           DateTime @default(now())
+  updatedAt           DateTime @updatedAt
+
+  contributions TaskContribution[]
+  dependsOn     TaskDependency[] @relation("DependentTask")
+  dependedOnBy  TaskDependency[] @relation("DependsOnTask")
+  documents     DocumentFile[]
+
+  @@unique([tenantId, code])
+}
+
+model TaskContribution {
+  id          String   @id @default(cuid())
+  taskId      String
+  task        Task     @relation(fields: [taskId], references: [id], onDelete: Cascade)
+  userId      String
+  user        UserIdentity @relation(fields: [userId], references: [id], onDelete: Cascade)
+  department  String?
+  deliverable String?
+  status      String   @default("PENDING") // PENDING | SUBMITTED | APPROVED | REJECTED
+  createdAt   DateTime @default(now())
+}
+
+model TaskDependency {
+  id            String @id @default(cuid())
+  taskId        String
+  task          Task   @relation("DependentTask", fields: [taskId], references: [id], onDelete: Cascade)
+  dependsOnId   String
+  dependsOnTask Task   @relation("DependsOnTask", fields: [dependsOnId], references: [id], onDelete: Cascade)
+
+  @@unique([taskId, dependsOnId])
+}
+
+// ---------------------------------------------------------------------------
+// Collaboration: comments, timeline, notifications, audit
+// ---------------------------------------------------------------------------
+
+model Comment {
+  id             String   @id @default(cuid())
+  tenantId       String
+  tenant         Tenant   @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  authorId       String
+  author         UserIdentity @relation(fields: [authorId], references: [id])
+  body           String
+  classification String?  // DECISION | QUESTION | ISSUE | INFORMATION
+  targetType     String   // "Task" | "Project" | ...
+  targetId       String
+  createdAt      DateTime @default(now())
+}
+
+model Suggestion {
+  id        String   @id @default(cuid())
+  tenantId  String
+  tenant    Tenant   @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  userId    String
+  user      UserIdentity @relation(fields: [userId], references: [id], onDelete: Cascade)
+  message   String
+  createdAt DateTime @default(now())
+}
+
+model TimelineEvent {
+  id         String   @id @default(cuid())
+  tenantId   String
+  tenant     Tenant   @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  entityType String
+  entityId   String
+  eventType  String
+  actorId    String?
+  metadata   String?  // JSON-encoded string
+  createdAt  DateTime @default(now())
+}
+
+model Notification {
+  id        String   @id @default(cuid())
+  tenantId  String
+  tenant    Tenant   @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  userId    String
+  user      UserIdentity @relation(fields: [userId], references: [id], onDelete: Cascade)
+  type      String
+  title     String
+  body      String?
+  link      String?
+  isRead    Boolean  @default(false)
+  createdAt DateTime @default(now())
+}
+
+// Per-user, per-event-category channel choice (Section 14 — "each user
+// chooses channels, subject to company defaults and critical-event rules").
+model NotificationPreference {
+  id       String @id @default(cuid())
+  userId   String
+  user     UserIdentity @relation(fields: [userId], references: [id], onDelete: Cascade)
+  category String // TASKS | APPROVALS | FINANCE | PROJECTS
+  inApp    Boolean @default(true)
+  email    Boolean @default(false)
+  whatsapp Boolean @default(false)
+
+  @@unique([userId, category])
+}
+
+model AuditEvent {
+  id         String   @id @default(cuid())
+  tenantId   String
+  tenant     Tenant   @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  actorId    String?
+  action     String
+  targetType String?
+  targetId   String?
+  metadata   String?
+  createdAt  DateTime @default(now())
+}
+
+// ---------------------------------------------------------------------------
+// Phase-1 dashboard support tables (minimal slices of Phase 2+ modules,
+// just enough to render real Finance/HR/Architect dashboard data)
+// ---------------------------------------------------------------------------
+
+model FinanceAccount {
+  id        String   @id @default(cuid())
+  tenantId  String
+  tenant    Tenant   @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  name      String
+  type      String   // OPERATING | PAYROLL | SAVINGS | TAX | PETTY_CASH
+  balance   Float
+  currency  String   @default("EUR")
+}
+
+model Invoice {
+  id          String   @id @default(cuid())
+  tenantId    String
+  tenant      Tenant   @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  projectId   String?
+  project     Project? @relation(fields: [projectId], references: [id])
+  number      String
+  type        String   // INVOICE | BILL | PAYMENT | EXPENSE
+  description String?
+  amount      Float
+  currency    String   @default("EUR")
+  status      String   @default("PENDING") // legacy: PAID | PENDING | SENT | OVERDUE | COMPLETED
+                                            // PRD_2 posting lifecycle (§8.1) also uses this column:
+                                            // DRAFT | SUBMITTED | UNDER_REVIEW | APPROVED | POSTED | REVERSED
+  issuedDate  DateTime @default(now())
+  dueDate     DateTime?
+  postedAt    DateTime?
+  postedById  String?
+
+  ledgerEntries FinancialLedgerEntry[]
+}
+
+model Employee {
+  id         String   @id @default(cuid())
+  tenantId   String
+  tenant     Tenant   @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  userId     String?  @unique
+  user       UserIdentity? @relation(fields: [userId], references: [id])
+  fullName   String
+  position   String
+  department String
+  hireDate   DateTime
+  status     String   @default("ACTIVE") // ACTIVE | ON_LEAVE | TERMINATED
+  avatarColor String  @default("#1A1D23")
+  birthday   DateTime?
+
+  leaveRequests LeaveRequest[]
+}
+
+model LeaveRequest {
+  id         String   @id @default(cuid())
+  tenantId   String
+  tenant     Tenant   @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  employeeId String
+  employee   Employee @relation(fields: [employeeId], references: [id], onDelete: Cascade)
+  startDate  DateTime
+  endDate    DateTime
+  status     String   @default("PENDING") // PENDING | APPROVED | REJECTED
+  reason     String?
+  createdAt  DateTime @default(now())
+}
+
+model HrAppointment {
+  id            String   @id @default(cuid())
+  tenantId      String
+  tenant        Tenant   @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  title         String
+  type          String   @default("INTERVIEW") // INTERVIEW | INTERNAL | OTHER
+  candidateName String?
+  scheduledAt   DateTime
+  notes         String?
+  createdById   String
+  createdBy     UserIdentity @relation(fields: [createdById], references: [id])
+  createdAt     DateTime @default(now())
+}
+
+model Drawing {
+  id           String   @id @default(cuid())
+  tenantId     String
+  tenant       Tenant   @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  projectId    String
+  project      Project  @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  packageName  String
+  discipline   String?
+  revisionCode String
+  status       String   @default("DRAFT") // DRAFT | IN_REVIEW | APPROVED | NEEDS_REVISION
+  updatedAt    DateTime @updatedAt
+}
+
+model RFI {
+  id         String   @id @default(cuid())
+  tenantId   String
+  tenant     Tenant   @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  projectId  String
+  project    Project  @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  code       String
+  title      String
+  status     String   @default("OPEN") // OPEN | ANSWERED | OVERDUE
+  assignedToId String?
+  dueDate    DateTime?
+  createdAt  DateTime @default(now())
+}
+
+model HseReport {
+  id           String   @id @default(cuid())
+  tenantId     String
+  tenant       Tenant   @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  projectId    String
+  project      Project  @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  title        String
+  description  String
+  severity     String   @default("MEDIUM") // LOW | MEDIUM | HIGH | CRITICAL
+  status       String   @default("OPEN") // OPEN | IN_PROGRESS | RESOLVED
+  reportedById String
+  reportedBy   UserIdentity @relation(fields: [reportedById], references: [id])
+  createdAt    DateTime @default(now())
+}
+
+// ---------------------------------------------------------------------------
+// Procurement — suppliers and purchase orders. Deliberately separate from
+// Contractor/Contract (those are subcontractors executing project work;
+// suppliers/POs are materials & goods purchasing), and gated by its own
+// "PROCUREMENT" resource so it's a real, independent department like HR or
+// Finance rather than a sub-feature bolted onto Contracts.
+// ---------------------------------------------------------------------------
+
+model Supplier {
+  id         String   @id @default(cuid())
+  tenantId   String
+  tenant     Tenant   @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  number     String   // Number Series: SUP-{SEQ6}
+  name       String
+  category   String   // e.g. Steel, Concrete, Electrical, MEP
+  email      String?
+  phone      String?
+  status     String   @default("ACTIVE") // ACTIVE | SUSPENDED
+  createdAt  DateTime @default(now())
+
+  purchaseOrders PurchaseOrder[]
+}
+
+model PurchaseOrder {
+  id            String   @id @default(cuid())
+  tenantId      String
+  tenant        Tenant   @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  number        String   // Number Series: PO-{YYYY}-{SEQ5}
+  projectId     String?
+  project       Project? @relation(fields: [projectId], references: [id])
+  supplierId    String
+  supplier      Supplier @relation(fields: [supplierId], references: [id])
+  description   String
+  amount        Float
+  currency      String   @default("EUR")
+  status        String   @default("DRAFT") // DRAFT | SUBMITTED | APPROVED | ORDERED | RECEIVED | CANCELLED
+  requestedById String
+  requestedBy   UserIdentity @relation(fields: [requestedById], references: [id])
+  createdAt     DateTime @default(now())
+}
+
+// ---------------------------------------------------------------------------
+// PRD_1 additional master entities — Card-page entities per PRD_2 §4.3's
+// required catalog (Company/Project/Employee/Contractor/Contract/Drawing
+// already exist above; this section adds the remaining ones).
+// ---------------------------------------------------------------------------
+
+model Team {
+  id          String   @id @default(cuid())
+  tenantId    String
+  tenant      Tenant   @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  name        String
+  description String?
+  createdAt   DateTime @default(now())
+
+  members TeamMember[]
+}
+
+model TeamMember {
+  id        String   @id @default(cuid())
+  teamId    String
+  team      Team     @relation(fields: [teamId], references: [id], onDelete: Cascade)
+  userId    String
+  user      UserIdentity @relation(fields: [userId], references: [id], onDelete: Cascade)
+  createdAt DateTime @default(now())
+
+  @@unique([teamId, userId])
+}
+
+// Sales-owned client relationship record — deliberately separate from
+// Contractor (a different resource, "CLIENTS" vs "COMPANY_NETWORK", so a
+// role can be granted one without the other; Sales has CLIENTS but not
+// COMPANY_NETWORK, matching that clients and contractors are unrelated
+// counterparties from the company's side of the table).
+model Client {
+  id          String   @id @default(cuid())
+  tenantId    String
+  tenant      Tenant   @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  name        String
+  contactName String?
+  email       String?
+  phone       String?
+  status      String   @default("ACTIVE") // ACTIVE | PROSPECT | INACTIVE
+  createdById String
+  createdBy   UserIdentity @relation(fields: [createdById], references: [id])
+  createdAt   DateTime @default(now())
+
+  projects  Project[]
+  documents DocumentFile[]
+  tasks     Task[]
+}
+
+model Contractor {
+  id         String   @id @default(cuid())
+  tenantId   String
+  tenant     Tenant   @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  number     String   // Number Series: CTR-{SEQ6}
+  name       String
+  tradeType  String
+  email      String?
+  phone      String?
+  status     String   @default("PENDING") // PENDING | APPROVED | SUSPENDED
+  riskRating String   @default("LOW") // LOW | MEDIUM | HIGH
+  createdAt  DateTime @default(now())
+
+  contracts Contract[]
+}
+
+model Contract {
+  id           String   @id @default(cuid())
+  tenantId     String
+  tenant       Tenant   @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  projectId    String?
+  project      Project? @relation(fields: [projectId], references: [id])
+  contractorId String?
+  contractor   Contractor? @relation(fields: [contractorId], references: [id])
+  number       String   // Number Series: CON-{YYYY}-{SEQ5}
+  title        String
+  value        Float
+  currency     String   @default("EUR")
+  status       String   @default("DRAFT") // DRAFT | ACTIVE | COMPLETED | TERMINATED
+  startDate    DateTime?
+  endDate      DateTime?
+  createdAt    DateTime @default(now())
+}
+
+model DocumentFile {
+  id           String   @id @default(cuid())
+  tenantId     String
+  tenant       Tenant   @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  projectId    String?
+  project      Project? @relation(fields: [projectId], references: [id])
+  taskId       String?
+  task         Task?    @relation(fields: [taskId], references: [id], onDelete: Cascade)
+  clientId     String?
+  client       Client?  @relation(fields: [clientId], references: [id], onDelete: Cascade)
+  name         String
+  category     String   @default("General")
+  version      Int      @default(1)
+  status       String   @default("DRAFT") // DRAFT | SUBMITTED | APPROVED
+  uploadedById String
+  uploadedBy   UserIdentity @relation(fields: [uploadedById], references: [id])
+  createdAt    DateTime @default(now())
+}
+
+model Meeting {
+  id          String   @id @default(cuid())
+  tenantId    String
+  tenant      Tenant   @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  projectId   String?
+  project     Project? @relation(fields: [projectId], references: [id])
+  title       String
+  scheduledAt DateTime
+  location    String?
+  organiserId String
+  organiser   UserIdentity @relation(fields: [organiserId], references: [id])
+  status      String   @default("PLANNED") // PLANNED | HELD | CANCELLED
+  notes       String?
+  createdAt   DateTime @default(now())
+}
+
+model Asset {
+  id            String   @id @default(cuid())
+  tenantId      String
+  tenant        Tenant   @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  projectId     String?
+  project       Project? @relation(fields: [projectId], references: [id])
+  name          String
+  type          String   // EQUIPMENT | VEHICLE | TOOL | OTHER
+  status        String   @default("AVAILABLE") // AVAILABLE | IN_USE | MAINTENANCE | RETIRED
+  purchaseValue Float?
+  createdAt     DateTime @default(now())
+}
+
+model TenantSettings {
+  id              String @id @default(cuid())
+  tenantId        String @unique
+  tenant          Tenant @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  defaultCurrency String @default("EUR")
+  dateFormat      String @default("DD/MM/YYYY")
+  timeFormat      String @default("12H") // 12H | 24H
+  calendarDefault String @default("MONTH") // DAY | WEEK | MONTH
+}
+
+// ---------------------------------------------------------------------------
+// PRD_2 — Number Series: centralized, atomic, per-tenant identifier
+// generation (§6.2). Replaces ad hoc `count()`-based codes.
+// ---------------------------------------------------------------------------
+
+model NumberSeries {
+  id         String @id @default(cuid())
+  tenantId   String
+  tenant     Tenant @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  entityType String // "PROJECT" | "TASK" | "CONTRACT" | "CONTRACTOR" | "MEETING" | ...
+  prefix     String
+  nextValue  Int    @default(1)
+
+  @@unique([tenantId, entityType])
+}
+
+// ---------------------------------------------------------------------------
+// PRD_2 — Dimensions: reusable analytical tags attached to records (§7).
+// Visibility/permissions are unaffected — dimensions are for reporting only.
+// ---------------------------------------------------------------------------
+
+model DimensionDefinition {
+  id       String @id @default(cuid())
+  tenantId String
+  tenant   Tenant @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  code     String // PROJECT | BRANCH | DEPARTMENT | COST_CENTER | PHASE | TRADE | ...
+  label    String
+
+  values DimensionValue[]
+
+  @@unique([tenantId, code])
+}
+
+model DimensionValue {
+  id           String @id @default(cuid())
+  definitionId String
+  definition   DimensionDefinition @relation(fields: [definitionId], references: [id], onDelete: Cascade)
+  value        String
+  label        String
+
+  recordDimensions RecordDimension[]
+}
+
+model RecordDimension {
+  id               String @id @default(cuid())
+  tenantId         String
+  tenant           Tenant @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  entityType       String // "Invoice" | "Task" | ...
+  entityId         String
+  dimensionValueId String
+  dimensionValue   DimensionValue @relation(fields: [dimensionValueId], references: [id], onDelete: Cascade)
+
+  @@unique([entityType, entityId, dimensionValueId])
+}
+
+// ---------------------------------------------------------------------------
+// PRD_2 — Posting lifecycle & immutable Financial Ledger (§8, §10), built as
+// a concrete vertical slice on Invoices. Stock/Contract/Progress/Time ledgers
+// follow the identical pattern in a later phase — PRD_2's own rollout plan
+// (§17.2) expects "posting_and_ledgers" to land module by module, not all at
+// once, so this isn't a shortcut, it's the specified rollout shape.
+// ---------------------------------------------------------------------------
+
+model FinancialLedgerEntry {
+  id              String   @id @default(cuid())
+  tenantId        String
+  tenant          Tenant   @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  invoiceId       String
+  invoice         Invoice  @relation(fields: [invoiceId], references: [id])
+  amount          Float
+  currency        String   @default("EUR")
+  postedAt        DateTime @default(now())
+  postedById      String
+  postedBy        UserIdentity @relation(fields: [postedById], references: [id])
+  reversesEntryId String?
+  reversesEntry   FinancialLedgerEntry?  @relation("Reversal", fields: [reversesEntryId], references: [id])
+  reversedBy      FinancialLedgerEntry[] @relation("Reversal")
+}
