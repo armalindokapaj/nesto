@@ -15,7 +15,10 @@ export async function getClient(tenantId: string, clientId: string) {
     include: {
       projects: true,
       documents: { include: { uploadedBy: true }, orderBy: { createdAt: "desc" } },
-      tasks: { include: { mainResponsible: true, createdBy: true }, orderBy: { createdAt: "desc" } },
+      tasks: {
+        include: { mainResponsible: true, createdBy: true, sourceComment: { select: { id: true } } },
+        orderBy: { createdAt: "desc" },
+      },
     },
   });
   return assertTenant(client, tenantId, "Client");

@@ -30,7 +30,7 @@ export default async function ClientProfilePage({ params }: { params: Promise<{ 
   const client = await getClient(tenantId, id);
   const [comments, members] = await Promise.all([
     listComments(tenantId, "Client", id),
-    canCreateTask ? listAllMembers(tenantId) : Promise.resolve([]),
+    canWrite ? listAllMembers(tenantId) : Promise.resolve([]),
   ]);
   const { t } = await getT();
 
@@ -115,7 +115,14 @@ export default async function ClientProfilePage({ params }: { params: Promise<{ 
               {client.tasks.map((task) => (
                 <TRow key={task.id}>
                   <TD>
-                    <p className="font-medium text-ink">{task.title}</p>
+                    <div className="flex items-center gap-1.5 flex-wrap">
+                      <Link href={`/tasks/${task.id}`} className="font-medium text-ink hover:text-gold hover:underline">{task.title}</Link>
+                      {task.sourceComment && (
+                        <Badge tone="info" className="text-[0.65rem]">
+                          {t("clients.fromComment")}
+                        </Badge>
+                      )}
+                    </div>
                     <p className="text-xs text-ink-faint">{task.code}</p>
                   </TD>
                   <TD>
@@ -200,8 +207,14 @@ export default async function ClientProfilePage({ params }: { params: Promise<{ 
         <CardContent>
           <ClientComments
             clientId={client.id}
-            comments={comments.map((c) => ({ ...c, author: { displayName: c.author.displayName, avatarColor: c.author.avatarColor } }))}
+            comments={comments.map((c) => ({
+              ...c,
+              author: { displayName: c.author.displayName, avatarColor: c.author.avatarColor },
+              createdTask: c.createdTask,
+            }))}
             canComment={canWrite}
+            canCreateTask={canCreateTask}
+            members={members.map((m) => ({ id: m.user.id, displayName: m.user.displayName }))}
           />
         </CardContent>
       </Card>

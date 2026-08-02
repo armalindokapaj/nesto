@@ -62,3 +62,50 @@ export async function logout() {
   await deleteSession();
   redirect("/");
 }
+
+const ForgotPasswordSchema = z.object({
+  email: z.string().email("Enter a valid email address"),
+});
+
+export type ForgotPasswordState = { error: string } | { success: true } | undefined;
+
+// Accounts are admin-provisioned (AUT-001) — there is no self-service reset
+// flow, so the useful action here is notifying the requester's own workspace
+// admin(s), not emailing a reset link. Same constant-shape-response
+// discipline as login(): we do the lookup either way and always return the
+// same success shape, so this can't be used to enumerate registered emails.
+export async function requestPasswordResetAction(
+  _prevState: ForgotPasswordState,
+  formData: FormData
+): Promise<ForgotPasswordState> {
+  const parsed = ForgotPasswordSchema.safeParse({ email: formData.get("email") });
+  if (!parsed.success) {
+    return { error: parsed.error.issues[0]?.message ?? "Invalid input" };
+  }
+
+  const user = await db.userIdentity.findUnique({
+    where: { email: parsed.data.email },
+    include: { memberships: true },
+  });
+
+  if (user) {
+    const tenantIds = user.memberships.map((m) => m.tenantId);
+    const admins = await db.companyMembership.findMany({
+      where: { tenantId: { in: tenantIds }, role: { in: ["OWNER", "ADMIN"] } },
+    });
+    if (admins.length > 0) {
+      await db.notification.createMany({
+        data: admins.map((admin) => ({
+          tenantId: admin.tenantId,
+          userId: admin.userId,
+          type: "PASSWORD_RESET_REQUEST",
+          title: "Password reset requested",
+          body: `${user.displayName} (${user.email}) requested help signing back in.`,
+          link: "/company",
+        })),
+      });
+    }
+  }
+
+  return { success: true };
+}

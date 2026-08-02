@@ -67,7 +67,7 @@ export default async function TasksPage({
                   <TD>
                     <div className="flex items-center gap-2">
                       <div>
-                        <p className="font-medium text-ink">{task.title}</p>
+                        <Link href={`/tasks/${task.id}`} className="font-medium text-ink hover:text-gold hover:underline">{task.title}</Link>
                         <p className="text-xs text-ink-faint">{task.code}</p>
                       </div>
                       <TaskDocumentsBadge taskId={task.id} count={task._count.documents} />

@@ -1,10 +1,9 @@
 "use client";
 
-import { useActionState, useRef } from "react";
-import { createClientCommentAction } from "@/app/actions/clients";
-import { Button } from "@/components/ui/button";
-import { Textarea } from "@/components/ui/input";
+import { ListChecks } from "lucide-react";
 import { Avatar } from "@/components/ui/avatar";
+import { Badge } from "@/components/ui/badge";
+import { MentionCommentComposer } from "@/components/clients/mention-comment-composer";
 import { formatDate } from "@/lib/utils";
 import { useI18n } from "@/lib/i18n/locale-provider";
 
@@ -13,20 +12,25 @@ type CommentItem = {
   body: string;
   createdAt: string | Date;
   author: { displayName: string; avatarColor: string };
+  createdTask?: { id: string; code: string; title: string; status: string } | null;
 };
+
+type Member = { id: string; displayName: string };
 
 export function ClientComments({
   clientId,
   comments,
   canComment,
+  canCreateTask,
+  members,
 }: {
   clientId: string;
   comments: CommentItem[];
   canComment: boolean;
+  canCreateTask: boolean;
+  members: Member[];
 }) {
   const { t } = useI18n();
-  const [state, formAction, pending] = useActionState(createClientCommentAction, undefined);
-  const formRef = useRef<HTMLFormElement>(null);
 
   return (
     <div className="space-y-4">
@@ -43,29 +47,22 @@ export function ClientComments({
                   <p className="text-xs text-ink-faint">{formatDate(c.createdAt, { hour: "2-digit", minute: "2-digit" })}</p>
                 </div>
                 <p className="text-sm text-ink-muted mt-0.5 whitespace-pre-wrap">{c.body}</p>
+                {c.createdTask && (
+                  <span className="mt-1.5 inline-flex items-center gap-1.5 rounded-full bg-gold-soft px-2 py-0.5 text-xs font-medium text-gold-strong">
+                    <ListChecks size={11} />
+                    {t("clients.createdTaskFromComment")}: {c.createdTask.code}
+                    <Badge status={c.createdTask.status} className="ml-1">
+                      {c.createdTask.status}
+                    </Badge>
+                  </span>
+                )}
               </div>
             </li>
           ))}
         </ul>
       )}
 
-      {canComment && (
-        <form
-          ref={formRef}
-          action={async (formData) => {
-            await formAction(formData);
-            formRef.current?.reset();
-          }}
-          className="space-y-2 pt-3 border-t border-border"
-        >
-          <input type="hidden" name="clientId" value={clientId} />
-          <Textarea name="body" rows={2} placeholder={t("clients.commentPlaceholder")} required />
-          {state?.error && <p className="text-xs text-danger">{state.error}</p>}
-          <Button type="submit" size="sm" disabled={pending}>
-            {pending ? t("common.saving") : t("clients.postComment")}
-          </Button>
-        </form>
-      )}
+      {canComment && <MentionCommentComposer clientId={clientId} members={members} canCreateTask={canCreateTask} />}
     </div>
   );
 }

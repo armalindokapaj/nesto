@@ -27,55 +27,71 @@ model Tenant {
   slug      String   @unique
   createdAt DateTime @default(now())
 
-  companies      Company[]
-  memberships    CompanyMembership[]
-  projects       Project[]
-  tasks          Task[]
-  comments       Comment[]
-  timelineEvents TimelineEvent[]
-  notifications  Notification[]
-  auditEvents    AuditEvent[]
-  invoices       Invoice[]
-  financeAccounts FinanceAccount[]
-  employees      Employee[]
-  leaveRequests  LeaveRequest[]
-  drawings       Drawing[]
-  rfis           RFI[]
-  invitations    Invitation[]
-  teams          Team[]
-  contracts      Contract[]
-  contractors    Contractor[]
-  documentFiles  DocumentFile[]
-  meetings       Meeting[]
-  assets         Asset[]
-  settings       TenantSettings?
-  numberSeries   NumberSeries[]
-  dimensionDefinitions DimensionDefinition[]
-  recordDimensions     RecordDimension[]
+  companies              Company[]
+  memberships            CompanyMembership[]
+  projects               Project[]
+  tasks                  Task[]
+  comments               Comment[]
+  timelineEvents         TimelineEvent[]
+  notifications          Notification[]
+  auditEvents            AuditEvent[]
+  invoices               Invoice[]
+  financeAccounts        FinanceAccount[]
+  employees              Employee[]
+  leaveRequests          LeaveRequest[]
+  drawings               Drawing[]
+  rfis                   RFI[]
+  invitations            Invitation[]
+  teams                  Team[]
+  contracts              Contract[]
+  contractors            Contractor[]
+  documentFiles          DocumentFile[]
+  meetings               Meeting[]
+  assets                 Asset[]
+  settings               TenantSettings?
+  numberSeries           NumberSeries[]
+  dimensionDefinitions   DimensionDefinition[]
+  recordDimensions       RecordDimension[]
   financialLedgerEntries FinancialLedgerEntry[]
-  suggestions    Suggestion[]
-  hrAppointments HrAppointment[]
-  clients        Client[]
-  hseReports     HseReport[]
-  suppliers      Supplier[]
-  purchaseOrders PurchaseOrder[]
+  suggestions            Suggestion[]
+  hrAppointments         HrAppointment[]
+  clients                Client[]
+  hseReports             HseReport[]
+  suppliers              Supplier[]
+  purchaseOrders         PurchaseOrder[]
+
+  // --- PRD_4 Cross-Department Task Orchestration -----------------------
+  taskStages                TaskStage[]
+  taskDepartments           TaskDepartment[]
+  departmentDeliverables    DepartmentDeliverable[]
+  taskParticipants          TaskParticipant[]
+  taskEvents                TaskEvent[]
+  taskApprovals             TaskApproval[]
+  involvementRequests       DepartmentInvolvementRequest[]
+  taskEscalations           TaskEscalation[]
+  taskDelayExplanations     TaskDelayExplanation[]
+  taskContractLinks         TaskContractLink[]
+  taskContractorAssignments TaskContractorAssignment[]
+  taskInspections           TaskInspection[]
+  taskCompletionRecords     TaskCompletionRecord[]
+  taskReopeningRecords      TaskReopeningRecord[]
 }
 
 model Company {
-  id              String   @id @default(cuid())
+  id              String    @id @default(cuid())
   tenantId        String
-  tenant          Tenant   @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  tenant          Tenant    @relation(fields: [tenantId], references: [id], onDelete: Cascade)
   name            String
   legalName       String?
-  isParent        Boolean  @default(false)
+  isParent        Boolean   @default(false)
   parentCompanyId String?
-  parentCompany   Company? @relation("CompanyHierarchy", fields: [parentCompanyId], references: [id])
+  parentCompany   Company?  @relation("CompanyHierarchy", fields: [parentCompanyId], references: [id])
   childCompanies  Company[] @relation("CompanyHierarchy")
   logoUrl         String?
-  countryCode     String   @default("AL")
-  planName        String   @default("Enterprise")
-  seatLimit       Int      @default(50)
-  createdAt       DateTime @default(now())
+  countryCode     String    @default("AL")
+  planName        String    @default("Enterprise")
+  seatLimit       Int       @default(50)
+  createdAt       DateTime  @default(now())
 
   branches Branch[]
   projects Project[]
@@ -102,51 +118,74 @@ model UserIdentity {
   avatarColor  String   @default("#B8860B")
   createdAt    DateTime @default(now())
 
-  memberships       CompanyMembership[]
-  projectMembers    ProjectMember[]
-  createdTasks      Task[]              @relation("TaskCreator")
-  responsibleTasks  Task[]              @relation("TaskResponsible")
-  taskContributions TaskContribution[]
-  comments          Comment[]
-  notifications     Notification[]
-  employeeRecord    Employee?
-  teamMemberships   TeamMember[]
-  uploadedDocuments DocumentFile[]
-  organisedMeetings Meeting[]
-  postedLedgerEntries FinancialLedgerEntry[]
+  memberships             CompanyMembership[]
+  projectMembers          ProjectMember[]
+  createdTasks            Task[]                   @relation("TaskCreator")
+  responsibleTasks        Task[]                   @relation("TaskResponsible")
+  taskContributions       TaskContribution[]
+  comments                Comment[]
+  notifications           Notification[]
+  employeeRecord          Employee?
+  teamMemberships         TeamMember[]
+  uploadedDocuments       DocumentFile[]
+  documentApprovals       DocumentFile[]           @relation("DocumentApprover")
+  organisedMeetings       Meeting[]
+  postedLedgerEntries     FinancialLedgerEntry[]
   notificationPreferences NotificationPreference[]
-  suggestions       Suggestion[]
-  hrAppointments    HrAppointment[]
-  createdClients    Client[]
-  hseReports        HseReport[]
+  suggestions             Suggestion[]
+  hrAppointments          HrAppointment[]
+  createdClients          Client[]
+  hseReports              HseReport[]
   purchaseOrdersRequested PurchaseOrder[]
+
+  // --- PRD_4 Cross-Department Task Orchestration -----------------------
+  taskManagerFor             Task[]                         @relation("TaskManager")
+  decisionOwnerFor           Task[]                         @relation("TaskDecisionOwner")
+  finalApproverFor           Task[]                         @relation("TaskFinalApprover")
+  departmentOwnerFor         TaskDepartment[]               @relation("TaskDepartmentOwner")
+  taskParticipations         TaskParticipant[]              @relation("TaskParticipantUser")
+  taskEventsActed            TaskEvent[]                    @relation("TaskEventActor")
+  taskApprovalsGiven         TaskApproval[]                 @relation("TaskApprover")
+  taskApprovalsDelegatedToMe TaskApproval[]                 @relation("TaskApprovalDelegate")
+  involvementRequestsMade    DepartmentInvolvementRequest[] @relation("InvolvementRequester")
+  involvementRequestsHandled DepartmentInvolvementRequest[] @relation("InvolvementResponder")
+  escalationsRaised          TaskEscalation[]               @relation("EscalationFrom")
+  escalationsReceived        TaskEscalation[]               @relation("EscalationTo")
+  delayExplanationsGiven     TaskDelayExplanation[]         @relation("DelayExplanationAuthor")
+  contractLinksCreated       TaskContractLink[]             @relation("ContractLinkCreator")
+  contractorAssignmentsMade  TaskContractorAssignment[]     @relation("ContractorAssignmentAssignedBy")
+  taskInspectionsPerformed   TaskInspection[]               @relation("TaskInspector")
+  taskCompletionsRecorded    TaskCompletionRecord[]         @relation("TaskCompletedBy")
+  taskReopeningsRecorded     TaskReopeningRecord[]          @relation("TaskReopenedBy")
+  stagesSkipped              TaskStage[]                    @relation("StageSkippedBy")
+  contractorProfile          Contractor?                    @relation("ContractorLogin")
 }
 
 // Links an identity to a tenant workspace with a role, department and access mode.
 model CompanyMembership {
-  id         String   @id @default(cuid())
+  id         String       @id @default(cuid())
   tenantId   String
-  tenant     Tenant   @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  tenant     Tenant       @relation(fields: [tenantId], references: [id], onDelete: Cascade)
   userId     String
   user       UserIdentity @relation(fields: [userId], references: [id], onDelete: Cascade)
-  role       String   // see lib/constants.ts ROLES
+  role       String // see lib/constants.ts ROLES
   department String?
   position   String?
   managerId  String?
-  accessMode String   @default("STANDARD") // STANDARD | VIEW_ONLY | SUSPENDED | ARCHIVED
-  createdAt  DateTime @default(now())
+  accessMode String       @default("STANDARD") // STANDARD | VIEW_ONLY | SUSPENDED | ARCHIVED
+  createdAt  DateTime     @default(now())
 
   @@unique([tenantId, userId])
 }
 
 model Invitation {
-  id          String   @id @default(cuid())
+  id          String    @id @default(cuid())
   tenantId    String
-  tenant      Tenant   @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  tenant      Tenant    @relation(fields: [tenantId], references: [id], onDelete: Cascade)
   email       String
   role        String
-  status      String   @default("PENDING") // PENDING | ACCEPTED | EXPIRED | REVOKED
-  invitedAt   DateTime @default(now())
+  status      String    @default("PENDING") // PENDING | ACCEPTED | EXPIRED | REVOKED
+  invitedAt   DateTime  @default(now())
   respondedAt DateTime?
 }
 
@@ -155,92 +194,433 @@ model Invitation {
 // ---------------------------------------------------------------------------
 
 model Project {
-  id            String   @id @default(cuid())
+  id            String    @id @default(cuid())
   tenantId      String
-  tenant        Tenant   @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  tenant        Tenant    @relation(fields: [tenantId], references: [id], onDelete: Cascade)
   companyId     String
-  company       Company  @relation(fields: [companyId], references: [id], onDelete: Cascade)
+  company       Company   @relation(fields: [companyId], references: [id], onDelete: Cascade)
   code          String
   name          String
   clientName    String?
   clientId      String?
-  client        Client?  @relation(fields: [clientId], references: [id])
+  client        Client?   @relation(fields: [clientId], references: [id])
   location      String?
   budget        Float?
   contractValue Float?
   startDate     DateTime?
   endDate       DateTime?
-  status        String   @default("ACTIVE") // ACTIVE | ON_TRACK | AT_RISK | DELAYED | COMPLETED | ARCHIVED
-  progressPct   Int      @default(0)
-  createdAt     DateTime @default(now())
+  status        String    @default("ACTIVE") // ACTIVE | ON_TRACK | AT_RISK | DELAYED | COMPLETED | ARCHIVED
+  progressPct   Int       @default(0)
+  createdAt     DateTime  @default(now())
 
-  members       ProjectMember[]
-  tasks         Task[]
-  drawings      Drawing[]
-  rfis          RFI[]
-  invoices      Invoice[]
-  contracts     Contract[]
-  documentFiles DocumentFile[]
-  meetings      Meeting[]
-  assets        Asset[]
-  hseReports    HseReport[]
+  members        ProjectMember[]
+  tasks          Task[]
+  drawings       Drawing[]
+  rfis           RFI[]
+  invoices       Invoice[]
+  contracts      Contract[]
+  documentFiles  DocumentFile[]
+  meetings       Meeting[]
+  assets         Asset[]
+  hseReports     HseReport[]
   purchaseOrders PurchaseOrder[]
 
   @@unique([tenantId, code])
 }
 
 model ProjectMember {
-  id        String   @id @default(cuid())
-  projectId String
-  project   Project  @relation(fields: [projectId], references: [id], onDelete: Cascade)
-  userId    String
-  user      UserIdentity @relation(fields: [userId], references: [id], onDelete: Cascade)
+  id            String       @id @default(cuid())
+  projectId     String
+  project       Project      @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  userId        String
+  user          UserIdentity @relation(fields: [userId], references: [id], onDelete: Cascade)
   roleOnProject String?
-  createdAt DateTime @default(now())
+  createdAt     DateTime     @default(now())
 
   @@unique([projectId, userId])
 }
 
 model Task {
-  id                  String   @id @default(cuid())
-  tenantId            String
-  tenant              Tenant   @relation(fields: [tenantId], references: [id], onDelete: Cascade)
-  projectId           String?
-  project             Project? @relation(fields: [projectId], references: [id], onDelete: Cascade)
-  clientId            String?
-  client              Client?  @relation(fields: [clientId], references: [id], onDelete: Cascade)
-  code                String
-  title               String
-  description         String?
-  visibility          String   @default("COMPANY_PUBLIC") // PRIVATE | DEPARTMENT_PUBLIC | COMPANY_PUBLIC
-  status              String   @default("TO_DO") // TO_DO | IN_PROGRESS | REVIEW | APPROVED | COMPLETED | BLOCKED | ON_HOLD | NEEDS_REVISION | REJECTED | OVERDUE
-  priority            String   @default("MEDIUM") // LOW | MEDIUM | HIGH | CRITICAL
-  dueDate             DateTime?
-  createdById         String
-  createdBy           UserIdentity @relation("TaskCreator", fields: [createdById], references: [id])
-  mainResponsibleId   String?
-  mainResponsible     UserIdentity? @relation("TaskResponsible", fields: [mainResponsibleId], references: [id])
-  createdAt           DateTime @default(now())
-  updatedAt           DateTime @updatedAt
+  id                String        @id @default(cuid())
+  tenantId          String
+  tenant            Tenant        @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  projectId         String?
+  project           Project?      @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  clientId          String?
+  client            Client?       @relation(fields: [clientId], references: [id], onDelete: Cascade)
+  code              String
+  title             String
+  description       String?
+  visibility        String        @default("COMPANY_PUBLIC") // PRIVATE | DEPARTMENT_PUBLIC | COMPANY_PUBLIC
+  status            String        @default("TO_DO") // TO_DO | IN_PROGRESS | REVIEW | APPROVED | COMPLETED | BLOCKED | ON_HOLD | NEEDS_REVISION | REJECTED | OVERDUE
+  priority          String        @default("MEDIUM") // LOW | MEDIUM | HIGH | CRITICAL
+  dueDate           DateTime?
+  createdById       String
+  createdBy         UserIdentity  @relation("TaskCreator", fields: [createdById], references: [id])
+  mainResponsibleId String?
+  mainResponsible   UserIdentity? @relation("TaskResponsible", fields: [mainResponsibleId], references: [id])
+  // PRD_3 — set when this task was generated from a client comment @mention.
+  // Permanent two-way link: the comment is never deleted/rewritten when the
+  // task changes, and vice versa (CCT-003, CCT-044).
+  sourceCommentId   String?       @unique
+  sourceComment     Comment?      @relation("TaskSourceComment", fields: [sourceCommentId], references: [id])
+  // Accountable "department" for a department-only or department+individual
+  // mention, using the same Role vocabulary the rest of the app already
+  // treats as departments (ARCHITECT, LEGAL, FINANCE, ...) rather than
+  // introducing a separate Department entity.
+  departmentRole    String?
+  createdAt         DateTime      @default(now())
+  updatedAt         DateTime      @updatedAt
+
+  // --- PRD_4 Cross-Department Task Orchestration -----------------------
+  // A task becomes "orchestrated" the moment it has stages attached
+  // (task-orchestration.ts's startOrchestration()) — plain tasks (simple
+  // checklist items, PRD_3 client-comment tasks) are unaffected and never
+  // touch these fields. `status` above keeps its existing TO_DO/IN_PROGRESS/…
+  // vocabulary for plain tasks; `orchestrationStatus` is a parallel field
+  // using PRD_4 §6.3's richer parent-status vocabulary once orchestration
+  // starts, so the two systems never collide on one column's meaning.
+  orchestrationStatus  String? // DRAFT | SUBMITTED | UNDER_TRIAGE | ACTIVE | WAITING_FOR_INFORMATION |
+  // WAITING_FOR_APPROVAL | WAITING_FOR_CONTRACT | WAITING_FOR_PROCUREMENT |
+  // WAITING_FOR_CONTRACTOR | SCHEDULED | IN_EXECUTION | WAITING_FOR_INSPECTION |
+  // UNDER_FINAL_VERIFICATION | COMPLETED | REJECTED | CANCELLED | REOPENED | ARCHIVED
+  category             String? // free classification, e.g. "Facade Repair", "MEP Fault"
+  severity             String? // LOW | MEDIUM | HIGH | CRITICAL — distinct from `priority` (2.1 Classification)
+  riskLevel            String? // LOW | MEDIUM | HIGH
+  locationDetail       String? // e.g. "Block A / East Facade / Levels 3-5" — free text; no Building/Unit model exists yet
+  startDate            DateTime?
+  forecastDate         DateTime?
+  actualCompletionDate DateTime?
+  taskManagerId        String?
+  taskManager          UserIdentity? @relation("TaskManager", fields: [taskManagerId], references: [id])
+  decisionOwnerId      String?
+  decisionOwner        UserIdentity? @relation("TaskDecisionOwner", fields: [decisionOwnerId], references: [id])
+  finalApproverId      String?
+  finalApprover        UserIdentity? @relation("TaskFinalApprover", fields: [finalApproverId], references: [id])
+  currentStageId       String?
+  currentStage         TaskStage?    @relation("TaskCurrentStage", fields: [currentStageId], references: [id])
 
   contributions TaskContribution[]
-  dependsOn     TaskDependency[] @relation("DependentTask")
-  dependedOnBy  TaskDependency[] @relation("DependsOnTask")
+  dependsOn     TaskDependency[]   @relation("DependentTask")
+  dependedOnBy  TaskDependency[]   @relation("DependsOnTask")
   documents     DocumentFile[]
+
+  stages                TaskStage[]                    @relation("TaskStages")
+  departments           TaskDepartment[]
+  participants          TaskParticipant[]
+  events                TaskEvent[]
+  approvals             TaskApproval[]
+  involvementRequests   DepartmentInvolvementRequest[]
+  escalations           TaskEscalation[]
+  delayExplanations     TaskDelayExplanation[]
+  contractLinks         TaskContractLink[]
+  contractorAssignments TaskContractorAssignment[]
+  inspections           TaskInspection[]
+  completionRecords     TaskCompletionRecord[]
+  reopeningRecords      TaskReopeningRecord[]
 
   @@unique([tenantId, code])
 }
 
-model TaskContribution {
-  id          String   @id @default(cuid())
+// ---------------------------------------------------------------------------
+// PRD_4 — Cross-Department Task Orchestration. Additive: governs a task's
+// life *after* creation (assignment, department involvement, approvals,
+// contracts, contractor execution, inspection, closure) without altering the
+// plain-task rules PRD_1/PRD_3 already established. See Task.orchestrationStatus
+// for how the two systems coexist on one Task row.
+// ---------------------------------------------------------------------------
+
+// One reusable reference workflow ships built-in (§6.2's reference flow,
+// also §15's facade-repair walkthrough) rather than a full visual workflow-
+// template builder — that configurable builder is Appendix A's P2-Advanced
+// scope, explicitly out of this pass.
+model TaskStage {
+  id          String        @id @default(cuid())
+  tenantId    String
+  tenant      Tenant        @relation(fields: [tenantId], references: [id], onDelete: Cascade)
   taskId      String
-  task        Task     @relation(fields: [taskId], references: [id], onDelete: Cascade)
+  task        Task          @relation("TaskStages", fields: [taskId], references: [id], onDelete: Cascade)
+  key         String // stable machine key, e.g. "PM_TRIAGE", "ENGINEERING_ASSESSMENT"
+  label       String
+  sequence    Int
+  isParallel  Boolean       @default(false)
+  status      String        @default("PENDING") // PENDING | ACTIVE | WAITING | COMPLETED | SKIPPED | REJECTED
+  skipReason  String?
+  skippedById String?
+  skippedBy   UserIdentity? @relation("StageSkippedBy", fields: [skippedById], references: [id])
+  startedAt   DateTime?
+  completedAt DateTime?
+  createdAt   DateTime      @default(now())
+
+  currentForTask Task[] @relation("TaskCurrentStage")
+
+  @@unique([taskId, key])
+}
+
+// CTO-003/CTO-011 — adding a department creates one accountable owner, not
+// just a watcher.
+model TaskDepartment {
+  id              String       @id @default(cuid())
+  tenantId        String
+  tenant          Tenant       @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  taskId          String
+  task            Task         @relation(fields: [taskId], references: [id], onDelete: Cascade)
+  department      String // Role vocabulary (ENGINEER, ARCHITECT, PROCUREMENT, LEGAL, FINANCE, QAQC, HSE, PM, ...)
+  ownerId         String
+  owner           UserIdentity @relation("TaskDepartmentOwner", fields: [ownerId], references: [id])
+  isMandatory     Boolean      @default(true)
+  activatedReason String? // manual request reason, or the auto-routing rule name that activated it
+  createdAt       DateTime     @default(now())
+
+  deliverable DepartmentDeliverable?
+
+  @@unique([taskId, department])
+}
+
+model DepartmentDeliverable {
+  id                     String                  @id @default(cuid())
+  tenantId               String
+  tenant                 Tenant                  @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  taskDepartmentId       String                  @unique
+  taskDepartment         TaskDepartment          @relation(fields: [taskDepartmentId], references: [id], onDelete: Cascade)
+  requiredAction         String
+  expectedOutput         String?
+  deadline               DateTime?
+  status                 String                  @default("NOT_STARTED")
+  // NOT_STARTED | WAITING_FOR_DEPENDENCY | ACTIVE | INFORMATION_REQUESTED | SUBMITTED | UNDER_REVIEW |
+  // APPROVED | REJECTED | REVISION_REQUIRED | NOT_REQUIRED | BLOCKED | COMPLETED
+  requiresApproval       Boolean                 @default(true)
+  notRequiredReason      String?
+  submittedAt            DateTime?
+  approvedAt             DateTime?
+  blockedByDeliverableId String?
+  blockedByDeliverable   DepartmentDeliverable?  @relation("DeliverableDependency", fields: [blockedByDeliverableId], references: [id])
+  blocksDeliverables     DepartmentDeliverable[] @relation("DeliverableDependency")
+  createdAt              DateTime                @default(now())
+
+  approvals         TaskApproval[]
+  delayExplanations TaskDelayExplanation[]
+}
+
+// Many-to-many contributors/reviewers/watchers. The single-owner roles
+// (Task Manager, Decision Owner, Final Approver, Department Owner) are FKs
+// above/on TaskDepartment per CTO-010/CTO-011 — exactly one accountable
+// person, not a set.
+model TaskParticipant {
+  id       String       @id @default(cuid())
+  tenantId String
+  tenant   Tenant       @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  taskId   String
+  task     Task         @relation(fields: [taskId], references: [id], onDelete: Cascade)
+  userId   String
+  user     UserIdentity @relation("TaskParticipantUser", fields: [userId], references: [id], onDelete: Cascade)
+  role     String // CONTRIBUTOR | REVIEWER | WATCHER
+  addedAt  DateTime     @default(now())
+
+  @@unique([taskId, userId, role])
+}
+
+// CTO-002/CTO-006/CTO-050 — append-only immutable timeline. The app layer
+// only ever calls create() against this table; there is no update/delete path.
+model TaskEvent {
+  id            String        @id @default(cuid())
+  tenantId      String
+  tenant        Tenant        @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  taskId        String
+  task          Task          @relation(fields: [taskId], references: [id], onDelete: Cascade)
+  actorId       String?
+  actor         UserIdentity? @relation("TaskEventActor", fields: [actorId], references: [id])
+  actorRole     String?
+  eventType     String // TASK_CREATED | ORCHESTRATION_STARTED | STAGE_TRANSITION | DEPARTMENT_ACTIVATED |
+  // DELIVERABLE_SUBMITTED | APPROVAL_RECORDED | FILE_UPLOADED | CONTRACT_LINKED |
+  // CONTRACTOR_ASSIGNED | CONTRACTOR_ACTION | INSPECTION_RECORDED | DELAY_EXPLAINED |
+  // ESCALATED | ESCALATION_ACKNOWLEDGED | TASK_COMPLETED | TASK_REOPENED
+  summary       String
+  previousState String?
+  newState      String?
+  metadata      String? // JSON-encoded string
+  createdAt     DateTime      @default(now())
+}
+
+// CTO-061 — a typed approval action, never a plain comment.
+model TaskApproval {
+  id            String                 @id @default(cuid())
+  tenantId      String
+  tenant        Tenant                 @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  taskId        String
+  task          Task                   @relation(fields: [taskId], references: [id], onDelete: Cascade)
+  deliverableId String?
+  deliverable   DepartmentDeliverable? @relation(fields: [deliverableId], references: [id])
+  approverId    String
+  approver      UserIdentity           @relation("TaskApprover", fields: [approverId], references: [id])
+  action        String // APPROVE | APPROVE_WITH_CONDITIONS | REJECT | REQUEST_REVISION | REQUEST_INFO | DELEGATE
+  comment       String?
+  conditions    String? // JSON-encoded array of required condition strings
+  conditionsMet Boolean                @default(false)
+  delegatedToId String?
+  delegatedTo   UserIdentity?          @relation("TaskApprovalDelegate", fields: [delegatedToId], references: [id])
+  fileId        String?
+  createdAt     DateTime               @default(now())
+}
+
+model DepartmentInvolvementRequest {
+  id                 String        @id @default(cuid())
+  tenantId           String
+  tenant             Tenant        @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  taskId             String
+  task               Task          @relation(fields: [taskId], references: [id], onDelete: Cascade)
+  requestedById      String
+  requestedBy        UserIdentity  @relation("InvolvementRequester", fields: [requestedById], references: [id])
+  department         String
+  reason             String
+  requestedAction    String?
+  desiredDeadline    DateTime?
+  shouldBlock        Boolean       @default(true)
+  status             String        @default("PENDING") // PENDING | ACTION_REQUIRED | COMMENT_ONLY | NOT_REQUIRED | INFO_REQUESTED | REDIRECTED
+  response           String?
+  redirectDepartment String?
+  respondedById      String?
+  respondedBy        UserIdentity? @relation("InvolvementResponder", fields: [respondedById], references: [id])
+  respondedAt        DateTime?
+  createdAt          DateTime      @default(now())
+}
+
+model TaskEscalation {
+  id             String        @id @default(cuid())
+  tenantId       String
+  tenant         Tenant        @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  taskId         String
+  task           Task          @relation(fields: [taskId], references: [id], onDelete: Cascade)
+  fromUserId     String?
+  fromUser       UserIdentity? @relation("EscalationFrom", fields: [fromUserId], references: [id])
+  toUserId       String
+  toUser         UserIdentity  @relation("EscalationTo", fields: [toUserId], references: [id])
+  reason         String
+  acknowledgedAt DateTime?
+  createdAt      DateTime      @default(now())
+}
+
+model TaskDelayExplanation {
+  id                 String                 @id @default(cuid())
+  tenantId           String
+  tenant             Tenant                 @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  taskId             String
+  task               Task                   @relation(fields: [taskId], references: [id], onDelete: Cascade)
+  deliverableId      String?
+  deliverable        DepartmentDeliverable? @relation(fields: [deliverableId], references: [id])
+  cause              String
+  progressPct        Int
+  newExpectedDate    DateTime
+  blockingDependency String?
+  costImpact         Float?
+  scheduleImpactDays Int?
+  correctiveAction   String?
+  authorId           String
+  author             UserIdentity           @relation("DelayExplanationAuthor", fields: [authorId], references: [id])
+  createdAt          DateTime               @default(now())
+}
+
+// Contracts/quotations/POs remain separate objects (§9) — this just links
+// and records the routing decision, never duplicates the contract's data.
+model TaskContractLink {
+  id          String       @id @default(cuid())
+  tenantId    String
+  tenant      Tenant       @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  taskId      String
+  task        Task         @relation(fields: [taskId], references: [id], onDelete: Cascade)
+  contractId  String?
+  contract    Contract?    @relation(fields: [contractId], references: [id])
+  decision    String // EXISTING_CONTRACT | VARIATION_REQUIRED | NEW_CONTRACT_REQUIRED | NOT_REQUIRED | FURTHER_ASSESSMENT
+  reason      String?
+  createdById String
+  createdBy   UserIdentity @relation("ContractLinkCreator", fields: [createdById], references: [id])
+  createdAt   DateTime     @default(now())
+}
+
+// The restricted external work package (§10) — a contractor sees only this,
+// never the project/client/finance modules (CTO-100).
+model TaskContractorAssignment {
+  id                   String       @id @default(cuid())
+  tenantId             String
+  tenant               Tenant       @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  taskId               String
+  task                 Task         @relation(fields: [taskId], references: [id], onDelete: Cascade)
+  contractorId         String
+  contractor           Contractor   @relation(fields: [contractorId], references: [id])
+  contractId           String?
+  contract             Contract?    @relation(fields: [contractId], references: [id])
+  scope                String
+  status               String       @default("ASSIGNED")
+  // ASSIGNED | ACCEPTED | CLARIFICATION_REQUESTED | SCHEDULED | IN_PROGRESS | DELAYED | READY_FOR_INSPECTION | REWORK_REQUIRED | COMPLETED
+  plannedStart         DateTime?
+  deadline             DateTime?
+  acceptedAt           DateTime?
+  readyForInspectionAt DateTime?
+  assignedById         String
+  assignedBy           UserIdentity @relation("ContractorAssignmentAssignedBy", fields: [assignedById], references: [id])
+  createdAt            DateTime     @default(now())
+}
+
+model TaskInspection {
+  id          String        @id @default(cuid())
+  tenantId    String
+  tenant      Tenant        @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  taskId      String
+  task        Task          @relation(fields: [taskId], references: [id], onDelete: Cascade)
+  requestedAt DateTime      @default(now())
+  inspectorId String?
+  inspector   UserIdentity? @relation("TaskInspector", fields: [inspectorId], references: [id])
+  result      String? // PASSED | PASSED_WITH_OBSERVATIONS | FAILED | REWORK_REQUIRED | ADDITIONAL_INSPECTION_REQUIRED
+  notes       String?
+  inspectedAt DateTime?
+  createdAt   DateTime      @default(now())
+}
+
+model TaskCompletionRecord {
+  id            String       @id @default(cuid())
+  tenantId      String
+  tenant        Tenant       @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  taskId        String
+  task          Task         @relation(fields: [taskId], references: [id], onDelete: Cascade)
+  completedById String
+  completedBy   UserIdentity @relation("TaskCompletedBy", fields: [completedById], references: [id])
+  comment       String
+  actualDate    DateTime     @default(now())
+  gatesSnapshot String // JSON-encoded snapshot of the completion checklist at closure time
+  createdAt     DateTime     @default(now())
+
+  reopenings TaskReopeningRecord[]
+}
+
+// CTO-082 — reopening starts a new lifecycle segment; the prior completion
+// record is never edited or deleted.
+model TaskReopeningRecord {
+  id                         String               @id @default(cuid())
+  tenantId                   String
+  tenant                     Tenant               @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  taskId                     String
+  task                       Task                 @relation(fields: [taskId], references: [id], onDelete: Cascade)
+  reopenedById               String
+  reopenedBy                 UserIdentity         @relation("TaskReopenedBy", fields: [reopenedById], references: [id])
+  reason                     String
+  newIssue                   String?
+  newDeadline                DateTime?
+  riskImpact                 String?
+  previousCompletionRecordId String
+  previousCompletionRecord   TaskCompletionRecord @relation(fields: [previousCompletionRecordId], references: [id])
+  createdAt                  DateTime             @default(now())
+}
+
+model TaskContribution {
+  id          String       @id @default(cuid())
+  taskId      String
+  task        Task         @relation(fields: [taskId], references: [id], onDelete: Cascade)
   userId      String
   user        UserIdentity @relation(fields: [userId], references: [id], onDelete: Cascade)
   department  String?
   deliverable String?
-  status      String   @default("PENDING") // PENDING | SUBMITTED | APPROVED | REJECTED
-  createdAt   DateTime @default(now())
+  status      String       @default("PENDING") // PENDING | SUBMITTED | APPROVED | REJECTED
+  createdAt   DateTime     @default(now())
 }
 
 model TaskDependency {
@@ -258,26 +638,31 @@ model TaskDependency {
 // ---------------------------------------------------------------------------
 
 model Comment {
-  id             String   @id @default(cuid())
+  id             String       @id @default(cuid())
   tenantId       String
-  tenant         Tenant   @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  tenant         Tenant       @relation(fields: [tenantId], references: [id], onDelete: Cascade)
   authorId       String
   author         UserIdentity @relation(fields: [authorId], references: [id])
   body           String
-  classification String?  // DECISION | QUESTION | ISSUE | INFORMATION
-  targetType     String   // "Task" | "Project" | ...
+  classification String? // DECISION | QUESTION | ISSUE | INFORMATION
+  targetType     String // "Task" | "Project" | "Client" | ...
   targetId       String
-  createdAt      DateTime @default(now())
+  createdAt      DateTime     @default(now())
+
+  // PRD_3 — a comment (currently only used on Client profiles) can spawn at
+  // most one task via @mention; the FK lives on Task (see
+  // Task.sourceCommentId) so this is the 1:1 reverse side.
+  createdTask Task? @relation("TaskSourceComment")
 }
 
 model Suggestion {
-  id        String   @id @default(cuid())
+  id        String       @id @default(cuid())
   tenantId  String
-  tenant    Tenant   @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  tenant    Tenant       @relation(fields: [tenantId], references: [id], onDelete: Cascade)
   userId    String
   user      UserIdentity @relation(fields: [userId], references: [id], onDelete: Cascade)
   message   String
-  createdAt DateTime @default(now())
+  createdAt DateTime     @default(now())
 }
 
 model TimelineEvent {
@@ -288,34 +673,34 @@ model TimelineEvent {
   entityId   String
   eventType  String
   actorId    String?
-  metadata   String?  // JSON-encoded string
+  metadata   String? // JSON-encoded string
   createdAt  DateTime @default(now())
 }
 
 model Notification {
-  id        String   @id @default(cuid())
+  id        String       @id @default(cuid())
   tenantId  String
-  tenant    Tenant   @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  tenant    Tenant       @relation(fields: [tenantId], references: [id], onDelete: Cascade)
   userId    String
   user      UserIdentity @relation(fields: [userId], references: [id], onDelete: Cascade)
   type      String
   title     String
   body      String?
   link      String?
-  isRead    Boolean  @default(false)
-  createdAt DateTime @default(now())
+  isRead    Boolean      @default(false)
+  createdAt DateTime     @default(now())
 }
 
 // Per-user, per-event-category channel choice (Section 14 — "each user
 // chooses channels, subject to company defaults and critical-event rules").
 model NotificationPreference {
-  id       String @id @default(cuid())
+  id       String       @id @default(cuid())
   userId   String
   user     UserIdentity @relation(fields: [userId], references: [id], onDelete: Cascade)
   category String // TASKS | APPROVALS | FINANCE | PROJECTS
-  inApp    Boolean @default(true)
-  email    Boolean @default(false)
-  whatsapp Boolean @default(false)
+  inApp    Boolean      @default(true)
+  email    Boolean      @default(false)
+  whatsapp Boolean      @default(false)
 
   @@unique([userId, category])
 }
@@ -338,30 +723,30 @@ model AuditEvent {
 // ---------------------------------------------------------------------------
 
 model FinanceAccount {
-  id        String   @id @default(cuid())
-  tenantId  String
-  tenant    Tenant   @relation(fields: [tenantId], references: [id], onDelete: Cascade)
-  name      String
-  type      String   // OPERATING | PAYROLL | SAVINGS | TAX | PETTY_CASH
-  balance   Float
-  currency  String   @default("EUR")
+  id       String @id @default(cuid())
+  tenantId String
+  tenant   Tenant @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  name     String
+  type     String // OPERATING | PAYROLL | SAVINGS | TAX | PETTY_CASH
+  balance  Float
+  currency String @default("EUR")
 }
 
 model Invoice {
-  id          String   @id @default(cuid())
+  id          String    @id @default(cuid())
   tenantId    String
-  tenant      Tenant   @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  tenant      Tenant    @relation(fields: [tenantId], references: [id], onDelete: Cascade)
   projectId   String?
-  project     Project? @relation(fields: [projectId], references: [id])
+  project     Project?  @relation(fields: [projectId], references: [id])
   number      String
-  type        String   // INVOICE | BILL | PAYMENT | EXPENSE
+  type        String // INVOICE | BILL | PAYMENT | EXPENSE
   description String?
   amount      Float
-  currency    String   @default("EUR")
-  status      String   @default("PENDING") // legacy: PAID | PENDING | SENT | OVERDUE | COMPLETED
-                                            // PRD_2 posting lifecycle (§8.1) also uses this column:
-                                            // DRAFT | SUBMITTED | UNDER_REVIEW | APPROVED | POSTED | REVERSED
-  issuedDate  DateTime @default(now())
+  currency    String    @default("EUR")
+  status      String    @default("PENDING") // legacy: PAID | PENDING | SENT | OVERDUE | COMPLETED
+  // PRD_2 posting lifecycle (§8.1) also uses this column:
+  // DRAFT | SUBMITTED | UNDER_REVIEW | APPROVED | POSTED | REVERSED
+  issuedDate  DateTime  @default(now())
   dueDate     DateTime?
   postedAt    DateTime?
   postedById  String?
@@ -370,18 +755,18 @@ model Invoice {
 }
 
 model Employee {
-  id         String   @id @default(cuid())
-  tenantId   String
-  tenant     Tenant   @relation(fields: [tenantId], references: [id], onDelete: Cascade)
-  userId     String?  @unique
-  user       UserIdentity? @relation(fields: [userId], references: [id])
-  fullName   String
-  position   String
-  department String
-  hireDate   DateTime
-  status     String   @default("ACTIVE") // ACTIVE | ON_LEAVE | TERMINATED
-  avatarColor String  @default("#1A1D23")
-  birthday   DateTime?
+  id          String        @id @default(cuid())
+  tenantId    String
+  tenant      Tenant        @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  userId      String?       @unique
+  user        UserIdentity? @relation(fields: [userId], references: [id])
+  fullName    String
+  position    String
+  department  String
+  hireDate    DateTime
+  status      String        @default("ACTIVE") // ACTIVE | ON_LEAVE | TERMINATED
+  avatarColor String        @default("#1A1D23")
+  birthday    DateTime?
 
   leaveRequests LeaveRequest[]
 }
@@ -400,17 +785,17 @@ model LeaveRequest {
 }
 
 model HrAppointment {
-  id            String   @id @default(cuid())
+  id            String       @id @default(cuid())
   tenantId      String
-  tenant        Tenant   @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  tenant        Tenant       @relation(fields: [tenantId], references: [id], onDelete: Cascade)
   title         String
-  type          String   @default("INTERVIEW") // INTERVIEW | INTERNAL | OTHER
+  type          String       @default("INTERVIEW") // INTERVIEW | INTERNAL | OTHER
   candidateName String?
   scheduledAt   DateTime
   notes         String?
   createdById   String
   createdBy     UserIdentity @relation(fields: [createdById], references: [id])
-  createdAt     DateTime @default(now())
+  createdAt     DateTime     @default(now())
 }
 
 model Drawing {
@@ -427,32 +812,32 @@ model Drawing {
 }
 
 model RFI {
-  id         String   @id @default(cuid())
-  tenantId   String
-  tenant     Tenant   @relation(fields: [tenantId], references: [id], onDelete: Cascade)
-  projectId  String
-  project    Project  @relation(fields: [projectId], references: [id], onDelete: Cascade)
-  code       String
-  title      String
-  status     String   @default("OPEN") // OPEN | ANSWERED | OVERDUE
+  id           String    @id @default(cuid())
+  tenantId     String
+  tenant       Tenant    @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  projectId    String
+  project      Project   @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  code         String
+  title        String
+  status       String    @default("OPEN") // OPEN | ANSWERED | OVERDUE
   assignedToId String?
-  dueDate    DateTime?
-  createdAt  DateTime @default(now())
+  dueDate      DateTime?
+  createdAt    DateTime  @default(now())
 }
 
 model HseReport {
-  id           String   @id @default(cuid())
+  id           String       @id @default(cuid())
   tenantId     String
-  tenant       Tenant   @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  tenant       Tenant       @relation(fields: [tenantId], references: [id], onDelete: Cascade)
   projectId    String
-  project      Project  @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  project      Project      @relation(fields: [projectId], references: [id], onDelete: Cascade)
   title        String
   description  String
-  severity     String   @default("MEDIUM") // LOW | MEDIUM | HIGH | CRITICAL
-  status       String   @default("OPEN") // OPEN | IN_PROGRESS | RESOLVED
+  severity     String       @default("MEDIUM") // LOW | MEDIUM | HIGH | CRITICAL
+  status       String       @default("OPEN") // OPEN | IN_PROGRESS | RESOLVED
   reportedById String
   reportedBy   UserIdentity @relation(fields: [reportedById], references: [id])
-  createdAt    DateTime @default(now())
+  createdAt    DateTime     @default(now())
 }
 
 // ---------------------------------------------------------------------------
@@ -464,36 +849,36 @@ model HseReport {
 // ---------------------------------------------------------------------------
 
 model Supplier {
-  id         String   @id @default(cuid())
-  tenantId   String
-  tenant     Tenant   @relation(fields: [tenantId], references: [id], onDelete: Cascade)
-  number     String   // Number Series: SUP-{SEQ6}
-  name       String
-  category   String   // e.g. Steel, Concrete, Electrical, MEP
-  email      String?
-  phone      String?
-  status     String   @default("ACTIVE") // ACTIVE | SUSPENDED
-  createdAt  DateTime @default(now())
+  id        String   @id @default(cuid())
+  tenantId  String
+  tenant    Tenant   @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  number    String // Number Series: SUP-{SEQ6}
+  name      String
+  category  String // e.g. Steel, Concrete, Electrical, MEP
+  email     String?
+  phone     String?
+  status    String   @default("ACTIVE") // ACTIVE | SUSPENDED
+  createdAt DateTime @default(now())
 
   purchaseOrders PurchaseOrder[]
 }
 
 model PurchaseOrder {
-  id            String   @id @default(cuid())
+  id            String       @id @default(cuid())
   tenantId      String
-  tenant        Tenant   @relation(fields: [tenantId], references: [id], onDelete: Cascade)
-  number        String   // Number Series: PO-{YYYY}-{SEQ5}
+  tenant        Tenant       @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  number        String // Number Series: PO-{YYYY}-{SEQ5}
   projectId     String?
-  project       Project? @relation(fields: [projectId], references: [id])
+  project       Project?     @relation(fields: [projectId], references: [id])
   supplierId    String
-  supplier      Supplier @relation(fields: [supplierId], references: [id])
+  supplier      Supplier     @relation(fields: [supplierId], references: [id])
   description   String
   amount        Float
-  currency      String   @default("EUR")
-  status        String   @default("DRAFT") // DRAFT | SUBMITTED | APPROVED | ORDERED | RECEIVED | CANCELLED
+  currency      String       @default("EUR")
+  status        String       @default("DRAFT") // DRAFT | SUBMITTED | APPROVED | ORDERED | RECEIVED | CANCELLED
   requestedById String
   requestedBy   UserIdentity @relation(fields: [requestedById], references: [id])
-  createdAt     DateTime @default(now())
+  createdAt     DateTime     @default(now())
 }
 
 // ---------------------------------------------------------------------------
@@ -514,12 +899,12 @@ model Team {
 }
 
 model TeamMember {
-  id        String   @id @default(cuid())
+  id        String       @id @default(cuid())
   teamId    String
-  team      Team     @relation(fields: [teamId], references: [id], onDelete: Cascade)
+  team      Team         @relation(fields: [teamId], references: [id], onDelete: Cascade)
   userId    String
   user      UserIdentity @relation(fields: [userId], references: [id], onDelete: Cascade)
-  createdAt DateTime @default(now())
+  createdAt DateTime     @default(now())
 
   @@unique([teamId, userId])
 }
@@ -530,17 +915,17 @@ model TeamMember {
 // COMPANY_NETWORK, matching that clients and contractors are unrelated
 // counterparties from the company's side of the table).
 model Client {
-  id          String   @id @default(cuid())
+  id          String       @id @default(cuid())
   tenantId    String
-  tenant      Tenant   @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  tenant      Tenant       @relation(fields: [tenantId], references: [id], onDelete: Cascade)
   name        String
   contactName String?
   email       String?
   phone       String?
-  status      String   @default("ACTIVE") // ACTIVE | PROSPECT | INACTIVE
+  status      String       @default("ACTIVE") // ACTIVE | PROSPECT | INACTIVE
   createdById String
   createdBy   UserIdentity @relation(fields: [createdById], references: [id])
-  createdAt   DateTime @default(now())
+  createdAt   DateTime     @default(now())
 
   projects  Project[]
   documents DocumentFile[]
@@ -551,7 +936,7 @@ model Contractor {
   id         String   @id @default(cuid())
   tenantId   String
   tenant     Tenant   @relation(fields: [tenantId], references: [id], onDelete: Cascade)
-  number     String   // Number Series: CTR-{SEQ6}
+  number     String // Number Series: CTR-{SEQ6}
   name       String
   tradeType  String
   email      String?
@@ -560,60 +945,88 @@ model Contractor {
   riskRating String   @default("LOW") // LOW | MEDIUM | HIGH
   createdAt  DateTime @default(now())
 
-  contracts Contract[]
+  // PRD_4 §10/§14 — an optional portal login for this contractor, restricted
+  // to their own TaskContractorAssignments (CTO-100 task-scoped access).
+  // Most contractor profiles have no login at all; this is opt-in per contractor.
+  userId String?       @unique
+  user   UserIdentity? @relation("ContractorLogin", fields: [userId], references: [id])
+
+  contracts   Contract[]
+  assignments TaskContractorAssignment[]
 }
 
 model Contract {
-  id           String   @id @default(cuid())
+  id           String      @id @default(cuid())
   tenantId     String
-  tenant       Tenant   @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  tenant       Tenant      @relation(fields: [tenantId], references: [id], onDelete: Cascade)
   projectId    String?
-  project      Project? @relation(fields: [projectId], references: [id])
+  project      Project?    @relation(fields: [projectId], references: [id])
   contractorId String?
   contractor   Contractor? @relation(fields: [contractorId], references: [id])
-  number       String   // Number Series: CON-{YYYY}-{SEQ5}
+  number       String // Number Series: CON-{YYYY}-{SEQ5}
   title        String
   value        Float
-  currency     String   @default("EUR")
-  status       String   @default("DRAFT") // DRAFT | ACTIVE | COMPLETED | TERMINATED
+  currency     String      @default("EUR")
+  status       String      @default("DRAFT") // DRAFT | ACTIVE | COMPLETED | TERMINATED
   startDate    DateTime?
   endDate      DateTime?
-  createdAt    DateTime @default(now())
+  createdAt    DateTime    @default(now())
+
+  taskLinks       TaskContractLink[]
+  taskAssignments TaskContractorAssignment[]
 }
 
 model DocumentFile {
-  id           String   @id @default(cuid())
+  id           String       @id @default(cuid())
   tenantId     String
-  tenant       Tenant   @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  tenant       Tenant       @relation(fields: [tenantId], references: [id], onDelete: Cascade)
   projectId    String?
-  project      Project? @relation(fields: [projectId], references: [id])
+  project      Project?     @relation(fields: [projectId], references: [id])
   taskId       String?
-  task         Task?    @relation(fields: [taskId], references: [id], onDelete: Cascade)
+  task         Task?        @relation(fields: [taskId], references: [id], onDelete: Cascade)
   clientId     String?
-  client       Client?  @relation(fields: [clientId], references: [id], onDelete: Cascade)
+  client       Client?      @relation(fields: [clientId], references: [id], onDelete: Cascade)
   name         String
-  category     String   @default("General")
-  version      Int      @default(1)
-  status       String   @default("DRAFT") // DRAFT | SUBMITTED | APPROVED
+  category     String       @default("General")
+  // PRD_4 §8.2 categories (INITIAL_EVIDENCE | TECHNICAL_ASSESSMENT | DRAWING |
+  // CALCULATION | SPECIFICATION | QUOTATION | PURCHASE_ORDER | CONTRACT |
+  // CONTRACT_VARIATION | METHOD_STATEMENT | SAFETY_DOCUMENT | INSPECTION |
+  // COMPLETION_EVIDENCE | INVOICE | PAYMENT_EVIDENCE | FINAL_RECORD) apply when
+  // taskId is set; pre-existing free-text categories are unaffected otherwise.
+  version      Int          @default(1)
+  status       String       @default("DRAFT")
+  // DRAFT | SUBMITTED | APPROVED (pre-existing) plus PRD_4 §8.3's fuller set when
+  // task-attached: SUPPORTING | UNDER_REVIEW | REJECTED | SUPERSEDED | OFFICIAL | ARCHIVED
   uploadedById String
   uploadedBy   UserIdentity @relation(fields: [uploadedById], references: [id])
-  createdAt    DateTime @default(now())
+  createdAt    DateTime     @default(now())
+
+  // CTO-060 — an approved/official file is never overwritten; a changed
+  // upload creates a new revision linked to the one it supersedes.
+  supersedesId     String?       @unique
+  supersedes       DocumentFile? @relation("DocumentRevision", fields: [supersedesId], references: [id])
+  supersededBy     DocumentFile? @relation("DocumentRevision")
+  approvedAt       DateTime?
+  approvedById     String?
+  approvedBy       UserIdentity? @relation("DocumentApprover", fields: [approvedById], references: [id])
+  taskStageId      String?
+  taskDepartmentId String?
 }
 
 model Meeting {
-  id          String   @id @default(cuid())
+  id          String       @id @default(cuid())
   tenantId    String
-  tenant      Tenant   @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  tenant      Tenant       @relation(fields: [tenantId], references: [id], onDelete: Cascade)
   projectId   String?
-  project     Project? @relation(fields: [projectId], references: [id])
+  project     Project?     @relation(fields: [projectId], references: [id])
   title       String
   scheduledAt DateTime
   location    String?
   organiserId String
   organiser   UserIdentity @relation(fields: [organiserId], references: [id])
-  status      String   @default("PLANNED") // PLANNED | HELD | CANCELLED
+  status      String       @default("PLANNED") // PLANNED | HELD | CANCELLED
   notes       String?
-  createdAt   DateTime @default(now())
+  createdAt   DateTime     @default(now())
 }
 
 model Asset {
@@ -623,7 +1036,7 @@ model Asset {
   projectId     String?
   project       Project? @relation(fields: [projectId], references: [id])
   name          String
-  type          String   // EQUIPMENT | VEHICLE | TOOL | OTHER
+  type          String // EQUIPMENT | VEHICLE | TOOL | OTHER
   status        String   @default("AVAILABLE") // AVAILABLE | IN_USE | MAINTENANCE | RETIRED
   purchaseValue Float?
   createdAt     DateTime @default(now())
@@ -673,7 +1086,7 @@ model DimensionDefinition {
 }
 
 model DimensionValue {
-  id           String @id @default(cuid())
+  id           String              @id @default(cuid())
   definitionId String
   definition   DimensionDefinition @relation(fields: [definitionId], references: [id], onDelete: Cascade)
   value        String
@@ -683,9 +1096,9 @@ model DimensionValue {
 }
 
 model RecordDimension {
-  id               String @id @default(cuid())
+  id               String         @id @default(cuid())
   tenantId         String
-  tenant           Tenant @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  tenant           Tenant         @relation(fields: [tenantId], references: [id], onDelete: Cascade)
   entityType       String // "Invoice" | "Task" | ...
   entityId         String
   dimensionValueId String
@@ -703,16 +1116,16 @@ model RecordDimension {
 // ---------------------------------------------------------------------------
 
 model FinancialLedgerEntry {
-  id              String   @id @default(cuid())
+  id              String                 @id @default(cuid())
   tenantId        String
-  tenant          Tenant   @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  tenant          Tenant                 @relation(fields: [tenantId], references: [id], onDelete: Cascade)
   invoiceId       String
-  invoice         Invoice  @relation(fields: [invoiceId], references: [id])
+  invoice         Invoice                @relation(fields: [invoiceId], references: [id])
   amount          Float
-  currency        String   @default("EUR")
-  postedAt        DateTime @default(now())
+  currency        String                 @default("EUR")
+  postedAt        DateTime               @default(now())
   postedById      String
-  postedBy        UserIdentity @relation(fields: [postedById], references: [id])
+  postedBy        UserIdentity           @relation(fields: [postedById], references: [id])
   reversesEntryId String?
   reversesEntry   FinancialLedgerEntry?  @relation("Reversal", fields: [reversesEntryId], references: [id])
   reversedBy      FinancialLedgerEntry[] @relation("Reversal")

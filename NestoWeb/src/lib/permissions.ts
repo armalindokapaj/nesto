@@ -239,16 +239,20 @@ export const PERMISSION_MATRIX: Matrix = {
     HSE_REPORTS: "FULL",
     PROCUREMENT: "NONE",
   },
+  // PRD_4 CTO-100/§14 — a contractor gets task-scoped access to their own
+  // TaskContractorAssignment work packages only (see getContractorWorkPackages
+  // in server/task-orchestration.ts), never the general Projects/Finance/
+  // Contracts/Company-Network modules other roles browse.
   CONTRACTOR: {
     COMPANY_SETTINGS: "NONE",
     USER_MANAGEMENT: "NONE",
-    PROJECTS: "READ",
-    TASKS: "READ",
-    FINANCE: "READ",
+    PROJECTS: "NONE",
+    TASKS: "NONE",
+    FINANCE: "NONE",
     HR: "NONE",
-    CONTRACTS: "READ",
+    CONTRACTS: "NONE",
     AUDIT_LOGS: "NONE",
-    COMPANY_NETWORK: "READ",
+    COMPANY_NETWORK: "NONE",
     CLIENTS: "NONE",
     HSE_REPORTS: "NONE",
     PROCUREMENT: "NONE",
@@ -316,7 +320,7 @@ export const DASHBOARD_BY_ROLE: Record<Role, string> = {
   STOCK: "/dashboard/executive",
   QAQC: "/dashboard/executive",
   HSE: "/dashboard/executive",
-  CONTRACTOR: "/dashboard/executive",
+  CONTRACTOR: "/dashboard/contractor",
   CLIENT: "/dashboard/executive",
   VIEWER: "/dashboard/executive",
 };

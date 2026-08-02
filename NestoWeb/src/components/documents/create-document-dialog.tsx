@@ -6,16 +6,18 @@ import { Plus, X } from "lucide-react";
 import { createDocumentAction } from "@/app/actions/documents";
 import { Button } from "@/components/ui/button";
 import { Input, Label } from "@/components/ui/input";
+import { TASK_FILE_CATEGORIES } from "@/lib/constants";
 import { useI18n } from "@/lib/i18n/locale-provider";
 
 type Props = {
   projects?: { id: string; name: string }[];
   projectId?: string;
   clientId?: string;
+  taskId?: string;
   triggerLabel?: string;
 };
 
-export function CreateDocumentDialog({ projects, projectId, clientId, triggerLabel }: Props) {
+export function CreateDocumentDialog({ projects, projectId, clientId, taskId, triggerLabel }: Props) {
   const { t } = useI18n();
   const [open, setOpen] = useState(false);
   const [state, formAction, pending] = useActionState(createDocumentAction, undefined);
@@ -45,13 +47,29 @@ export function CreateDocumentDialog({ projects, projectId, clientId, triggerLab
           >
             {clientId && <input type="hidden" name="clientId" value={clientId} />}
             {projectId && <input type="hidden" name="projectId" value={projectId} />}
+            {taskId && <input type="hidden" name="taskId" value={taskId} />}
             <div className="space-y-1.5">
               <Label htmlFor="name">{t("documents.name")}</Label>
               <Input id="name" name="name" required />
             </div>
             <div className="space-y-1.5">
               <Label htmlFor="category">{t("documents.category")}</Label>
-              <Input id="category" name="category" placeholder="General" />
+              {taskId ? (
+                <select
+                  id="category"
+                  name="category"
+                  defaultValue={TASK_FILE_CATEGORIES[0]}
+                  className="h-10 w-full rounded-lg border border-border bg-surface px-3 text-sm text-ink focus:outline-none focus:border-gold focus:ring-2 focus:ring-gold/20"
+                >
+                  {TASK_FILE_CATEGORIES.map((c) => (
+                    <option key={c} value={c}>
+                      {c.replace(/_/g, " ")}
+                    </option>
+                  ))}
+                </select>
+              ) : (
+                <Input id="category" name="category" placeholder="General" />
+              )}
             </div>
             {projects && (
               <div className="space-y-1.5">

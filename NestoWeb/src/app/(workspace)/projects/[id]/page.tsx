@@ -175,7 +175,9 @@ export default async function ProjectDetailPage({ params }: { params: Promise<{ 
               {tasksByStatus[status].map((task) => (
                 <div key={task.id} className="rounded-lg border border-border bg-surface p-3 space-y-2">
                   <div className="flex items-start justify-between gap-2">
-                    <p className="text-sm font-medium text-ink leading-snug">{task.title}</p>
+                    <Link href={`/tasks/${task.id}`} className="text-sm font-medium text-ink leading-snug hover:text-gold hover:underline">
+                      {task.title}
+                    </Link>
                     {task.priority === "CRITICAL" || task.priority === "HIGH" ? (
                       <Badge tone={task.priority === "CRITICAL" ? "danger" : "warning"}>{task.priority}</Badge>
                     ) : null}
@@ -217,7 +219,9 @@ export default async function ProjectDetailPage({ params }: { params: Promise<{ 
               {overflowTasks.map((task) => (
                 <li key={task.id} className="flex items-center justify-between text-sm gap-3">
                   <span className="text-ink flex items-center gap-2 min-w-0">
-                    <span className="truncate">{task.title}</span>
+                    <Link href={`/tasks/${task.id}`} className="truncate hover:text-gold hover:underline">
+                      {task.title}
+                    </Link>
                     <TaskDocumentsBadge taskId={task.id} count={task._count.documents} />
                   </span>
                   <div className="flex items-center gap-1.5 shrink-0">

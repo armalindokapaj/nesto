@@ -6,6 +6,7 @@ import { login } from "@/app/actions/auth";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { NestoMark } from "@/components/branding/NestoLogo";
+import { ForgotPasswordDialog } from "@/components/marketing/forgot-password-dialog";
 import { useI18n } from "@/lib/i18n/locale-provider";
 
 export function LoginForm() {
@@ -71,9 +72,7 @@ export function LoginForm() {
             <input type="checkbox" name="remember" className="rounded border-border-strong accent-gold" />
             {t("auth.rememberMe")}
           </label>
-          <a href="#" className="font-medium text-gold hover:underline">
-            {t("auth.forgotPassword")}
-          </a>
+          <ForgotPasswordDialog />
         </div>
 
         {state?.error && (

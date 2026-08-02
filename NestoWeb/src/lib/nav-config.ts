@@ -37,6 +37,7 @@ import {
   ShieldAlert,
   Truck,
   PackageOpen,
+  Workflow,
 } from "lucide-react";
 import { can, type Resource, type Level } from "@/lib/permissions";
 import type { Role } from "@/lib/constants";
@@ -66,6 +67,7 @@ export const NAV_SECTIONS: Record<string, NavSection[]> = {
       items: [
         { labelKey: "nav.projects", href: "/projects", icon: FolderKanban },
         { labelKey: "nav.tasks", href: "/tasks", icon: CheckSquare, resource: "TASKS" },
+        { labelKey: "nav.taskOrchestration", href: "/tasks/orchestration", icon: Workflow, resource: "TASKS" },
         { labelKey: "nav.contracts", href: "/contracts", icon: FileText, resource: "CONTRACTS" },
         { labelKey: "nav.documents", href: "/documents", icon: BookText, resource: "PROJECTS" },
         { labelKey: "nav.meetings", href: "/meetings", icon: CalendarDays, resource: "PROJECTS" },
@@ -188,10 +190,14 @@ export const NAV_SECTIONS: Record<string, NavSection[]> = {
     },
     { titleKey: "nav.settings", items: [{ labelKey: "nav.settings", href: "/dashboard/procurement/settings", icon: Settings, resource: "PROCUREMENT" }] },
   ],
+  // PRD_4 CTO-100 — a contractor's entire workspace is their restricted work
+  // package view; no resource-gated items apply since CONTRACTOR is NONE on
+  // every general resource (see permissions.ts).
+  contractor: [{ items: [{ labelKey: "nav.dashboard", href: "/dashboard/contractor", icon: LayoutDashboard }] }],
 };
 
 export function workspaceKeyFromPath(pathname: string): keyof typeof NAV_SECTIONS {
-  const match = pathname.match(/^\/dashboard\/(executive|admin|finance|hr|architect|procurement)/);
+  const match = pathname.match(/^\/dashboard\/(executive|admin|finance|hr|architect|procurement|contractor)/);
   return (match?.[1] as keyof typeof NAV_SECTIONS) ?? "executive";
 }
 
