@@ -1,29 +1,31 @@
 import { db } from "@/lib/db";
 import { PROJECT_STATUSES } from "@/lib/constants";
 
-export async function getExecutiveDashboardData(tenantId: string) {
+// Audit C1 — Finance figures are omitted at the query layer for a caller
+// without Finance access, not merely hidden by the page. `revenue`/
+// `cashFlowSeries` are `null` rather than computed-then-discarded, so a
+// future page change can't accidentally re-expose them by rendering the
+// object without re-checking permission.
+export async function getExecutiveDashboardData(tenantId: string, canViewFinance: boolean) {
   const [projects, invoices, tasks, childCompanies] = await Promise.all([
     db.project.findMany({ where: { tenantId }, orderBy: { createdAt: "desc" } }),
-    db.invoice.findMany({ where: { tenantId } }),
+    canViewFinance ? db.invoice.findMany({ where: { tenantId } }) : Promise.resolve(null),
     db.task.findMany({ where: { tenantId, status: { in: ["REVIEW", "APPROVED"] } } }),
     db.company.count({ where: { tenantId, isParent: false } }),
   ]);
 
   const activeProjects = projects.filter((p) => p.status !== "ARCHIVED" && p.status !== "COMPLETED");
-  const revenue = invoices.filter((i) => i.type === "INVOICE").reduce((s, i) => s + i.amount, 0);
   const pendingApprovals = tasks.length;
   const risks = projects.filter((p) => p.status === "AT_RISK" || p.status === "DELAYED").length;
 
-  const cashFlowSeries = buildMonthlySeries(invoices);
-
   return {
     activeProjectCount: activeProjects.length,
-    revenue,
+    revenue: invoices ? invoices.filter((i) => i.type === "INVOICE").reduce((s, i) => s + i.amount, 0) : null,
     pendingApprovals,
     risks,
     subsidiaryCount: childCompanies,
     projects: activeProjects.slice(0, 5),
-    cashFlowSeries,
+    cashFlowSeries: invoices ? buildMonthlySeries(invoices) : null,
   };
 }
 

@@ -1,6 +1,6 @@
 import "server-only";
 import { db } from "@/lib/db";
-import { assertTenant } from "@/lib/tenant";
+import { assertTenant, requireTenantMember, requireTenantContract, requireTenantContractor } from "@/lib/tenant";
 import {
   DEFAULT_WORKFLOW_STAGES,
   DELIVERABLE_STATUSES_BLOCKING_COMPLETION,
@@ -72,6 +72,7 @@ export async function startOrchestration(
   if (task.currentStageId) {
     throw new Error("This task is already under orchestration.");
   }
+  await requireTenantMember(tenantId, input.taskManagerId);
 
   return db.$transaction(async (tx) => {
     const stages = await Promise.all(
@@ -221,6 +222,7 @@ export async function activateDepartment(
   }
 ) {
   await getOrchestratedTask(tenantId, taskId);
+  await requireTenantMember(tenantId, input.ownerId);
 
   return db.$transaction(async (tx) => {
     const department = await tx.taskDepartment.create({
@@ -432,6 +434,7 @@ export async function recordApproval(
   if (input.action === "DELEGATE" && !input.delegatedToId) {
     throw new Error("Delegating requires the user to delegate to.");
   }
+  if (input.delegatedToId) await requireTenantMember(tenantId, input.delegatedToId);
 
   return db.$transaction(async (tx) => {
     const approval = await tx.taskApproval.create({
@@ -507,6 +510,7 @@ export async function linkContract(
   input: { decision: ContractLinkDecision; contractId?: string; reason?: string }
 ) {
   await getOrchestratedTask(tenantId, taskId);
+  if (input.contractId) await requireTenantContract(tenantId, input.contractId);
 
   return db.$transaction(async (tx) => {
     const link = await tx.taskContractLink.create({
@@ -553,6 +557,10 @@ export async function assignContractor(
   if (!(await contractGatePassed(tenantId, taskId))) {
     throw new Error("The contract gate has not passed yet — contractor execution cannot be authorized.");
   }
+  await Promise.all([
+    requireTenantContractor(tenantId, input.contractorId),
+    input.contractId ? requireTenantContract(tenantId, input.contractId) : null,
+  ]);
 
   return db.$transaction(async (tx) => {
     const assignment = await tx.taskContractorAssignment.create({
@@ -936,6 +944,7 @@ export async function escalate(
   reason: string
 ) {
   await getOrchestratedTask(tenantId, taskId);
+  await requireTenantMember(tenantId, toUserId);
 
   return db.$transaction(async (tx) => {
     const escalation = await tx.taskEscalation.create({

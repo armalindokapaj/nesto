@@ -13,6 +13,7 @@ import {
   CONTRACT_LINK_DECISIONS,
   INSPECTION_RESULTS,
 } from "@/lib/constants";
+import type { Role } from "@/lib/constants";
 import {
   startOrchestration,
   transitionStage,
@@ -78,6 +79,20 @@ async function requireTaskParticipant() {
 async function requireTask(tenantId: string, taskId: string) {
   const task = await db.task.findUnique({ where: { id: taskId } });
   return assertTenant(task, tenantId, "Task");
+}
+
+// Audit C7 — the task's own named authorities (whoever runs it or makes its
+// calls) plus company-wide Owner/Admin oversight. Used as the override tier
+// for actions that are otherwise scoped to a specific department/approver/
+// addressee, so leadership is never locked out of their own task.
+async function isTaskLevelAuthority(tenantId: string, taskId: string, userId: string, role: Role) {
+  if (can(role, "USER_MANAGEMENT", "FULL")) return true;
+  const task = await db.task.findUnique({
+    where: { id: taskId },
+    select: { tenantId: true, taskManagerId: true, decisionOwnerId: true, finalApproverId: true },
+  });
+  if (!task || task.tenantId !== tenantId) throw new Error("Task not found.");
+  return task.taskManagerId === userId || task.decisionOwnerId === userId || task.finalApproverId === userId;
 }
 
 function toError(err: unknown): ActionState {
@@ -164,8 +179,19 @@ const RespondInvolvementSchema = z.object({
 });
 export async function respondInvolvementAction(input: z.infer<typeof RespondInvolvementSchema>): Promise<ActionState> {
   try {
-    const { tenantId, user } = await requireTaskParticipant();
+    const { tenantId, user, role } = await requireTaskParticipant();
     const parsed = RespondInvolvementSchema.parse(input);
+    // Audit C7 — only the department the request was addressed to (its
+    // activated owner, or a user whose own role IS that department) may
+    // answer on its behalf; TASKS:READ alone is not standing to respond.
+    const request = await db.departmentInvolvementRequest.findUnique({ where: { id: parsed.requestId } });
+    if (!request || request.tenantId !== tenantId) throw new Error("Request not found.");
+    const isTaskAuthority = await isTaskLevelAuthority(tenantId, request.taskId, user.id, role);
+    if (!isTaskAuthority) {
+      const owner = await db.taskDepartment.findUnique({ where: { taskId_department: { taskId: request.taskId, department: request.department } } });
+      const speaksForDepartment = owner ? owner.ownerId === user.id : role === request.department;
+      if (!speaksForDepartment) throw new Error("Only the requested department can respond to this involvement request.");
+    }
     await respondToInvolvementRequest(tenantId, parsed.requestId, user.id, parsed);
     revalidatePath(`/tasks/${parsed.taskId}`);
   } catch (err) {
@@ -191,8 +217,15 @@ export async function submitDeliverableAction(input: z.infer<typeof SubmitDelive
 const MarkNotRequiredSchema = z.object({ deliverableId: z.string().min(1), taskId: z.string().min(1), reason: z.string().min(2) });
 export async function markNotRequiredAction(input: z.infer<typeof MarkNotRequiredSchema>): Promise<ActionState> {
   try {
-    const { tenantId, user } = await requireTaskParticipant();
+    const { tenantId, user, role } = await requireTaskParticipant();
     const parsed = MarkNotRequiredSchema.parse(input);
+    // Audit C7 — same standing as submitting the deliverable: its own
+    // accountable department owner, or task-level authority/Admin.
+    const deliverable = await db.departmentDeliverable.findUnique({ where: { id: parsed.deliverableId }, include: { taskDepartment: true } });
+    if (!deliverable || deliverable.tenantId !== tenantId) throw new Error("Deliverable not found.");
+    if (deliverable.taskDepartment.ownerId !== user.id && !(await isTaskLevelAuthority(tenantId, parsed.taskId, user.id, role))) {
+      throw new Error("Only the department's accountable owner can mark this deliverable not required.");
+    }
     await markNotRequired(tenantId, parsed.deliverableId, user.id, parsed.reason);
     revalidatePath(`/tasks/${parsed.taskId}`);
   } catch (err) {
@@ -210,11 +243,23 @@ const RecordApprovalSchema = z.object({
 });
 export async function recordApprovalAction(input: z.infer<typeof RecordApprovalSchema>): Promise<ActionState> {
   try {
-    const { tenantId, user } = await requireTaskParticipant();
+    const { tenantId, user, role } = await requireTaskParticipant();
     const parsed = RecordApprovalSchema.parse(input);
-    // CTO-061 — approval is a typed action performed by whoever the deliverable
-    // review routes to; task-manager/department-owner boundaries are already
-    // enforced upstream by only surfacing the approval control to them in the UI.
+    // Audit C7 — approval must be enforced here, not just surfaced only to
+    // the right people in the UI (CTO-061 governs the *shape* of an
+    // approval — a typed, attributable record — not who may create one).
+    // Authorized: the task's own manager/decision-owner/final-approver, the
+    // accountable owner of the deliverable's department (if any), or Admin.
+    let authorized = await isTaskLevelAuthority(tenantId, parsed.taskId, user.id, role);
+    if (!authorized && parsed.deliverableId) {
+      const deliverable = await db.departmentDeliverable.findUnique({ where: { id: parsed.deliverableId }, include: { taskDepartment: true } });
+      if (deliverable && deliverable.tenantId === tenantId && deliverable.taskDepartment.ownerId === user.id) authorized = true;
+    }
+    if (!authorized) {
+      const delegated = await db.taskApproval.findFirst({ where: { tenantId, taskId: parsed.taskId, delegatedToId: user.id } });
+      authorized = Boolean(delegated);
+    }
+    if (!authorized) throw new Error("You are not authorized to record a decision on this task.");
     await recordApproval(tenantId, parsed.taskId, user.id, parsed);
     revalidatePath(`/tasks/${parsed.taskId}`);
   } catch (err) {
@@ -225,8 +270,15 @@ export async function recordApprovalAction(input: z.infer<typeof RecordApprovalS
 const MarkConditionsMetSchema = z.object({ approvalId: z.string().min(1), taskId: z.string().min(1) });
 export async function markConditionsMetAction(input: z.infer<typeof MarkConditionsMetSchema>): Promise<ActionState> {
   try {
-    const { tenantId, user } = await requireTaskParticipant();
+    const { tenantId, user, role } = await requireTaskParticipant();
     const parsed = MarkConditionsMetSchema.parse(input);
+    // Audit C7 — only the approver who set the conditions (or task-level
+    // authority/Admin) can confirm they were satisfied.
+    const approval = await db.taskApproval.findUnique({ where: { id: parsed.approvalId } });
+    if (!approval || approval.tenantId !== tenantId) throw new Error("Approval not found.");
+    if (approval.approverId !== user.id && !(await isTaskLevelAuthority(tenantId, parsed.taskId, user.id, role))) {
+      throw new Error("Only the original approver can confirm these conditions were met.");
+    }
     await markConditionsMet(tenantId, parsed.approvalId, user.id);
     revalidatePath(`/tasks/${parsed.taskId}`);
   } catch (err) {
@@ -318,8 +370,20 @@ const ExplainDelaySchema = z.object({
 });
 export async function explainDelayAction(input: z.infer<typeof ExplainDelaySchema>): Promise<ActionState> {
   try {
-    const { tenantId, user } = await requireTaskParticipant();
+    const { tenantId, user, role } = await requireTaskParticipant();
     const parsed = ExplainDelaySchema.parse(input);
+    // Audit C7 — a delay explanation is attributed testimony about specific
+    // work; restrict it to someone actually accountable for that work
+    // (the deliverable's department owner) or task-level authority/Admin.
+    let authorized = await isTaskLevelAuthority(tenantId, parsed.taskId, user.id, role);
+    if (!authorized && parsed.deliverableId) {
+      const deliverable = await db.departmentDeliverable.findUnique({ where: { id: parsed.deliverableId }, include: { taskDepartment: true } });
+      if (deliverable && deliverable.tenantId === tenantId && deliverable.taskDepartment.ownerId === user.id) authorized = true;
+    } else if (!authorized) {
+      const task = await requireTask(tenantId, parsed.taskId);
+      authorized = task.mainResponsibleId === user.id || task.createdById === user.id;
+    }
+    if (!authorized) throw new Error("You are not authorized to explain a delay on this task.");
     await explainDelay(tenantId, parsed.taskId, user.id, parsed);
     revalidatePath(`/tasks/${parsed.taskId}`);
   } catch (err) {
@@ -342,8 +406,16 @@ export async function escalateAction(input: z.infer<typeof EscalateSchema>): Pro
 const AcknowledgeEscalationSchema = z.object({ escalationId: z.string().min(1), taskId: z.string().min(1) });
 export async function acknowledgeEscalationAction(input: z.infer<typeof AcknowledgeEscalationSchema>): Promise<ActionState> {
   try {
-    const { tenantId, user } = await requireTaskParticipant();
+    const { tenantId, user, role } = await requireTaskParticipant();
     const parsed = AcknowledgeEscalationSchema.parse(input);
+    // Audit C7 — only the person the escalation was actually raised to (or
+    // Admin) can acknowledge it; TASKS:READ alone let anyone acknowledge
+    // anyone's escalation before this.
+    const escalation = await db.taskEscalation.findUnique({ where: { id: parsed.escalationId } });
+    if (!escalation || escalation.tenantId !== tenantId) throw new Error("Escalation not found.");
+    if (escalation.toUserId !== user.id && !can(role, "USER_MANAGEMENT", "FULL")) {
+      throw new Error("Only the person this was escalated to can acknowledge it.");
+    }
     await acknowledgeEscalation(tenantId, parsed.escalationId, user.id);
     revalidatePath(`/tasks/${parsed.taskId}`);
   } catch (err) {

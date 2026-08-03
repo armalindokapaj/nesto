@@ -178,39 +178,55 @@ export async function updateContractorProfile(publicAccountId: string, data: Rec
   await recomputeStatus(publicAccountId);
 }
 
+// Audit C6 — every remove* below is IDOR-scoped: the delete's `where` clause
+// includes the record's owning publicAccountId (via a nested relation
+// filter), and `deleteMany` + a count check stand in for `delete` precisely
+// because Prisma's `delete()` only accepts unique-identifier where clauses,
+// not a compound "this id AND owned by this account" filter. A caller
+// passing another applicant's record id now matches zero rows instead of
+// deleting someone else's data.
+async function assertOwnedDelete(deletedCount: number) {
+  if (deletedCount !== 1) throw new Error("Record not found.");
+}
+
 export async function addExperience(profileId: string, data: { employer: string; position: string; employmentType?: string; country?: string; city?: string; startDate: Date; endDate?: Date; currentlyWorking?: boolean; description: string }) {
   return db.professionalExperience.create({ data: { profileId, ...data } });
 }
-export async function removeExperience(id: string) {
-  return db.professionalExperience.delete({ where: { id } });
+export async function removeExperience(id: string, publicAccountId: string) {
+  const { count } = await db.professionalExperience.deleteMany({ where: { id, profile: { publicAccountId } } });
+  await assertOwnedDelete(count);
 }
 
 export async function addEducation(profileId: string, data: { institution: string; degree: string; fieldOfStudy: string; country?: string; startDate: Date; graduationDate?: Date; ongoing?: boolean }) {
   return db.professionalEducation.create({ data: { profileId, ...data } });
 }
-export async function removeEducation(id: string) {
-  return db.professionalEducation.delete({ where: { id } });
+export async function removeEducation(id: string, publicAccountId: string) {
+  const { count } = await db.professionalEducation.deleteMany({ where: { id, profile: { publicAccountId } } });
+  await assertOwnedDelete(count);
 }
 
 export async function addCertification(profileId: string, data: { name: string; issuingOrganization: string; certificateNumber?: string; issueDate?: Date; expiryDate?: Date; country?: string; verificationUrl?: string }) {
   return db.professionalCertification.create({ data: { profileId, ...data } });
 }
-export async function removeCertification(id: string) {
-  return db.professionalCertification.delete({ where: { id } });
+export async function removeCertification(id: string, publicAccountId: string) {
+  const { count } = await db.professionalCertification.deleteMany({ where: { id, profile: { publicAccountId } } });
+  await assertOwnedDelete(count);
 }
 
 export async function addSkill(profileId: string, data: { name: string; category: string; level?: string }) {
   return db.professionalSkill.create({ data: { profileId, ...data } });
 }
-export async function removeSkill(id: string) {
-  return db.professionalSkill.delete({ where: { id } });
+export async function removeSkill(id: string, publicAccountId: string) {
+  const { count } = await db.professionalSkill.deleteMany({ where: { id, profile: { publicAccountId } } });
+  await assertOwnedDelete(count);
 }
 
 export async function addContractorContact(profileId: string, data: { name: string; role: string; email?: string; phone?: string }) {
   return db.contractorContact.create({ data: { profileId, ...data } });
 }
-export async function removeContractorContact(id: string) {
-  return db.contractorContact.delete({ where: { id } });
+export async function removeContractorContact(id: string, publicAccountId: string) {
+  const { count } = await db.contractorContact.deleteMany({ where: { id, profile: { publicAccountId } } });
+  await assertOwnedDelete(count);
 }
 
 export async function addPortfolioProject(
@@ -233,8 +249,9 @@ export async function addPortfolioProject(
   await recomputeStatus(publicAccountId);
   return project;
 }
-export async function removePortfolioProject(id: string) {
-  return db.portfolioProject.delete({ where: { id } });
+export async function removePortfolioProject(id: string, publicAccountId: string) {
+  const { count } = await db.portfolioProject.deleteMany({ where: { id, publicAccountId } });
+  await assertOwnedDelete(count);
 }
 
 // A changed upload creates a new revision rather than overwriting — same
@@ -243,6 +260,16 @@ export async function uploadProfileDocument(
   publicAccountId: string,
   data: { category: string; name: string; visibility?: string; issueDate?: Date; expiryDate?: Date; supersedesId?: string }
 ) {
+  // Audit C6 — `supersedesId` is caller-supplied; without this check an
+  // applicant could point it at another account's document and silently
+  // deactivate it via the update below.
+  if (data.supersedesId) {
+    const target = await db.profileDocument.findUnique({ where: { id: data.supersedesId }, select: { publicAccountId: true } });
+    if (!target || target.publicAccountId !== publicAccountId) {
+      throw new Error("Document not found.");
+    }
+  }
+
   const doc = await db.profileDocument.create({
     data: {
       publicAccountId,

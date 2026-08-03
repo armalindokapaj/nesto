@@ -1,5 +1,6 @@
 import { db } from "@/lib/db";
 import { allocateNumber } from "@/server/number-series";
+import { requireTenantProject, requireTenantContractor } from "@/lib/tenant";
 
 export async function listContracts(tenantId: string) {
   return db.contract.findMany({
@@ -29,6 +30,11 @@ export async function createContract(
     endDate?: Date;
   }
 ) {
+  await Promise.all([
+    input.projectId ? requireTenantProject(tenantId, input.projectId) : null,
+    input.contractorId ? requireTenantContractor(tenantId, input.contractorId) : null,
+  ]);
+
   const number = await allocateNumber(tenantId, "CONTRACT");
   return db.contract.create({
     data: {

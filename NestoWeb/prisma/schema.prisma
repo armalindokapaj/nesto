@@ -254,6 +254,7 @@ model Project {
   milestones     ProjectMilestone[]
 
   @@unique([tenantId, code])
+  @@index([tenantId, status])
 }
 
 model ProjectMember {
@@ -348,6 +349,10 @@ model Task {
   reopeningRecords      TaskReopeningRecord[]
 
   @@unique([tenantId, code])
+  @@index([tenantId, status])
+  @@index([tenantId, projectId])
+  @@index([tenantId, dueDate])
+  @@index([mainResponsibleId])
 }
 
 // ---------------------------------------------------------------------------
@@ -468,6 +473,8 @@ model TaskEvent {
   newState      String?
   metadata      String? // JSON-encoded string
   createdAt     DateTime      @default(now())
+
+  @@index([taskId, createdAt])
 }
 
 // CTO-061 — a typed approval action, never a plain comment.
@@ -489,6 +496,9 @@ model TaskApproval {
   delegatedTo   UserIdentity?          @relation("TaskApprovalDelegate", fields: [delegatedToId], references: [id])
   fileId        String?
   createdAt     DateTime               @default(now())
+
+  @@index([taskId])
+  @@index([delegatedToId])
 }
 
 model DepartmentInvolvementRequest {
@@ -526,6 +536,8 @@ model TaskEscalation {
   reason         String
   acknowledgedAt DateTime?
   createdAt      DateTime      @default(now())
+
+  @@index([toUserId])
 }
 
 model TaskDelayExplanation {
@@ -717,6 +729,8 @@ model Notification {
   link      String?
   isRead    Boolean      @default(false)
   createdAt DateTime     @default(now())
+
+  @@index([userId, isRead])
 }
 
 // Per-user, per-event-category channel choice (Section 14 — "each user
@@ -743,6 +757,8 @@ model AuditEvent {
   targetId   String?
   metadata   String?
   createdAt  DateTime @default(now())
+
+  @@index([tenantId, createdAt])
 }
 
 // ---------------------------------------------------------------------------
@@ -780,6 +796,9 @@ model Invoice {
   postedById  String?
 
   ledgerEntries FinancialLedgerEntry[]
+
+  @@index([tenantId, type])
+  @@index([tenantId, status])
 }
 
 model Employee {
@@ -812,6 +831,8 @@ model Employee {
   leaveRequests LeaveRequest[]
   reports       Employee[]     @relation("EmployeeManager")
   documents     DocumentFile[]
+
+  @@index([tenantId, department])
 }
 
 model LeaveRequest {
@@ -833,6 +854,9 @@ model LeaveRequest {
   decidedById String?
   decidedBy   UserIdentity? @relation("LeaveDecidedBy", fields: [decidedById], references: [id])
   updatedAt   DateTime      @updatedAt
+
+  @@index([tenantId, employeeId])
+  @@index([tenantId, status])
 }
 
 model HrAppointment {
@@ -930,6 +954,8 @@ model PurchaseOrder {
   requestedById String
   requestedBy   UserIdentity @relation(fields: [requestedById], references: [id])
   createdAt     DateTime     @default(now())
+
+  @@index([tenantId, status])
 }
 
 // ---------------------------------------------------------------------------
@@ -981,6 +1007,8 @@ model Client {
   projects  Project[]
   documents DocumentFile[]
   tasks     Task[]
+
+  @@index([tenantId, status])
 }
 
 model Contractor {
@@ -1007,6 +1035,8 @@ model Contractor {
 
   contracts   Contract[]
   assignments TaskContractorAssignment[]
+
+  @@index([tenantId, status])
 }
 
 model Contract {
@@ -1028,6 +1058,9 @@ model Contract {
 
   taskLinks       TaskContractLink[]
   taskAssignments TaskContractorAssignment[]
+
+  @@index([tenantId, status])
+  @@index([tenantId, projectId])
 }
 
 model DocumentFile {
@@ -1073,6 +1106,10 @@ model DocumentFile {
   approvedBy       UserIdentity? @relation("DocumentApprover", fields: [approvedById], references: [id])
   taskStageId      String?
   taskDepartmentId String?
+
+  @@index([tenantId, projectId])
+  @@index([tenantId, taskId])
+  @@index([tenantId, clientId])
 }
 
 model Meeting {
@@ -1089,6 +1126,8 @@ model Meeting {
   status      String       @default("PLANNED") // PLANNED | HELD | CANCELLED
   notes       String?
   createdAt   DateTime     @default(now())
+
+  @@index([tenantId, scheduledAt])
 }
 
 model Asset {

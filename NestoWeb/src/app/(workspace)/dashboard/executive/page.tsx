@@ -8,13 +8,15 @@ import { Badge } from "@/components/ui/badge";
 import { ProgressBar } from "@/components/ui/progress-bar";
 import { TrendLineChart } from "@/components/ui/charts/line-chart";
 import { DashboardGreeting } from "@/components/dashboards/dashboard-greeting";
+import { can } from "@/lib/permissions";
 import type { Role } from "@/lib/constants";
 import { formatCurrency } from "@/lib/utils";
 import { getT } from "@/lib/i18n/server";
 
 export default async function ExecutiveDashboardPage() {
   const { tenantId, role } = await getCurrentUser();
-  const data = await getExecutiveDashboardData(tenantId);
+  const canViewFinance = can(role, "FINANCE", "READ");
+  const data = await getExecutiveDashboardData(tenantId, canViewFinance);
   const { t } = await getT();
 
   return (
@@ -23,31 +25,39 @@ export default async function ExecutiveDashboardPage() {
 
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
         <StatTile label={t("dashboards.executive.activeProjects")} value={String(data.activeProjectCount)} icon={FolderKanban} iconColor="#2457C5" iconBg="#E4ECFB" href="/projects" />
-        <StatTile label={t("dashboards.executive.revenue")} value={formatCurrency(data.revenue)} icon={TrendingUp} iconColor="#1A7F4E" iconBg="#E2F4EA" />
+        <StatTile
+          label={t("dashboards.executive.revenue")}
+          value={data.revenue != null ? formatCurrency(data.revenue) : t("projects.restricted")}
+          icon={TrendingUp}
+          iconColor="#1A7F4E"
+          iconBg="#E2F4EA"
+        />
         <StatTile label={t("dashboards.executive.pendingApprovals")} value={String(data.pendingApprovals)} icon={ClipboardCheck} iconColor="#B76E00" iconBg="#FBECD2" href="/inbox" />
         <StatTile label={t("dashboards.executive.openRisks")} value={String(data.risks)} icon={ShieldAlert} iconColor="#C22B3A" iconBg="#FBE4E6" href="/projects?status=AT_RISK" />
       </div>
 
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
-        <Card className="lg:col-span-2">
-          <CardHeader>
-            <CardTitle>{t("dashboards.executive.financialOverview")}</CardTitle>
-          </CardHeader>
-          <CardContent>
-            {data.cashFlowSeries.some((m) => m.actual > 0 || m.budget > 0) ? (
-              <TrendLineChart
-                data={data.cashFlowSeries}
-                series={[
-                  { key: "actual", label: t("dashboards.finance.totalRevenue") },
-                  { key: "budget", label: t("dashboards.finance.totalExpenses") },
-                ]}
-                format="currency"
-              />
-            ) : (
-              <p className="text-sm text-ink-faint py-8 text-center">{t("dashboards.executive.noFinancialData")}</p>
-            )}
-          </CardContent>
-        </Card>
+        {data.cashFlowSeries && (
+          <Card className="lg:col-span-2">
+            <CardHeader>
+              <CardTitle>{t("dashboards.executive.financialOverview")}</CardTitle>
+            </CardHeader>
+            <CardContent>
+              {data.cashFlowSeries.some((m) => m.actual > 0 || m.budget > 0) ? (
+                <TrendLineChart
+                  data={data.cashFlowSeries}
+                  series={[
+                    { key: "actual", label: t("dashboards.finance.totalRevenue") },
+                    { key: "budget", label: t("dashboards.finance.totalExpenses") },
+                  ]}
+                  format="currency"
+                />
+              ) : (
+                <p className="text-sm text-ink-faint py-8 text-center">{t("dashboards.executive.noFinancialData")}</p>
+              )}
+            </CardContent>
+          </Card>
+        )}
 
         <Card>
           <CardHeader>

@@ -3,6 +3,7 @@ import { cache } from "react";
 import { redirect } from "next/navigation";
 import { readSessionCookie } from "@/lib/session";
 import { db } from "@/lib/db";
+import type { Role } from "@/lib/constants";
 
 // Data Access Layer — every Server Component / Server Action / Route Handler
 // that touches tenant data should go through verifySession()/getCurrentUser()
@@ -46,7 +47,11 @@ export const getCurrentUser = cache(async () => {
     user,
     membership,
     tenantId: session.tenantId,
-    role: session.role,
+    // Audit C2 — the JWT's `role` is a 7-day-stale snapshot from login time.
+    // The authoritative role is whatever CompanyMembership says *right now*,
+    // so a demotion/promotion takes effect on the very next request instead
+    // of waiting for the cookie to expire.
+    role: membership.role as Role,
     company: membership.tenant.companies[0] ?? null,
   };
 });

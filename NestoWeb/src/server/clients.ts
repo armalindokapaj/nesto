@@ -1,5 +1,5 @@
 import { db } from "@/lib/db";
-import { assertTenant } from "@/lib/tenant";
+import { assertTenant, requireTenantProject } from "@/lib/tenant";
 
 export async function listClients(tenantId: string) {
   return db.client.findMany({
@@ -30,6 +30,7 @@ export async function createClient(
   input: { name: string; contactName?: string; email?: string; phone?: string; projectId?: string }
 ) {
   const { projectId, ...clientInput } = input;
+  if (projectId) await requireTenantProject(tenantId, projectId);
   return db.client.create({
     data: {
       tenantId,

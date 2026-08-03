@@ -2,6 +2,7 @@
 
 import { z } from "zod";
 import bcrypt from "bcryptjs";
+import { randomInt } from "crypto";
 import { revalidatePath } from "next/cache";
 import { db } from "@/lib/db";
 import { getCurrentUser } from "@/lib/dal";
@@ -22,10 +23,13 @@ export type CreateUserState =
   | { success: true; username: string; temporaryPassword: string }
   | undefined;
 
+// Audit H7 — Math.random() is not a CSPRNG and must never generate secrets.
+// crypto.randomInt() is backed by the OS's cryptographically secure RNG and
+// (unlike a naive `Math.random() * n`) has no modulo bias.
 function generateTemporaryPassword() {
   const chars = "ABCDEFGHJKLMNPQRSTUVWXYZabcdefghjkmnpqrstuvwxyz23456789";
   let out = "";
-  for (let i = 0; i < 12; i++) out += chars[Math.floor(Math.random() * chars.length)];
+  for (let i = 0; i < 12; i++) out += chars[randomInt(chars.length)];
   return out;
 }
 
@@ -51,6 +55,14 @@ export async function createUser(_prevState: CreateUserState, formData: FormData
   }
 
   const { fullName, username, email, department, position, role } = parsed.data;
+
+  // Audit C3 — Admin has the same FULL_ADMIN permission matrix as Owner, but
+  // must never be able to mint another Owner-level account. Only an existing
+  // Owner can create one. Owner transfer/succession is a separate, not-yet-
+  // built formal workflow, not something that should fall out of this form.
+  if (role === "OWNER" && actorRole !== "OWNER") {
+    return { error: "Only the Company Owner can grant Owner-level access." };
+  }
 
   const existing = await db.userIdentity.findFirst({ where: { OR: [{ username }, { email }] } });
   if (existing) {

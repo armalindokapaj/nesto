@@ -1,4 +1,5 @@
 import { db } from "@/lib/db";
+import { requireTenantProject, requireTenantClient, requireTenantTask } from "@/lib/tenant";
 
 export async function listDocuments(tenantId: string) {
   return db.documentFile.findMany({
@@ -28,6 +29,12 @@ export async function createDocument(
   tenantId: string,
   input: { name: string; category?: string; projectId?: string; taskId?: string; clientId?: string; uploadedById: string }
 ) {
+  await Promise.all([
+    input.projectId ? requireTenantProject(tenantId, input.projectId) : null,
+    input.taskId ? requireTenantTask(tenantId, input.taskId) : null,
+    input.clientId ? requireTenantClient(tenantId, input.clientId) : null,
+  ]);
+
   return db.documentFile.create({
     data: {
       tenantId,

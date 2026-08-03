@@ -1,5 +1,5 @@
 import { db } from "@/lib/db";
-import { assertTenant } from "@/lib/tenant";
+import { assertTenant, requireTenantProject } from "@/lib/tenant";
 
 export async function listMeetings(tenantId: string) {
   return db.meeting.findMany({
@@ -13,6 +13,7 @@ export async function createMeeting(
   tenantId: string,
   input: { title: string; scheduledAt: Date; location?: string; projectId?: string; organiserId: string }
 ) {
+  if (input.projectId) await requireTenantProject(tenantId, input.projectId);
   return db.meeting.create({
     data: {
       tenantId,

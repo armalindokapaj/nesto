@@ -6,6 +6,7 @@ import { db } from "@/lib/db";
 import { getCurrentUser } from "@/lib/dal";
 import { can } from "@/lib/permissions";
 import { allocateNumber } from "@/server/number-series";
+import { requireTenantProject } from "@/lib/tenant";
 
 export async function decideDrawingAction(drawingId: string, decision: "APPROVED" | "NEEDS_REVISION") {
   const { tenantId, role } = await getCurrentUser();
@@ -43,6 +44,12 @@ export async function createRfiAction(_prev: CreateRfiState, formData: FormData)
   });
   if (!parsed.success) {
     return { error: parsed.error.issues[0]?.message ?? "Invalid input" };
+  }
+
+  try {
+    await requireTenantProject(tenantId, parsed.data.projectId);
+  } catch {
+    return { error: "Project not found." };
   }
 
   const code = await allocateNumber(tenantId, "RFI");

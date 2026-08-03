@@ -230,8 +230,8 @@ export async function addExperienceAction(_prev: ActionState, formData: FormData
   return undefined;
 }
 export async function removeExperienceAction(id: string) {
-  await getCurrentPublicAccount();
-  await removeExperience(id);
+  const account = await getCurrentPublicAccount();
+  await removeExperience(id, account.id);
   revalidatePath("/apply/onboarding");
 }
 
@@ -254,8 +254,8 @@ export async function addEducationAction(_prev: ActionState, formData: FormData)
   return undefined;
 }
 export async function removeEducationAction(id: string) {
-  await getCurrentPublicAccount();
-  await removeEducation(id);
+  const account = await getCurrentPublicAccount();
+  await removeEducation(id, account.id);
   revalidatePath("/apply/onboarding");
 }
 
@@ -278,8 +278,8 @@ export async function addCertificationAction(_prev: ActionState, formData: FormD
   return undefined;
 }
 export async function removeCertificationAction(id: string) {
-  await getCurrentPublicAccount();
-  await removeCertification(id);
+  const account = await getCurrentPublicAccount();
+  await removeCertification(id, account.id);
   revalidatePath("/apply/onboarding");
 }
 
@@ -294,8 +294,8 @@ export async function addSkillAction(_prev: ActionState, formData: FormData): Pr
   return undefined;
 }
 export async function removeSkillAction(id: string) {
-  await getCurrentPublicAccount();
-  await removeSkill(id);
+  const account = await getCurrentPublicAccount();
+  await removeSkill(id, account.id);
   revalidatePath("/apply/onboarding");
 }
 
@@ -310,8 +310,8 @@ export async function addContractorContactAction(_prev: ActionState, formData: F
   return undefined;
 }
 export async function removeContractorContactAction(id: string) {
-  await getCurrentPublicAccount();
-  await removeContractorContact(id);
+  const account = await getCurrentPublicAccount();
+  await removeContractorContact(id, account.id);
   revalidatePath("/apply/onboarding");
 }
 
@@ -339,8 +339,8 @@ export async function addPortfolioProjectAction(_prev: ActionState, formData: Fo
   return undefined;
 }
 export async function removePortfolioProjectAction(id: string) {
-  await getCurrentPublicAccount();
-  await removePortfolioProject(id);
+  const account = await getCurrentPublicAccount();
+  await removePortfolioProject(id, account.id);
   revalidatePath("/apply/onboarding");
 }
 

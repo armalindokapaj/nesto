@@ -1,5 +1,5 @@
 import { db } from "@/lib/db";
-import { assertTenant } from "@/lib/tenant";
+import { assertTenant, requireTenantProject, requireTenantClient, requireTenantMember } from "@/lib/tenant";
 import { allocateNumber } from "@/server/number-series";
 
 export async function listProjects(tenantId: string) {
@@ -91,6 +91,14 @@ export async function createTask(
     departmentRole?: string;
   }
 ) {
+  // Audit C5 — projectId/clientId/mainResponsibleId are client-supplied;
+  // confirm each actually belongs to this tenant before linking it in.
+  await Promise.all([
+    input.projectId ? requireTenantProject(tenantId, input.projectId) : null,
+    input.clientId ? requireTenantClient(tenantId, input.clientId) : null,
+    input.mainResponsibleId ? requireTenantMember(tenantId, input.mainResponsibleId) : null,
+  ]);
+
   const code = await allocateNumber(tenantId, "TASK");
   return db.task.create({
     data: {

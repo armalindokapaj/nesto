@@ -1,6 +1,6 @@
 import { db } from "@/lib/db";
 import { allocateNumber } from "@/server/number-series";
-import { assertTenant } from "@/lib/tenant";
+import { assertTenant, requireTenantProject, requireTenantSupplier } from "@/lib/tenant";
 
 export async function getProcurementDashboardData(tenantId: string) {
   const [suppliers, purchaseOrders] = await Promise.all([
@@ -53,6 +53,11 @@ export async function createPurchaseOrder(
   requestedById: string,
   input: { supplierId: string; projectId?: string; description: string; amount: number; currency?: string }
 ) {
+  await Promise.all([
+    requireTenantSupplier(tenantId, input.supplierId),
+    input.projectId ? requireTenantProject(tenantId, input.projectId) : null,
+  ]);
+
   const number = await allocateNumber(tenantId, "PURCHASE_ORDER");
   return db.purchaseOrder.create({ data: { tenantId, number, requestedById, ...input } });
 }
