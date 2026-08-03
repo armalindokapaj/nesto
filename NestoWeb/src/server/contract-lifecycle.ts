@@ -2,6 +2,7 @@ import "server-only";
 import { db } from "@/lib/db";
 import { assertTenant, requireTenantContract } from "@/lib/tenant";
 import { emitDomainEvent, dispatchDomainEvents } from "@/lib/domain-events";
+import { buildActorSnapshot } from "@/lib/actor-snapshot";
 
 // Audit 2 §7 "Controlled Record Lifecycles" — Contract is one of the five
 // named state machines. This file is the ONLY place Contract.status is ever
@@ -47,14 +48,26 @@ export async function approveContract(tenantId: string, actorId: string, contrac
       data: { tenantId, actorId, action: "CONTRACT_APPROVED", targetType: "Contract", targetId: contractId },
     });
 
-    return emitDomainEvent(tx, tenantId, "ContractApproved", {
-      contractId,
-      projectId: contract.projectId,
-      contractorId: contract.contractorId,
-      number: contract.number,
-      value: contract.value,
-      currency: contract.currency,
-    });
+    return emitDomainEvent(
+      tx,
+      tenantId,
+      "ContractApproved",
+      {
+        contractId,
+        projectId: contract.projectId,
+        contractorId: contract.contractorId,
+        number: contract.number,
+        value: contract.value,
+        currency: contract.currency,
+      },
+      {
+        actorUserId: actorId,
+        actorSnapshot: await buildActorSnapshot(tx, tenantId, actorId),
+        sourceModule: "Contract",
+        sourceRecordId: contractId,
+        projectId: contract.projectId ?? undefined,
+      }
+    );
   });
 
   await dispatchDomainEvents([eventId]);

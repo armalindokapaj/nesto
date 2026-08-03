@@ -87,6 +87,7 @@ model Tenant {
   salaryRecords     SalaryRecord[]
   companyModules    CompanyModule[]
   employeeTrainings EmployeeTraining[]
+  documentApprovals DocumentApproval[]
 }
 
 model Company {
@@ -198,6 +199,9 @@ model UserIdentity {
 
   // --- Training Module -----------------------------------------------------
   trainingsAssigned EmployeeTraining[] @relation("TrainingAssignedBy")
+
+  // --- PRD_18 Document Passport / Blue Ticket -------------------------------
+  documentApprovalsGiven DocumentApproval[]
 }
 
 // Links an identity to a tenant workspace with a role, department and access mode.
@@ -791,7 +795,20 @@ model DomainEvent {
   createdAt   DateTime  @default(now())
   processedAt DateTime?
 
+  // PRD_18 §11 context envelope — additive, nullable so pre-existing rows
+  // and any future caller that omits context still work.
+  correlationId   String? // links a business process across events/retries; defaults to this event's own id when root
+  causationId     String? // the event that caused this one, if any
+  actorUserId     String?
+  actorSnapshot   String? // JSON ActorSnapshot at emit time
+  sourceModule    String?
+  sourceRecordId  String?
+  owningCompanyId String?
+  projectId       String?
+  confidentiality String?
+
   @@index([tenantId, status])
+  @@index([correlationId])
 }
 
 // ---------------------------------------------------------------------------
@@ -1222,9 +1239,47 @@ model DocumentFile {
   taskStageId      String?
   taskDepartmentId String?
 
+  // PRD_18 §12 Document Passport — the actual file. Nullable so the two
+  // placeholder-document call sites (project/task creation "expected
+  // document" checklist entries, no upload yet) keep working unmodified.
+  fileData     Bytes?
+  fileMimeType String?
+  fileSize     Int?
+  checksum     String? // SHA-256 hex of fileData
+  // Mandatory (enforced at the action layer) when supersedesId is set —
+  // "what changed and why" per §13's revision-submission rule.
+  revisionComment String?
+  // JSON ActorSnapshot (src/lib/actor-snapshot.ts) frozen at upload time —
+  // survives the uploader's later role/company changes, per §12 "Immutable
+  // origin".
+  uploaderSnapshot String?
+
+  approvals DocumentApproval[]
+
   @@index([tenantId, projectId])
   @@index([tenantId, taskId])
   @@index([tenantId, clientId])
+}
+
+// PRD_18 §13 Blue Approval Ticket — an append-only decision ledger bound to
+// one exact DocumentFile revision (not a mutable "approved" flag), so a
+// REQUEST_CHANGES round can precede the eventual APPROVE without losing
+// either decision's history.
+model DocumentApproval {
+  id             String       @id @default(cuid())
+  tenantId       String
+  tenant         Tenant       @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  documentFileId String
+  documentFile   DocumentFile @relation(fields: [documentFileId], references: [id], onDelete: Cascade)
+  approverId     String
+  approver       UserIdentity @relation(fields: [approverId], references: [id])
+  // JSON ActorSnapshot at decision time.
+  approverSnapshot String
+  decision         String // APPROVE | REQUEST_CHANGES | REJECT
+  comment          String?
+  createdAt        DateTime @default(now())
+
+  @@index([tenantId, documentFileId])
 }
 
 model Meeting {

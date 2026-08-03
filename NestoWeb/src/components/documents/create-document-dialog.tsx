@@ -71,6 +71,16 @@ export function CreateDocumentDialog({ projects, projectId, clientId, taskId, tr
                 <Input id="category" name="category" placeholder="General" />
               )}
             </div>
+            <div className="space-y-1.5">
+              <Label htmlFor="file">{t("documents.file")}</Label>
+              <input
+                id="file"
+                name="file"
+                type="file"
+                required
+                className="block w-full text-sm text-ink-muted file:mr-3 file:rounded-lg file:border-0 file:bg-surface-sunken file:px-3 file:py-1.5 file:text-xs file:font-medium file:text-ink hover:file:bg-border"
+              />
+            </div>
             {projects && (
               <div className="space-y-1.5">
                 <Label htmlFor="projectId">{t("common.project")}</Label>

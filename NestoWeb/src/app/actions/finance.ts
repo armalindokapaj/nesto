@@ -5,6 +5,7 @@ import { db } from "@/lib/db";
 import { getCurrentUser } from "@/lib/dal";
 import { can } from "@/lib/permissions";
 import { emitDomainEvent, dispatchDomainEvents } from "@/lib/domain-events";
+import { buildActorSnapshot } from "@/lib/actor-snapshot";
 
 // PRD_2 §8 — posting is deliberate, atomic and one-way. Once an invoice is
 // POSTED it cannot be edited; corrections go through reverseInvoiceAction,
@@ -58,12 +59,23 @@ export async function postInvoiceAction(invoiceId: string) {
     // completion state from the sum of its posted payments, never from a
     // direct status write. Other invoice types have no reaction registered.
     if (invoice.type === "PAYMENT" && invoice.contractId) {
-      return emitDomainEvent(tx, tenantId, "PaymentRecorded", {
-        invoiceId,
-        contractId: invoice.contractId,
-        amount: invoice.amount,
-        currency: invoice.currency,
-      });
+      return emitDomainEvent(
+        tx,
+        tenantId,
+        "PaymentRecorded",
+        {
+          invoiceId,
+          contractId: invoice.contractId,
+          amount: invoice.amount,
+          currency: invoice.currency,
+        },
+        {
+          actorUserId: user.id,
+          actorSnapshot: await buildActorSnapshot(tx, tenantId, user.id),
+          sourceModule: "Finance",
+          sourceRecordId: invoiceId,
+        }
+      );
     }
     return null;
   });

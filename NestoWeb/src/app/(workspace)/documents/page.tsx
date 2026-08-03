@@ -1,6 +1,6 @@
 import { redirect } from "next/navigation";
 import Link from "next/link";
-import { X } from "lucide-react";
+import { X, BadgeCheck } from "lucide-react";
 import { getCurrentUser } from "@/lib/dal";
 import { can } from "@/lib/permissions";
 import { listDocuments } from "@/server/documents";
@@ -61,7 +61,12 @@ export default async function DocumentsPage({ searchParams }: { searchParams: Pr
             <TBody>
               {documents.map((doc) => (
                 <TRow key={doc.id}>
-                  <TD className="font-medium text-ink">{doc.name}</TD>
+                  <TD className="font-medium text-ink">
+                    <Link href={`/documents/${doc.id}`} className="inline-flex items-center gap-1.5 hover:text-gold hover:underline">
+                      {doc.name}
+                      {doc.approvedAt && <BadgeCheck size={13} className="text-info" aria-label={t("documents.blueTicket")} />}
+                    </Link>
+                  </TD>
                   <TD className="text-ink-muted">{doc.category}</TD>
                   <TD className="text-ink-muted">
                     {doc.project ? (

@@ -20,6 +20,7 @@ export const RESOURCES = [
   "CLIENTS",
   "HSE_REPORTS",
   "PROCUREMENT",
+  "DOCUMENTS",
 ] as const;
 export type Resource = (typeof RESOURCES)[number];
 
@@ -42,6 +43,7 @@ const FULL_ADMIN: Record<Resource, Level> = {
   CLIENTS: "FULL",
   HSE_REPORTS: "FULL",
   PROCUREMENT: "FULL",
+  DOCUMENTS: "FULL",
 };
 
 export const PERMISSION_MATRIX: Matrix = {
@@ -60,6 +62,8 @@ export const PERMISSION_MATRIX: Matrix = {
     CLIENTS: "FULL",
     HSE_REPORTS: "READ",
     PROCUREMENT: "FULL",
+    // CEO carries approval authority (Blue Ticket §13) alongside OWNER/ADMIN.
+    DOCUMENTS: "FULL",
   },
   PM: {
     COMPANY_SETTINGS: "NONE",
@@ -75,6 +79,7 @@ export const PERMISSION_MATRIX: Matrix = {
     HSE_REPORTS: "WRITE",
     // PMs request materials/POs for their own projects.
     PROCUREMENT: "WRITE",
+    DOCUMENTS: "WRITE",
   },
   ARCHITECT: {
     COMPANY_SETTINGS: "NONE",
@@ -95,6 +100,8 @@ export const PERMISSION_MATRIX: Matrix = {
     // clash needing a drawing fix).
     HSE_REPORTS: "WRITE",
     PROCUREMENT: "NONE",
+    // Architects originate and revise drawings — the primary uploader role.
+    DOCUMENTS: "WRITE",
   },
   ENGINEER: {
     COMPANY_SETTINGS: "NONE",
@@ -109,6 +116,7 @@ export const PERMISSION_MATRIX: Matrix = {
     CLIENTS: "WRITE",
     HSE_REPORTS: "WRITE",
     PROCUREMENT: "NONE",
+    DOCUMENTS: "WRITE",
   },
   HR: {
     COMPANY_SETTINGS: "NONE",
@@ -123,6 +131,7 @@ export const PERMISSION_MATRIX: Matrix = {
     CLIENTS: "NONE",
     HSE_REPORTS: "NONE",
     PROCUREMENT: "NONE",
+    DOCUMENTS: "WRITE",
   },
   FINANCE: {
     COMPANY_SETTINGS: "NONE",
@@ -142,6 +151,7 @@ export const PERMISSION_MATRIX: Matrix = {
     // Finance needs visibility into committed spend for budgeting, without
     // being able to create/approve purchase orders themselves.
     PROCUREMENT: "READ",
+    DOCUMENTS: "WRITE",
   },
   LEGAL: {
     COMPANY_SETTINGS: "NONE",
@@ -159,6 +169,7 @@ export const PERMISSION_MATRIX: Matrix = {
     CLIENTS: "WRITE",
     HSE_REPORTS: "NONE",
     PROCUREMENT: "NONE",
+    DOCUMENTS: "WRITE",
   },
   SALES: {
     COMPANY_SETTINGS: "NONE",
@@ -176,6 +187,7 @@ export const PERMISSION_MATRIX: Matrix = {
     CLIENTS: "FULL",
     HSE_REPORTS: "NONE",
     PROCUREMENT: "NONE",
+    DOCUMENTS: "WRITE",
   },
   PROCUREMENT: {
     COMPANY_SETTINGS: "NONE",
@@ -195,6 +207,7 @@ export const PERMISSION_MATRIX: Matrix = {
     // Procurement owns its own department, mirroring HR/Finance's own FULL
     // grant on their respective resource.
     PROCUREMENT: "FULL",
+    DOCUMENTS: "WRITE",
   },
   STOCK: {
     COMPANY_SETTINGS: "NONE",
@@ -211,6 +224,7 @@ export const PERMISSION_MATRIX: Matrix = {
     // Stock/quantity management coordinates materials receiving directly
     // with Procurement's purchase orders.
     PROCUREMENT: "WRITE",
+    DOCUMENTS: "READ",
   },
   QAQC: {
     COMPANY_SETTINGS: "NONE",
@@ -226,6 +240,7 @@ export const PERMISSION_MATRIX: Matrix = {
     // Quality and safety overlap on site — QAQC can co-manage findings.
     HSE_REPORTS: "WRITE",
     PROCUREMENT: "NONE",
+    DOCUMENTS: "WRITE",
   },
   HSE: {
     COMPANY_SETTINGS: "NONE",
@@ -241,6 +256,7 @@ export const PERMISSION_MATRIX: Matrix = {
     // HSE owns this module — files findings and tracks them through to fixed.
     HSE_REPORTS: "FULL",
     PROCUREMENT: "NONE",
+    DOCUMENTS: "WRITE",
   },
   // PRD_4 CTO-100/§14 — a contractor gets task-scoped access to their own
   // TaskContractorAssignment work packages only (see getContractorWorkPackages
@@ -259,6 +275,7 @@ export const PERMISSION_MATRIX: Matrix = {
     CLIENTS: "NONE",
     HSE_REPORTS: "NONE",
     PROCUREMENT: "NONE",
+    DOCUMENTS: "READ",
   },
   CLIENT: {
     COMPANY_SETTINGS: "NONE",
@@ -273,6 +290,7 @@ export const PERMISSION_MATRIX: Matrix = {
     CLIENTS: "NONE",
     HSE_REPORTS: "NONE",
     PROCUREMENT: "NONE",
+    DOCUMENTS: "READ",
   },
   VIEWER: {
     COMPANY_SETTINGS: "NONE",
@@ -287,6 +305,7 @@ export const PERMISSION_MATRIX: Matrix = {
     CLIENTS: "NONE",
     HSE_REPORTS: "NONE",
     PROCUREMENT: "NONE",
+    DOCUMENTS: "READ",
   },
 };
 
