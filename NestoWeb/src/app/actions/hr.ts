@@ -12,14 +12,41 @@ const CreateEmployeeSchema = z.object({
   position: z.string().min(1),
   department: z.string().min(1),
   hireDate: z.coerce.date(),
+  phone: z.string().optional(),
+  birthday: z.coerce.date().optional(),
+  photoDataUrl: z.string().optional(),
 });
+
+// Matches PhotoUploadForm's own cap (src/components/hr/photo-upload-form.tsx)
+// — same base64-data-URL convention, same limit, so a photo picked at
+// creation time behaves identically to one changed later from the profile.
+const MAX_PHOTO_BYTES = 700_000;
+
+// Documents attached at creation time are metadata only — name + category +
+// visibility, no file bytes — matching every other "document" feature in
+// this app (src/components/documents/create-document-dialog.tsx and the
+// Employee model's own doc comment both confirm this app has no object
+// storage anywhere). Encoded as a JSON array in one hidden field since
+// FormData has no native repeatable-group support and the employee doesn't
+// exist yet to attach DocumentFile rows to one at a time.
+const CreateEmployeeDocumentSchema = z.object({
+  name: z.string().min(1),
+  category: z.string().min(1),
+  visibility: z.enum(["COMPANY", "PRIVATE_HR"]),
+});
+const CreateEmployeeDocumentsSchema = z.array(CreateEmployeeDocumentSchema).max(20);
 
 export type CreateEmployeeState = { error: string } | undefined;
 
 export async function createEmployeeAction(_prev: CreateEmployeeState, formData: FormData): Promise<CreateEmployeeState> {
-  const { tenantId, role } = await getCurrentUser();
+  const { tenantId, role, user } = await getCurrentUser();
   if (!can(role, "HR", "FULL")) {
     return { error: "You do not have permission to add employees." };
+  }
+
+  const photoDataUrl = formData.get("photoDataUrl");
+  if (typeof photoDataUrl === "string" && photoDataUrl.length > MAX_PHOTO_BYTES) {
+    return { error: "Photo is too large." };
   }
 
   const parsed = CreateEmployeeSchema.safeParse({
@@ -27,14 +54,49 @@ export async function createEmployeeAction(_prev: CreateEmployeeState, formData:
     position: formData.get("position"),
     department: formData.get("department"),
     hireDate: formData.get("hireDate"),
+    phone: formData.get("phone") || undefined,
+    birthday: formData.get("birthday") || undefined,
+    photoDataUrl: photoDataUrl || undefined,
   });
   if (!parsed.success) {
     return { error: parsed.error.issues[0]?.message ?? "Invalid input" };
   }
 
-  await db.employee.create({ data: { tenantId, ...parsed.data } });
+  const documentsRaw = formData.get("documents");
+  let documents: z.infer<typeof CreateEmployeeDocumentsSchema> = [];
+  if (typeof documentsRaw === "string" && documentsRaw.length > 0) {
+    let parsedJson: unknown;
+    try {
+      parsedJson = JSON.parse(documentsRaw);
+    } catch {
+      return { error: "Invalid document data." };
+    }
+    const parsedDocs = CreateEmployeeDocumentsSchema.safeParse(parsedJson);
+    if (!parsedDocs.success) {
+      return { error: "Invalid document data." };
+    }
+    documents = parsedDocs.data;
+  }
+
+  await db.$transaction(async (tx) => {
+    const employee = await tx.employee.create({ data: { tenantId, ...parsed.data } });
+    if (documents.length > 0) {
+      await tx.documentFile.createMany({
+        data: documents.map((d) => ({
+          tenantId,
+          employeeId: employee.id,
+          name: d.name,
+          category: d.category,
+          visibility: d.visibility,
+          uploadedById: user.id,
+        })),
+      });
+    }
+  });
+
   revalidatePath("/dashboard/hr/employees");
   revalidatePath("/dashboard/hr");
+  revalidatePath("/employees");
   return undefined;
 }
 

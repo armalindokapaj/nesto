@@ -22,6 +22,16 @@ export function formatCurrency(value: number, currency = "EUR") {
   }).format(value);
 }
 
+// Salary-specific format: EUR shows 2 decimals with a symbol prefix
+// (€1,500.00), ALL shows no decimals with a suffix (73,000 ALL) — per the
+// exact display spec for Salary History, distinct from formatCurrency's
+// de-DE style used elsewhere (invoices, budgets) to avoid regressing those.
+export function formatSalaryAmount(value: number, currency: "EUR" | "ALL") {
+  const digits = currency === "EUR" ? 2 : 0;
+  const n = value.toLocaleString("en-US", { minimumFractionDigits: digits, maximumFractionDigits: digits });
+  return currency === "EUR" ? `€${n}` : `${n} ALL`;
+}
+
 export function formatDate(value: Date | string, opts?: Intl.DateTimeFormatOptions) {
   const date = typeof value === "string" ? new Date(value) : value;
   return new Intl.DateTimeFormat("en-GB", {

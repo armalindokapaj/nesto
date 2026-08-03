@@ -186,7 +186,10 @@ export const PERMISSION_MATRIX: Matrix = {
     HR: "NONE",
     CONTRACTS: "NONE",
     AUDIT_LOGS: "NONE",
-    COMPANY_NETWORK: "NONE",
+    // Contractors now live in Procurement's own sidebar (subcontractor
+    // sourcing/onboarding is a procurement responsibility) — WRITE so they
+    // can actually create/edit records, not just view them.
+    COMPANY_NETWORK: "WRITE",
     CLIENTS: "NONE",
     HSE_REPORTS: "NONE",
     // Procurement owns its own department, mirroring HR/Finance's own FULL

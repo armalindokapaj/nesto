@@ -2,12 +2,24 @@
 
 import { useEffect, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
-import { Search, Lock, FolderKanban, CheckSquare, FileText } from "lucide-react";
+import { Search, Lock, FolderKanban, CheckSquare, FileText, Contact, Handshake, UserCog, ScrollText, Truck, ShieldAlert, BookText } from "lucide-react";
 import type { SearchResult } from "@/server/search";
 import { cn } from "@/lib/utils";
 import { useI18n } from "@/lib/i18n/locale-provider";
 
-const ICON = { project: FolderKanban, task: CheckSquare, invoice: FileText } as const;
+const ICON = {
+  project: FolderKanban,
+  task: CheckSquare,
+  invoice: FileText,
+  employee: Contact,
+  client: Handshake,
+  contractor: UserCog,
+  contract: ScrollText,
+  supplier: Truck,
+  purchaseOrder: Truck,
+  hseReport: ShieldAlert,
+  document: BookText,
+} as const;
 
 export function GlobalSearch() {
   const { t } = useI18n();

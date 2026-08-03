@@ -83,6 +83,10 @@ model Tenant {
   // --- PRD_9 Personal Calendar / Leave / Reminders -----------------------
   agendaEvents      AgendaEvent[]
   projectMilestones ProjectMilestone[]
+
+  salaryRecords     SalaryRecord[]
+  companyModules    CompanyModule[]
+  employeeTrainings EmployeeTraining[]
 }
 
 model Company {
@@ -187,6 +191,13 @@ model UserIdentity {
   createdMilestones    ProjectMilestone[]
   leaveRequestsCreated LeaveRequest[]       @relation("LeaveCreatedBy")
   leaveRequestsDecided LeaveRequest[]       @relation("LeaveDecidedBy")
+
+  // --- Salary History ----------------------------------------------------
+  salaryRecordsCreated SalaryRecord[] @relation("SalaryRecordCreatedBy")
+  salaryRecordsUpdated SalaryRecord[] @relation("SalaryRecordUpdatedBy")
+
+  // --- Training Module -----------------------------------------------------
+  trainingsAssigned EmployeeTraining[] @relation("TrainingAssignedBy")
 }
 
 // Links an identity to a tenant workspace with a role, department and access mode.
@@ -857,10 +868,81 @@ model Employee {
   manager      Employee?     @relation("EmployeeManager", fields: [managerId], references: [id])
 
   leaveRequests LeaveRequest[]
-  reports       Employee[]     @relation("EmployeeManager")
+  reports       Employee[]         @relation("EmployeeManager")
   documents     DocumentFile[]
+  // Salary History — see SalaryRecord below; access is gated to HR/Finance/
+  // Admin/Owner via canViewSalary() in src/server/employee-profile.ts. Not
+  // even the employee themselves sees this (unlike Work Contract/CV).
+  salaryRecords SalaryRecord[]
+  trainings     EmployeeTraining[]
 
   @@index([tenantId, department])
+}
+
+// Time-boxed salary history — every change creates a new record; past
+// records are never overwritten, only superseded (status flips CURRENT ->
+// PREVIOUS and effectiveEndDate is set). HR is the single source of truth;
+// Finance reads the CURRENT record directly for payroll/cost/forecast
+// calculations rather than maintaining its own duplicate.
+model SalaryRecord {
+  id                 String        @id @default(cuid())
+  tenantId           String
+  tenant             Tenant        @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  employeeId         String
+  employee           Employee      @relation(fields: [employeeId], references: [id], onDelete: Cascade)
+  effectiveStartDate DateTime
+  effectiveEndDate   DateTime?
+  currency           String        @default("EUR") // EUR | ALL
+  grossSalary        Float
+  netSalary          Float
+  paymentFrequency   String        @default("MONTHLY") // MONTHLY | BIWEEKLY | WEEKLY | ANNUAL
+  status             String        @default("CURRENT") // CURRENT | PREVIOUS
+  notes              String?
+  createdById        String
+  createdBy          UserIdentity  @relation("SalaryRecordCreatedBy", fields: [createdById], references: [id])
+  updatedById        String?
+  updatedBy          UserIdentity? @relation("SalaryRecordUpdatedBy", fields: [updatedById], references: [id])
+  createdAt          DateTime      @default(now())
+  updatedAt          DateTime      @updatedAt
+
+  @@index([tenantId, employeeId])
+  @@index([tenantId, employeeId, status])
+}
+
+// Per-company module registry — absence of a row means enabled (so
+// existing tenants keep every feature they already had); only an explicit
+// disabled row hides a module's nav items via visibleNavSections().
+model CompanyModule {
+  id        String   @id @default(cuid())
+  tenantId  String
+  tenant    Tenant   @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  moduleKey String
+  enabled   Boolean  @default(true)
+  updatedAt DateTime @updatedAt
+
+  @@unique([tenantId, moduleKey])
+}
+
+// Employee-facing training records — HR assigns, each employee sees only
+// their own (self-or-HR gate, mirrors canViewWorkContract).
+model EmployeeTraining {
+  id            String       @id @default(cuid())
+  tenantId      String
+  tenant        Tenant       @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  employeeId    String
+  employee      Employee     @relation(fields: [employeeId], references: [id], onDelete: Cascade)
+  name          String
+  provider      String?
+  status        String       @default("ASSIGNED") // ASSIGNED | IN_PROGRESS | COMPLETED | EXPIRED
+  assignedById  String
+  assignedBy    UserIdentity @relation("TrainingAssignedBy", fields: [assignedById], references: [id])
+  dueDate       DateTime?
+  completedDate DateTime?
+  expiryDate    DateTime?
+  notes         String?
+  createdAt     DateTime     @default(now())
+
+  @@index([tenantId, employeeId])
 }
 
 model LeaveRequest {

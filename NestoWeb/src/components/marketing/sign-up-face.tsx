@@ -1,16 +1,22 @@
 "use client";
 
-import Link from "next/link";
 import { ArrowLeft, Briefcase, HardHat } from "lucide-react";
 import { NestoMark } from "@/components/branding/NestoLogo";
 import { useI18n } from "@/lib/i18n/locale-provider";
+import type { PublicAccountType } from "@/lib/constants";
 
-// Back face of the landing-page auth card. Deep-links straight into the
-// existing /apply registration flow (src/components/apply/apply-entry.tsx)
-// with the account type pre-selected via ?type=, instead of re-showing the
-// same Professional/Contractor choice a second time on that page. Sized to
-// match sign-in-face.tsx's compact 350x480 proportions.
-export function SignUpFace({ onBack }: { onBack: () => void }) {
+// Inner-front face of the landing-page auth card's signup area (nested
+// inside the outer card's back — see auth-card.tsx). Choosing Professional
+// or Contractor flips the INNER pair to reveal the registration form for
+// that type, in place — never a page navigation. "Back to company sign in"
+// flips the OUTER pair back to the sign-in face.
+export function SignUpFace({
+  onSelectType,
+  onBack,
+}: {
+  onSelectType: (type: PublicAccountType) => void;
+  onBack: () => void;
+}) {
   const { t } = useI18n();
 
   return (
@@ -23,8 +29,9 @@ export function SignUpFace({ onBack }: { onBack: () => void }) {
       </div>
 
       <div className="flex flex-1 flex-col justify-center gap-2.5 px-7">
-        <Link
-          href="/apply?type=professional"
+        <button
+          type="button"
+          onClick={() => onSelectType("PROFESSIONAL")}
           className="flex items-start gap-2.5 rounded-xl border border-border bg-surface p-3 text-left transition-colors hover:border-gold"
         >
           <Briefcase size={18} className="mt-0.5 shrink-0 text-gold" />
@@ -32,10 +39,11 @@ export function SignUpFace({ onBack }: { onBack: () => void }) {
             <span className="block font-serif text-sm text-ink">{t("apply.professionalCardTitle")}</span>
             <span className="mt-0.5 block text-xs leading-snug text-ink-muted">{t("apply.professionalCardBody")}</span>
           </span>
-        </Link>
+        </button>
 
-        <Link
-          href="/apply?type=contractor"
+        <button
+          type="button"
+          onClick={() => onSelectType("CONTRACTOR")}
           className="flex items-start gap-2.5 rounded-xl border border-border bg-surface p-3 text-left transition-colors hover:border-gold"
         >
           <HardHat size={18} className="mt-0.5 shrink-0 text-gold" />
@@ -43,7 +51,7 @@ export function SignUpFace({ onBack }: { onBack: () => void }) {
             <span className="block font-serif text-sm text-ink">{t("apply.contractorCardTitle")}</span>
             <span className="mt-0.5 block text-xs leading-snug text-ink-muted">{t("apply.contractorCardBody")}</span>
           </span>
-        </Link>
+        </button>
       </div>
 
       <div className="border-t border-border px-7 py-3 text-center">

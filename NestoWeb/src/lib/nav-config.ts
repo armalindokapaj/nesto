@@ -41,6 +41,7 @@ import {
 } from "lucide-react";
 import { can, DASHBOARD_BY_ROLE, type Resource, type Level } from "@/lib/permissions";
 import type { Role } from "@/lib/constants";
+import type { ModuleKey } from "@/lib/modules";
 
 // `labelKey`/`titleKey` are dot-paths into the i18n dictionary (see
 // src/lib/i18n/messages/*.json under the "nav" namespace) — resolved at
@@ -52,7 +53,7 @@ import type { Role } from "@/lib/constants";
 // link a role would immediately get redirected away from. Items with no
 // `resource` are universally reachable (own dashboard home, Projects, Work
 // Inbox, Account, Help — none of these gate by role).
-export type NavItem = { labelKey: string; href: string; icon: LucideIcon; resource?: Resource; level?: Level };
+export type NavItem = { labelKey: string; href: string; icon: LucideIcon; resource?: Resource; level?: Level; moduleKey?: ModuleKey };
 export type NavSection = { titleKey?: string; items: NavItem[] };
 
 // Fixed, role-specific sidebar sections — DAS-001 (no widget/nav rearranging
@@ -69,23 +70,23 @@ export const NAV_SECTIONS: Record<string, NavSection[]> = {
       titleKey: "nav.operations",
       items: [
         { labelKey: "nav.projects", href: "/projects", icon: FolderKanban },
-        { labelKey: "nav.tasks", href: "/tasks", icon: CheckSquare, resource: "TASKS" },
-        { labelKey: "nav.taskOrchestration", href: "/tasks/orchestration", icon: Workflow, resource: "TASKS" },
-        { labelKey: "nav.contracts", href: "/contracts", icon: FileText, resource: "CONTRACTS" },
-        { labelKey: "nav.documents", href: "/documents", icon: BookText, resource: "PROJECTS" },
-        { labelKey: "nav.meetings", href: "/meetings", icon: CalendarDays, resource: "PROJECTS" },
-        { labelKey: "nav.hseReports", href: "/hse-reports", icon: ShieldAlert, resource: "HSE_REPORTS" },
+        { labelKey: "nav.tasks", href: "/tasks", icon: CheckSquare, resource: "TASKS", moduleKey: "TASKS" },
+        { labelKey: "nav.taskOrchestration", href: "/tasks/orchestration", icon: Workflow, resource: "TASKS", moduleKey: "TASKS" },
+        { labelKey: "nav.contracts", href: "/contracts", icon: FileText, resource: "CONTRACTS", moduleKey: "CONTRACTS" },
+        { labelKey: "nav.documents", href: "/documents", icon: BookText, resource: "PROJECTS", moduleKey: "PROJECTS" },
+        { labelKey: "nav.meetings", href: "/meetings", icon: CalendarDays, resource: "PROJECTS", moduleKey: "PROJECTS" },
+        { labelKey: "nav.hseReports", href: "/hse-reports", icon: ShieldAlert, resource: "HSE_REPORTS", moduleKey: "HSE_REPORTS" },
       ],
     },
     {
       titleKey: "nav.business",
       items: [
-        { labelKey: "nav.clients", href: "/clients", icon: Handshake, resource: "CLIENTS" },
-        { labelKey: "nav.finance", href: "/dashboard/finance", icon: Wallet, resource: "FINANCE" },
-        { labelKey: "nav.hr", href: "/dashboard/hr", icon: Users, resource: "HR" },
-        { labelKey: "nav.procurement", href: "/dashboard/procurement", icon: Truck, resource: "PROCUREMENT" },
-        { labelKey: "nav.contractors", href: "/contractors", icon: UserCog, resource: "COMPANY_NETWORK" },
-        { labelKey: "nav.reports", href: "/reports", icon: BarChart3, resource: "PROJECTS" },
+        { labelKey: "nav.clients", href: "/clients", icon: Handshake, resource: "CLIENTS", moduleKey: "CLIENTS" },
+        { labelKey: "nav.finance", href: "/dashboard/finance", icon: Wallet, resource: "FINANCE", moduleKey: "FINANCE" },
+        { labelKey: "nav.hr", href: "/dashboard/hr", icon: Users, resource: "HR", moduleKey: "HR" },
+        { labelKey: "nav.procurement", href: "/dashboard/procurement", icon: Truck, resource: "PROCUREMENT", moduleKey: "PROCUREMENT" },
+        { labelKey: "nav.contractors", href: "/contractors", icon: UserCog, resource: "COMPANY_NETWORK", moduleKey: "COMPANY_NETWORK" },
+        { labelKey: "nav.reports", href: "/reports", icon: BarChart3, resource: "PROJECTS", moduleKey: "PROJECTS" },
       ],
     },
     {
@@ -126,34 +127,34 @@ export const NAV_SECTIONS: Record<string, NavSection[]> = {
   finance: [
     {
       items: [
-        { labelKey: "nav.dashboard", href: "/dashboard/finance", icon: LayoutDashboard, resource: "FINANCE" },
-        { labelKey: "nav.employeeDirectory", href: "/employees", icon: Contact },
+        { labelKey: "nav.dashboard", href: "/dashboard/finance", icon: LayoutDashboard, resource: "FINANCE", moduleKey: "FINANCE" },
+        { labelKey: "nav.employees", href: "/employees", icon: Contact },
       ],
     },
     {
       titleKey: "nav.transactions",
       items: [
-        { labelKey: "nav.invoices", href: "/dashboard/finance/invoices", icon: FileText, resource: "FINANCE" },
-        { labelKey: "nav.bills", href: "/dashboard/finance/bills", icon: Receipt, resource: "FINANCE" },
-        { labelKey: "nav.payments", href: "/dashboard/finance/payments", icon: ArrowRightLeft, resource: "FINANCE" },
+        { labelKey: "nav.invoices", href: "/dashboard/finance/invoices", icon: FileText, resource: "FINANCE", moduleKey: "FINANCE" },
+        { labelKey: "nav.bills", href: "/dashboard/finance/bills", icon: Receipt, resource: "FINANCE", moduleKey: "FINANCE" },
+        { labelKey: "nav.payments", href: "/dashboard/finance/payments", icon: ArrowRightLeft, resource: "FINANCE", moduleKey: "FINANCE" },
       ],
     },
     {
       titleKey: "nav.financialOperations",
       items: [
-        { labelKey: "nav.budgetVsActual", href: "/dashboard/finance/budget", icon: PieChart, resource: "FINANCE" },
-        { labelKey: "nav.cashFlow", href: "/dashboard/finance/cash-flow", icon: TrendingUp, resource: "FINANCE" },
+        { labelKey: "nav.budgetVsActual", href: "/dashboard/finance/budget", icon: PieChart, resource: "FINANCE", moduleKey: "FINANCE" },
+        { labelKey: "nav.cashFlow", href: "/dashboard/finance/cash-flow", icon: TrendingUp, resource: "FINANCE", moduleKey: "FINANCE" },
         { labelKey: "nav.projects", href: "/projects", icon: FolderKanban },
-        { labelKey: "nav.assets", href: "/dashboard/finance/assets", icon: Boxes, resource: "FINANCE" },
-        { labelKey: "nav.clients", href: "/clients", icon: Handshake, resource: "CLIENTS" },
-        { labelKey: "nav.contractors", href: "/contractors", icon: UserCog, resource: "COMPANY_NETWORK" },
-        { labelKey: "nav.procurement", href: "/dashboard/procurement", icon: Truck, resource: "PROCUREMENT" },
+        { labelKey: "nav.assets", href: "/dashboard/finance/assets", icon: Boxes, resource: "FINANCE", moduleKey: "FINANCE" },
+        { labelKey: "nav.clients", href: "/clients", icon: Handshake, resource: "CLIENTS", moduleKey: "CLIENTS" },
+        { labelKey: "nav.contractors", href: "/contractors", icon: UserCog, resource: "COMPANY_NETWORK", moduleKey: "COMPANY_NETWORK" },
+        { labelKey: "nav.procurement", href: "/dashboard/procurement", icon: Truck, resource: "PROCUREMENT", moduleKey: "PROCUREMENT" },
       ],
     },
     {
       titleKey: "nav.compliance",
       items: [
-        { labelKey: "nav.taxManagement", href: "/dashboard/finance/tax", icon: Percent, resource: "FINANCE" },
+        { labelKey: "nav.taxManagement", href: "/dashboard/finance/tax", icon: Percent, resource: "FINANCE", moduleKey: "FINANCE" },
         { labelKey: "nav.auditLogs", href: "/dashboard/admin/audit", icon: ScrollText, resource: "AUDIT_LOGS" },
       ],
     },
@@ -161,27 +162,26 @@ export const NAV_SECTIONS: Record<string, NavSection[]> = {
   hr: [
     {
       items: [
-        { labelKey: "nav.overview", href: "/dashboard/hr", icon: LayoutDashboard, resource: "HR" },
-        { labelKey: "nav.employeeDirectory", href: "/employees", icon: Contact },
+        { labelKey: "nav.overview", href: "/dashboard/hr", icon: LayoutDashboard, resource: "HR", moduleKey: "HR" },
       ],
     },
     {
       titleKey: "nav.workforce",
       items: [
-        { labelKey: "nav.calendar", href: "/dashboard/hr/calendar", icon: CalendarDays, resource: "HR" },
-        { labelKey: "nav.employees", href: "/dashboard/hr/employees", icon: Users, resource: "HR" },
-        { labelKey: "nav.recruitment", href: "/dashboard/hr/recruitment", icon: UserPlus, resource: "HR" },
-        { labelKey: "nav.attendance", href: "/dashboard/hr/attendance", icon: ClipboardList, resource: "HR" },
-        { labelKey: "nav.leaveRequests", href: "/dashboard/hr/leave", icon: CalendarClock, resource: "HR" },
-        { labelKey: "nav.training", href: "/dashboard/hr/training", icon: GraduationCap, resource: "HR" },
+        { labelKey: "nav.calendar", href: "/dashboard/hr/calendar", icon: CalendarDays, resource: "HR", moduleKey: "HR" },
+        { labelKey: "nav.employees", href: "/dashboard/hr/employees", icon: Users, resource: "HR", moduleKey: "HR" },
+        { labelKey: "nav.recruitment", href: "/dashboard/hr/recruitment", icon: UserPlus, resource: "HR", moduleKey: "HR" },
+        { labelKey: "nav.attendance", href: "/dashboard/hr/attendance", icon: ClipboardList, resource: "HR", moduleKey: "HR" },
+        { labelKey: "nav.leaveRequests", href: "/dashboard/hr/leave", icon: CalendarClock, resource: "HR", moduleKey: "HR" },
+        { labelKey: "nav.training", href: "/dashboard/hr/training", icon: GraduationCap, resource: "HR", moduleKey: "TRAINING" },
       ],
     },
-    { titleKey: "nav.reports", items: [{ labelKey: "nav.reports", href: "/dashboard/hr/reports", icon: BarChart3, resource: "HR" }] },
+    { titleKey: "nav.reports", items: [{ labelKey: "nav.reports", href: "/dashboard/hr/reports", icon: BarChart3, resource: "HR", moduleKey: "HR" }] },
   ],
   architect: [
     {
       items: [
-        { labelKey: "nav.overview", href: "/dashboard/architect", icon: LayoutDashboard, resource: "PROJECTS" },
+        { labelKey: "nav.overview", href: "/dashboard/architect", icon: LayoutDashboard, resource: "PROJECTS", moduleKey: "PROJECTS" },
         { labelKey: "nav.employeeDirectory", href: "/employees", icon: Contact },
       ],
     },
@@ -189,28 +189,29 @@ export const NAV_SECTIONS: Record<string, NavSection[]> = {
       titleKey: "nav.designManagement",
       items: [
         { labelKey: "nav.projects", href: "/projects", icon: FolderKanban },
-        { labelKey: "nav.drawings", href: "/dashboard/architect/drawings", icon: Ruler, resource: "PROJECTS" },
-        { labelKey: "nav.revisions", href: "/dashboard/architect/revisions", icon: FilePenLine, resource: "PROJECTS" },
-        { labelKey: "nav.rfis", href: "/dashboard/architect/rfis", icon: HelpCircle, resource: "PROJECTS" },
-        { labelKey: "nav.approvals", href: "/dashboard/architect/approvals", icon: ClipboardCheck, resource: "PROJECTS" },
-        { labelKey: "nav.tasks", href: "/tasks", icon: CheckSquare, resource: "TASKS" },
-        { labelKey: "nav.clients", href: "/clients", icon: Handshake, resource: "CLIENTS" },
-        { labelKey: "nav.hseReports", href: "/hse-reports", icon: ShieldAlert, resource: "HSE_REPORTS" },
+        { labelKey: "nav.drawings", href: "/dashboard/architect/drawings", icon: Ruler, resource: "PROJECTS", moduleKey: "PROJECTS" },
+        { labelKey: "nav.revisions", href: "/dashboard/architect/revisions", icon: FilePenLine, resource: "PROJECTS", moduleKey: "PROJECTS" },
+        { labelKey: "nav.rfis", href: "/dashboard/architect/rfis", icon: HelpCircle, resource: "PROJECTS", moduleKey: "PROJECTS" },
+        { labelKey: "nav.approvals", href: "/dashboard/architect/approvals", icon: ClipboardCheck, resource: "PROJECTS", moduleKey: "PROJECTS" },
+        { labelKey: "nav.tasks", href: "/tasks", icon: CheckSquare, resource: "TASKS", moduleKey: "TASKS" },
+        { labelKey: "nav.clients", href: "/clients", icon: Handshake, resource: "CLIENTS", moduleKey: "CLIENTS" },
+        { labelKey: "nav.hseReports", href: "/hse-reports", icon: ShieldAlert, resource: "HSE_REPORTS", moduleKey: "HSE_REPORTS" },
       ],
     },
   ],
   procurement: [
     {
       items: [
-        { labelKey: "nav.overview", href: "/dashboard/procurement", icon: LayoutDashboard, resource: "PROCUREMENT" },
+        { labelKey: "nav.overview", href: "/dashboard/procurement", icon: LayoutDashboard, resource: "PROCUREMENT", moduleKey: "PROCUREMENT" },
         { labelKey: "nav.employeeDirectory", href: "/employees", icon: Contact },
       ],
     },
     {
       titleKey: "nav.purchasing",
       items: [
-        { labelKey: "nav.suppliers", href: "/dashboard/procurement/suppliers", icon: Truck, resource: "PROCUREMENT" },
-        { labelKey: "nav.purchaseOrders", href: "/dashboard/procurement/orders", icon: PackageOpen, resource: "PROCUREMENT" },
+        { labelKey: "nav.suppliers", href: "/dashboard/procurement/suppliers", icon: Truck, resource: "PROCUREMENT", moduleKey: "PROCUREMENT" },
+        { labelKey: "nav.purchaseOrders", href: "/dashboard/procurement/orders", icon: PackageOpen, resource: "PROCUREMENT", moduleKey: "PROCUREMENT" },
+        { labelKey: "nav.contractors", href: "/contractors", icon: UserCog, resource: "COMPANY_NETWORK", moduleKey: "COMPANY_NETWORK" },
         { labelKey: "nav.projects", href: "/projects", icon: FolderKanban },
       ],
     },
@@ -272,11 +273,21 @@ export function workspaceKeyFromPath(pathname: string, role?: Role): keyof typeo
 // Filters out nav items (and any section left empty) the given role doesn't
 // have at least READ access to — same `can()` gate the destination page
 // enforces, so the sidebar never shows a link that would just redirect away.
-export function visibleNavSections(sections: NavSection[], role: Role): NavSection[] {
+// Items whose `moduleKey` has been disabled for the tenant (Module Registry)
+// are filtered out the same way, regardless of role.
+export function visibleNavSections(
+  sections: NavSection[],
+  role: Role,
+  disabledModules?: ReadonlySet<ModuleKey>
+): NavSection[] {
   return sections
     .map((section) => ({
       ...section,
-      items: section.items.filter((item) => !item.resource || can(role, item.resource, item.level ?? "READ")),
+      items: section.items.filter(
+        (item) =>
+          (!item.resource || can(role, item.resource, item.level ?? "READ")) &&
+          !(item.moduleKey && disabledModules?.has(item.moduleKey))
+      ),
     }))
     .filter((section) => section.items.length > 0);
 }

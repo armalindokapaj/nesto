@@ -9,6 +9,7 @@ import { cn } from "@/lib/utils";
 import { useI18n } from "@/lib/i18n/locale-provider";
 import { X } from "lucide-react";
 import type { Role } from "@/lib/constants";
+import type { ModuleKey } from "@/lib/modules";
 
 export function Sidebar({
   collapsed,
@@ -17,6 +18,7 @@ export function Sidebar({
   companyName,
   workspaceLabel,
   role,
+  disabledModules,
 }: {
   collapsed: boolean;
   mobileOpen: boolean;
@@ -24,10 +26,12 @@ export function Sidebar({
   companyName: string;
   workspaceLabel: string;
   role: Role;
+  disabledModules?: ModuleKey[];
 }) {
   const pathname = usePathname();
   const { t } = useI18n();
-  const sections = visibleNavSections(NAV_SECTIONS[workspaceKeyFromPath(pathname, role)], role);
+  const disabledSet = new Set(disabledModules ?? []);
+  const sections = visibleNavSections(NAV_SECTIONS[workspaceKeyFromPath(pathname, role)], role, disabledSet);
 
   return (
     <>

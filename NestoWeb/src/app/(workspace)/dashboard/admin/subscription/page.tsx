@@ -2,8 +2,10 @@ import { redirect } from "next/navigation";
 import { getCurrentUser } from "@/lib/dal";
 import { can } from "@/lib/permissions";
 import { listAllMembers } from "@/server/admin";
+import { listModuleStates } from "@/server/company-modules";
 import { Card, CardHeader, CardTitle, CardDescription, CardContent } from "@/components/ui/card";
 import { UpdatePlanForm } from "@/components/admin/update-plan-form";
+import { ModuleToggleList } from "@/components/admin/module-toggle-list";
 import { getT } from "@/lib/i18n/server";
 
 export default async function AdminSubscriptionPage() {
@@ -12,6 +14,7 @@ export default async function AdminSubscriptionPage() {
   const canManage = can(role, "COMPANY_SETTINGS", "FULL");
 
   const members = await listAllMembers(tenantId);
+  const moduleStates = canManage ? await listModuleStates(tenantId) : [];
   const { t } = await getT();
 
   const seatsUsed = members.length;
@@ -47,6 +50,20 @@ export default async function AdminSubscriptionPage() {
           {canManage && company && <UpdatePlanForm planName={company.planName} />}
         </CardContent>
       </Card>
+
+      {canManage && (
+        <Card>
+          <CardHeader>
+            <div>
+              <CardTitle>{t("admin_sub.modulesTitle")}</CardTitle>
+              <CardDescription>{t("admin_sub.modulesSubtitle")}</CardDescription>
+            </div>
+          </CardHeader>
+          <CardContent>
+            <ModuleToggleList states={moduleStates} />
+          </CardContent>
+        </Card>
+      )}
     </div>
   );
 }

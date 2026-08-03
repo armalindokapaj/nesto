@@ -309,6 +309,20 @@ async function main() {
     ],
   });
 
+  // --- Salary History — a CURRENT record per key employee, plus one
+  // superseded PREVIOUS record to demonstrate history is preserved. ------
+  await db.salaryRecord.createMany({
+    data: [
+      { tenantId: tenant.id, employeeId: employees[1].id, effectiveStartDate: monthsAgo(20), currency: "EUR", grossSalary: 3200, netSalary: 2400, paymentFrequency: "MONTHLY", status: "CURRENT", createdById: ana.id },
+      { tenantId: tenant.id, employeeId: employees[2].id, effectiveStartDate: monthsAgo(16), currency: "EUR", grossSalary: 2800, netSalary: 2150, paymentFrequency: "MONTHLY", status: "CURRENT", createdById: ana.id },
+      { tenantId: tenant.id, employeeId: employees[4].id, effectiveStartDate: monthsAgo(9), currency: "ALL", grossSalary: 180_000, netSalary: 145_000, paymentFrequency: "MONTHLY", status: "CURRENT", createdById: ana.id },
+      { tenantId: tenant.id, employeeId: employees[5].id, effectiveStartDate: monthsAgo(12), currency: "EUR", grossSalary: 2600, netSalary: 2000, paymentFrequency: "MONTHLY", status: "CURRENT", createdById: ana.id },
+      // Ana (HR Manager) — an earlier PREVIOUS raise superseded by the CURRENT one.
+      { tenantId: tenant.id, employeeId: employees[6].id, effectiveStartDate: monthsAgo(14), effectiveEndDate: monthsAgo(6), currency: "EUR", grossSalary: 2200, netSalary: 1700, paymentFrequency: "MONTHLY", status: "PREVIOUS", createdById: ana.id },
+      { tenantId: tenant.id, employeeId: employees[6].id, effectiveStartDate: monthsAgo(6), currency: "EUR", grossSalary: 2500, netSalary: 1920, paymentFrequency: "MONTHLY", status: "CURRENT", createdById: ana.id },
+    ],
+  });
+
   // --- HR calendar appointments -------------------------------------------
   await db.hrAppointment.createMany({
     data: [
@@ -533,6 +547,36 @@ async function main() {
     });
     await db.companyMembership.create({
       data: { tenantId: tenant.id, userId: user.id, role, department: "Testing", position: `${name} Test Account` },
+    });
+  }
+
+  // --- Platform Admin test accounts -------------------------------------
+  // The codebase today only has one platform-level gate — UserIdentity.
+  // isPlatformAdmin, a single boolean checked by src/app/platform/applications
+  // (PRD_6's "minimal Platform Admin" scope). There is no PlatformRole /
+  // PlatformPermission / Super-vs-regular distinction actually enforced
+  // anywhere yet — that split is PRD_7's fuller, unbuilt scope (see memory:
+  // prd16/PRD_7 note). Both accounts below get the same isPlatformAdmin=true
+  // flag and therefore identical real capability today; they're seeded
+  // as two separate logins so the naming is ready once that distinction
+  // gets built, not because two different access levels exist yet.
+  const platformAdminSeeds = [
+    { username: "SuperPlatformAdmin", displayName: "Super Platform Admin", color: "#0f172a" },
+    { username: "PlatformAdmin", displayName: "Platform Admin", color: "#334155" },
+  ];
+  for (const p of platformAdminSeeds) {
+    const user = await db.userIdentity.create({
+      data: {
+        username: p.username,
+        email: p.username.toLowerCase(),
+        displayName: p.displayName,
+        avatarColor: p.color,
+        passwordHash: testAccountPasswordHash,
+        isPlatformAdmin: true,
+      },
+    });
+    await db.companyMembership.create({
+      data: { tenantId: tenant.id, userId: user.id, role: "VIEWER", department: "Platform", position: p.displayName },
     });
   }
 

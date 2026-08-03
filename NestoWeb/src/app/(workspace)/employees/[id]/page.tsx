@@ -2,13 +2,16 @@ import Link from "next/link";
 import { ArrowLeft, Mail, Phone, Briefcase, Building2 } from "lucide-react";
 import { getCurrentUser } from "@/lib/dal";
 import { can } from "@/lib/permissions";
-import { getEmployeeProfile } from "@/server/employee-profile";
+import { getEmployeeProfile, getSalaryHistory } from "@/server/employee-profile";
+import { canViewOwnTraining, listTrainingForEmployee } from "@/server/training";
+import { EmployeeTrainingList } from "@/components/hr/employee-training-list";
 import { Card, CardHeader, CardTitle, CardDescription, CardContent } from "@/components/ui/card";
 import { Avatar } from "@/components/ui/avatar";
 import { Badge } from "@/components/ui/badge";
 import { PhotoUploadForm } from "@/components/hr/photo-upload-form";
 import { EmployeeContactForm } from "@/components/hr/employee-contact-form";
 import { EmployeeDocuments } from "@/components/hr/employee-documents";
+import { SalaryHistoryList, AddSalaryRecordForm } from "@/components/hr/employee-salary-form";
 import type { Role } from "@/lib/constants";
 import { formatDate } from "@/lib/utils";
 import { getT } from "@/lib/i18n/server";
@@ -18,6 +21,9 @@ export default async function EmployeeProfilePage({ params }: { params: Promise<
   const { tenantId, user, role } = await getCurrentUser();
   const viewer = { userId: user.id, role: role as Role };
   const employee = await getEmployeeProfile(tenantId, id, viewer);
+  const salaryHistory = employee.canViewSalary ? await getSalaryHistory(tenantId, id, viewer) : [];
+  const canViewTraining = canViewOwnTraining(employee.userId, viewer);
+  const trainingRecords = canViewTraining ? await listTrainingForEmployee(tenantId, id, viewer) : [];
   const { t } = await getT();
 
   const canAddContract = can(role, "HR", "FULL");
@@ -128,6 +134,35 @@ export default async function EmployeeProfilePage({ params }: { params: Promise<
               canManage={canAddContract}
               mode="contract"
             />
+          </CardContent>
+        </Card>
+      )}
+
+      {employee.canViewSalary && (
+        <Card>
+          <CardHeader>
+            <div>
+              <CardTitle>{t("hr_sub.salaryTitle")}</CardTitle>
+              <CardDescription>{t("hr_sub.salarySubtitle")}</CardDescription>
+            </div>
+          </CardHeader>
+          <CardContent className="space-y-3">
+            <SalaryHistoryList records={salaryHistory} />
+            <AddSalaryRecordForm employeeId={employee.id} />
+          </CardContent>
+        </Card>
+      )}
+
+      {canViewTraining && (
+        <Card>
+          <CardHeader>
+            <div>
+              <CardTitle>{t("hr_sub.trainingTitle")}</CardTitle>
+              <CardDescription>{t("hr_sub.trainingSubtitle")}</CardDescription>
+            </div>
+          </CardHeader>
+          <CardContent>
+            <EmployeeTrainingList records={trainingRecords} />
           </CardContent>
         </Card>
       )}

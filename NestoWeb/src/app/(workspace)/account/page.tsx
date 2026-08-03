@@ -78,26 +78,33 @@ export default async function AccountPage() {
         </CardContent>
       </Card>
 
-      <Card>
-        <CardHeader>
-          <div>
-            <CardTitle>{t("account.language")}</CardTitle>
-            <CardDescription>{t("account.languageDesc")}</CardDescription>
-          </div>
-        </CardHeader>
-        <CardContent>
-          <LanguageSwitcher />
-        </CardContent>
-      </Card>
+      <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+        <Card>
+          <CardHeader>
+            <div>
+              <CardTitle>{t("account.language")}</CardTitle>
+              <CardDescription>{t("account.languageDesc")}</CardDescription>
+            </div>
+          </CardHeader>
+          <CardContent className="space-y-5">
+            <LanguageSwitcher />
+            <div className="pt-4 border-t border-border">
+              <p className="text-sm font-semibold text-ink">{t("account.theme")}</p>
+              <p className="text-xs text-ink-muted mt-0.5 mb-3">{t("account.themeDesc")}</p>
+              <ThemeSelector currentTheme={user.theme as Theme} />
+            </div>
+          </CardContent>
+        </Card>
 
-      <Card>
-        <CardHeader>
-          <CardTitle>{t("account.security")}</CardTitle>
-        </CardHeader>
-        <CardContent>
-          <ChangePasswordForm />
-        </CardContent>
-      </Card>
+        <Card>
+          <CardHeader>
+            <CardTitle>{t("account.security")}</CardTitle>
+          </CardHeader>
+          <CardContent>
+            <ChangePasswordForm />
+          </CardContent>
+        </Card>
+      </div>
 
       <Card>
         <CardHeader>
@@ -120,18 +127,6 @@ export default async function AccountPage() {
         </CardHeader>
         <CardContent>
           <ReminderPreferencesForm preferences={reminderPreferences} />
-        </CardContent>
-      </Card>
-
-      <Card>
-        <CardHeader>
-          <div>
-            <CardTitle>{t("account.theme")}</CardTitle>
-            <CardDescription>{t("account.themeDesc")}</CardDescription>
-          </div>
-        </CardHeader>
-        <CardContent>
-          <ThemeSelector currentTheme={user.theme as Theme} />
         </CardContent>
       </Card>
 

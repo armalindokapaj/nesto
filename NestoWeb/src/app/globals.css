@@ -29,16 +29,37 @@
   --color-info: #2457c5;
   --color-info-soft: #e4ecfb;
 
+  /* Landing-page auth card only (Professional / Contractor application
+     themes) — not part of the general semantic palette above, so these
+     don't get a @theme inline mapping / utility class, just consumed
+     directly by .auth-ambient-professional/-contractor below. */
+  --color-violet: #7c5cff;
+  --color-violet-soft: #ece7ff;
+  --color-amber: #e08a3d;
+  --color-amber-soft: #fbe8d2;
+
   --motion-fast: 150ms;
   --motion-base: 200ms;
   --motion-slow: 250ms;
   --motion-ease: cubic-bezier(0.4, 0, 0.2, 1);
 
-  /* Landing-page auth card flip — slower/weightier than the base UI motion
-     tokens above on purpose, so the sign-in/sign-up transition reads as a
-     deliberate, premium gesture rather than a routine hover/focus transition. */
-  --motion-flip: 650ms;
-  --motion-flip-ease: cubic-bezier(0.65, 0, 0.35, 1);
+  /* Landing-page auth card flip — weightier than the base UI motion tokens
+     above on purpose, so it reads as a deliberate gesture rather than a
+     routine hover/focus transition, but starts moving immediately on click
+     (no slow ramp-up, which reads as a pause before anything happens).
+     cubic-bezier(0.32, 0.72, 0, 1) is the curve iOS uses for sheet/modal
+     presentations — fast, confident departure that settles smoothly rather
+     than bouncing, which is what actually reads as "premium" rather than
+     "playful" here. */
+  --motion-flip: 520ms;
+  --motion-flip-ease: cubic-bezier(0.32, 0.72, 0, 1);
+
+  /* Glass/frost card faces (landing-page auth card only). Tuned so text
+     stays fully readable over the blurred, colorful ambient glow behind
+     the card — see .auth-glass below. */
+  --glass-bg: rgba(255, 255, 255, 0.62);
+  --glass-border: rgba(255, 255, 255, 0.5);
+  --glass-highlight: rgba(255, 255, 255, 0.75);
 }
 
 @theme inline {
@@ -118,6 +139,15 @@ body {
   --color-danger-soft: #3a1a20;
   --color-info: #5b8def;
   --color-info-soft: #16213a;
+
+  --color-violet: #a48cff;
+  --color-violet-soft: #2a2140;
+  --color-amber: #f0a25e;
+  --color-amber-soft: #3a2711;
+
+  --glass-bg: rgba(28, 31, 38, 0.55);
+  --glass-border: rgba(255, 255, 255, 0.1);
+  --glass-highlight: rgba(255, 255, 255, 0.08);
 }
 
 /*
@@ -153,6 +183,38 @@ body {
     radial-gradient(circle at 72% 18%, color-mix(in srgb, var(--color-info) 30%, transparent), transparent 60%),
     radial-gradient(circle at 26% 84%, color-mix(in srgb, var(--color-success) 26%, transparent), transparent 55%),
     repeating-linear-gradient(45deg, color-mix(in srgb, var(--color-gold) 6%, transparent) 0 2px, transparent 2px 16px);
+}
+
+/* Third/fourth themes — reached one level deeper (choose type -> the
+   registration form), each with its own distinct hue so "Professional" and
+   "Contractor" read as clearly different destinations, not just two forms. */
+.auth-ambient-professional {
+  background:
+    radial-gradient(circle at 30% 20%, color-mix(in srgb, var(--color-violet) 32%, transparent), transparent 60%),
+    radial-gradient(circle at 76% 82%, color-mix(in srgb, var(--color-violet-soft) 70%, transparent), transparent 55%),
+    repeating-linear-gradient(90deg, color-mix(in srgb, var(--color-ink) 3%, transparent) 0 1px, transparent 1px 26px);
+}
+
+.auth-ambient-contractor {
+  background:
+    radial-gradient(circle at 70% 24%, color-mix(in srgb, var(--color-amber) 32%, transparent), transparent 60%),
+    radial-gradient(circle at 24% 80%, color-mix(in srgb, var(--color-amber-soft) 70%, transparent), transparent 55%),
+    repeating-linear-gradient(45deg, color-mix(in srgb, var(--color-ink) 4%, transparent) 0 2px, transparent 2px 18px);
+}
+
+/* Frosted-glass card face — replaces the old flat bg-surface/border/shadow
+   combo on the landing auth card specifically. Sits directly over the
+   blurred, colorful .auth-ambient glow (see above), so the glow shows
+   through as soft color rather than the card looking flat white/black —
+   that layering is the whole effect, not just the blur on the card itself. */
+.auth-glass {
+  background: var(--glass-bg);
+  backdrop-filter: blur(20px) saturate(160%);
+  -webkit-backdrop-filter: blur(20px) saturate(160%);
+  border: 1px solid var(--glass-border);
+  box-shadow:
+    0 8px 30px rgba(26, 29, 35, 0.12),
+    inset 0 1px 0 var(--glass-highlight);
 }
 
 /* Wrong-credentials "buzz" on the sign-in face — see sign-in-face.tsx. Small

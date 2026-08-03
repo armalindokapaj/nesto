@@ -1,11 +1,23 @@
 import { db } from "@/lib/db";
 import { can } from "@/lib/permissions";
+import type { Resource } from "@/lib/permissions";
 import { canViewTask } from "@/lib/project-access";
 import type { Role } from "@/lib/constants";
 
 export type SearchResult = {
   id: string;
-  type: "project" | "task" | "invoice";
+  type:
+    | "project"
+    | "task"
+    | "invoice"
+    | "employee"
+    | "client"
+    | "contractor"
+    | "contract"
+    | "supplier"
+    | "purchaseOrder"
+    | "hseReport"
+    | "document";
   title: string;
   subtitle?: string;
   href: string;
@@ -32,7 +44,7 @@ export async function globalSearch(
   if (query.trim().length < 2) return [];
   const q = query.trim();
 
-  const [projects, tasks] = await Promise.all([
+  const [projects, tasks, employees] = await Promise.all([
     db.project.findMany({
       where: { tenantId, name: { contains: q } },
       take: 5,
@@ -41,6 +53,12 @@ export async function globalSearch(
       where: { tenantId, title: { contains: q } },
       take: 10,
       include: { contributions: { select: { userId: true } }, participants: { select: { userId: true, role: true } } },
+    }),
+    // Company-wide directory — no gate, same precedent as
+    // listEmployeeDirectory() in employee-profile.ts.
+    db.employee.findMany({
+      where: { tenantId, fullName: { contains: q } },
+      take: 5,
     }),
   ]);
 
@@ -62,37 +80,99 @@ export async function globalSearch(
       subtitle: t.code,
       href: `/tasks/${t.id}`,
     })),
+    ...employees.map((e) => ({
+      id: e.id,
+      type: "employee" as const,
+      title: e.fullName,
+      subtitle: e.position,
+      href: `/employees/${e.id}`,
+    })),
   ];
 
-  if (can(role, "FINANCE", "READ")) {
-    const invoices = await db.invoice.findMany({
-      where: { tenantId, OR: [{ number: { contains: q } }, { description: { contains: q } }] },
-      take: 5,
-    });
-    results.push(
-      ...invoices.map((i) => ({
-        id: i.id,
-        type: "invoice" as const,
-        title: i.number,
-        subtitle: i.description ?? undefined,
-        href: `/dashboard/finance/invoices`,
-      }))
-    );
-  } else {
-    const invoiceCount = await db.invoice.count({
-      where: { tenantId, OR: [{ number: { contains: q } }, { description: { contains: q } }] },
-    });
-    if (invoiceCount > 0) {
-      results.push({
-        id: "locked-finance",
-        type: "invoice",
-        title: "Finance records",
-        subtitle: "Restricted — request access",
-        href: "#",
-        locked: true,
-      });
-    }
-  }
+  await addGatedCategory(results, role, "FINANCE", "invoice", "Finance records", () =>
+    db.invoice
+      .findMany({ where: { tenantId, OR: [{ number: { contains: q } }, { description: { contains: q } }] }, take: 5 })
+      .then((rows) => rows.map((i) => ({ id: i.id, type: "invoice" as const, title: i.number, subtitle: i.description ?? undefined, href: `/dashboard/finance/invoices` }))),
+    () => db.invoice.count({ where: { tenantId, OR: [{ number: { contains: q } }, { description: { contains: q } }] } })
+  );
+
+  await addGatedCategory(results, role, "CLIENTS", "client", "Client records", () =>
+    db.client
+      .findMany({ where: { tenantId, name: { contains: q } }, take: 5 })
+      .then((rows) => rows.map((c) => ({ id: c.id, type: "client" as const, title: c.name, subtitle: c.contactName ?? undefined, href: `/clients/${c.id}` }))),
+    () => db.client.count({ where: { tenantId, name: { contains: q } } })
+  );
+
+  await addGatedCategory(results, role, "COMPANY_NETWORK", "contractor", "Contractor records", () =>
+    db.contractor
+      .findMany({ where: { tenantId, OR: [{ name: { contains: q } }, { number: { contains: q } }] }, take: 5 })
+      .then((rows) => rows.map((c) => ({ id: c.id, type: "contractor" as const, title: c.name, subtitle: c.tradeType, href: `/contractors/${c.id}` }))),
+    () => db.contractor.count({ where: { tenantId, OR: [{ name: { contains: q } }, { number: { contains: q } }] } })
+  );
+
+  await addGatedCategory(results, role, "CONTRACTS", "contract", "Contract records", () =>
+    db.contract
+      .findMany({ where: { tenantId, OR: [{ title: { contains: q } }, { number: { contains: q } }] }, take: 5 })
+      .then((rows) => rows.map((c) => ({ id: c.id, type: "contract" as const, title: c.title, subtitle: c.number, href: `/contracts` }))),
+    () => db.contract.count({ where: { tenantId, OR: [{ title: { contains: q } }, { number: { contains: q } }] } })
+  );
+
+  await addGatedCategory(results, role, "PROCUREMENT", "supplier", "Procurement records", () =>
+    db.supplier
+      .findMany({ where: { tenantId, name: { contains: q } }, take: 5 })
+      .then((rows) => rows.map((s) => ({ id: s.id, type: "supplier" as const, title: s.name, subtitle: s.category, href: `/dashboard/procurement/suppliers` }))),
+    () => db.supplier.count({ where: { tenantId, name: { contains: q } } })
+  );
+
+  await addGatedCategory(results, role, "PROCUREMENT", "purchaseOrder", "Procurement records", () =>
+    db.purchaseOrder
+      .findMany({ where: { tenantId, OR: [{ number: { contains: q } }, { description: { contains: q } }] }, take: 5 })
+      .then((rows) => rows.map((p) => ({ id: p.id, type: "purchaseOrder" as const, title: p.number, subtitle: p.description, href: `/dashboard/procurement/orders` }))),
+    () => db.purchaseOrder.count({ where: { tenantId, OR: [{ number: { contains: q } }, { description: { contains: q } }] } })
+  );
+
+  await addGatedCategory(results, role, "HSE_REPORTS", "hseReport", "HSE reports", () =>
+    db.hseReport
+      .findMany({ where: { tenantId, title: { contains: q } }, take: 5 })
+      .then((rows) => rows.map((h) => ({ id: h.id, type: "hseReport" as const, title: h.title, subtitle: h.severity, href: `/hse-reports` }))),
+    () => db.hseReport.count({ where: { tenantId, title: { contains: q } } })
+  );
+
+  // Documents — company-visible docs are always searchable; PRIVATE_HR
+  // (e.g. work contracts) only surface to HR, matching the exact visibility
+  // rule already enforced when reading documents in employee-profile.ts.
+  const documentWhere = can(role, "HR", "FULL")
+    ? { tenantId, name: { contains: q } }
+    : { tenantId, name: { contains: q }, visibility: "COMPANY" };
+  const documents = await db.documentFile.findMany({ where: documentWhere, take: 5 });
+  results.push(
+    ...documents.map((d) => ({
+      id: d.id,
+      type: "document" as const,
+      title: d.name,
+      subtitle: d.category,
+      href: d.employeeId ? `/employees/${d.employeeId}` : "#",
+    }))
+  );
 
   return results;
+}
+
+async function addGatedCategory(
+  results: SearchResult[],
+  role: Role,
+  resource: Resource,
+  lockedType: SearchResult["type"],
+  lockedLabel: string,
+  find: () => Promise<SearchResult[]>,
+  count: () => Promise<number>
+) {
+  if (can(role, resource, "READ")) {
+    results.push(...(await find()));
+    return;
+  }
+  const n = await count();
+  if (n > 0) {
+    results.push({ id: `locked-${lockedType}`, type: lockedType, title: lockedLabel, subtitle: "Restricted — request access", href: "#", locked: true });
+  }
 }

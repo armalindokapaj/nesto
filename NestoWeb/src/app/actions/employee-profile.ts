@@ -8,6 +8,7 @@ import {
   updateEmployeeContact,
   addEmployeeDocument,
   removeEmployeeDocument,
+  createSalaryRecord,
 } from "@/server/employee-profile";
 import type { Role } from "@/lib/constants";
 
@@ -93,4 +94,48 @@ export async function removeEmployeeDocumentAction(documentId: string, employeeI
   const { tenantId, user, role } = await getCurrentUser();
   await removeEmployeeDocument(tenantId, documentId, { userId: user.id, role: role as Role });
   revalidatePath(`/employees/${employeeId}`);
+}
+
+const SalaryRecordSchema = z
+  .object({
+    employeeId: z.string().min(1),
+    effectiveStartDate: z.coerce.date(),
+    currency: z.enum(["EUR", "ALL"]),
+    grossSalary: z.coerce.number().nonnegative(),
+    netSalary: z.coerce.number().nonnegative(),
+    paymentFrequency: z.enum(["MONTHLY", "BIWEEKLY", "WEEKLY", "ANNUAL"]),
+    notes: z.string().optional(),
+  })
+  .refine((data) => data.grossSalary >= data.netSalary, {
+    message: "Gross salary must be greater than or equal to net salary.",
+    path: ["netSalary"],
+  });
+
+export async function createSalaryRecordAction(_prev: ProfileActionState, formData: FormData): Promise<ProfileActionState> {
+  const { tenantId, user, role } = await getCurrentUser();
+  const parsed = SalaryRecordSchema.safeParse({
+    employeeId: formData.get("employeeId"),
+    effectiveStartDate: formData.get("effectiveStartDate"),
+    currency: formData.get("currency"),
+    grossSalary: formData.get("grossSalary"),
+    netSalary: formData.get("netSalary"),
+    paymentFrequency: formData.get("paymentFrequency"),
+    notes: formData.get("notes") || undefined,
+  });
+  if (!parsed.success) return { error: parsed.error.issues[0]?.message ?? "Invalid input" };
+
+  try {
+    await createSalaryRecord(tenantId, parsed.data.employeeId, { userId: user.id, role: role as Role }, {
+      effectiveStartDate: parsed.data.effectiveStartDate,
+      currency: parsed.data.currency,
+      grossSalary: parsed.data.grossSalary,
+      netSalary: parsed.data.netSalary,
+      paymentFrequency: parsed.data.paymentFrequency,
+      notes: parsed.data.notes,
+    });
+  } catch (err) {
+    return { error: err instanceof Error ? err.message : "Something went wrong." };
+  }
+  revalidatePath(`/employees/${parsed.data.employeeId}`);
+  return { success: true };
 }

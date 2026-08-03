@@ -1,9 +1,10 @@
 import { redirect } from "next/navigation";
 import Link from "next/link";
-import { TrendingUp, TrendingDown, Layers, Wallet, FileText } from "lucide-react";
+import { TrendingUp, TrendingDown, Layers, Wallet, FileText, Users } from "lucide-react";
 import { getCurrentUser } from "@/lib/dal";
 import { can } from "@/lib/permissions";
 import { getFinanceDashboardData } from "@/server/finance";
+import { getPayrollSummary } from "@/server/finance-payroll";
 import { StatTile } from "@/components/ui/stat-tile";
 import { Card, CardHeader, CardTitle, CardContent } from "@/components/ui/card";
 import { Table, THead, TBody, TRow, TH, TD } from "@/components/ui/table";
@@ -11,7 +12,7 @@ import { Badge } from "@/components/ui/badge";
 import { DonutChart } from "@/components/ui/charts/donut-chart";
 import { TrendLineChart } from "@/components/ui/charts/line-chart";
 import { DashboardGreeting } from "@/components/dashboards/dashboard-greeting";
-import { formatCurrency, formatDate } from "@/lib/utils";
+import { formatCurrency, formatDate, formatSalaryAmount } from "@/lib/utils";
 import { getT } from "@/lib/i18n/server";
 
 export default async function FinanceDashboardPage() {
@@ -19,6 +20,7 @@ export default async function FinanceDashboardPage() {
   if (!can(role, "FINANCE", "READ")) redirect("/dashboard/executive");
 
   const data = await getFinanceDashboardData(tenantId);
+  const payroll = await getPayrollSummary(tenantId);
   const { t } = await getT();
 
   return (
@@ -153,6 +155,45 @@ export default async function FinanceDashboardPage() {
           </CardContent>
         </Card>
       </div>
+
+      <Card>
+        <CardHeader>
+          <CardTitle>{t("dashboards.finance.payrollSummary")}</CardTitle>
+        </CardHeader>
+        <CardContent>
+          {payroll.length === 0 ? (
+            <p className="text-sm text-ink-faint py-6 text-center">{t("dashboards.finance.noPayroll")}</p>
+          ) : (
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+              {payroll.map((p) => (
+                <div key={p.currency} className="rounded-lg border border-border p-4 space-y-2">
+                  <div className="flex items-center gap-2 text-sm text-ink-muted">
+                    <Users size={14} /> {p.headcount} {t("dashboards.finance.employees")} · {p.currency}
+                  </div>
+                  <div className="grid grid-cols-2 gap-3">
+                    <div>
+                      <p className="text-xs text-ink-muted">{t("dashboards.finance.monthlyGross")}</p>
+                      <p className="text-lg font-semibold text-ink">{formatSalaryAmount(p.monthlyGross, p.currency as "EUR" | "ALL")}</p>
+                    </div>
+                    <div>
+                      <p className="text-xs text-ink-muted">{t("dashboards.finance.monthlyNet")}</p>
+                      <p className="text-lg font-semibold text-ink">{formatSalaryAmount(p.monthlyNet, p.currency as "EUR" | "ALL")}</p>
+                    </div>
+                    <div>
+                      <p className="text-xs text-ink-muted">{t("dashboards.finance.annualGross")}</p>
+                      <p className="text-sm font-medium text-ink-muted">{formatSalaryAmount(p.annualGross, p.currency as "EUR" | "ALL")}</p>
+                    </div>
+                    <div>
+                      <p className="text-xs text-ink-muted">{t("dashboards.finance.annualNet")}</p>
+                      <p className="text-sm font-medium text-ink-muted">{formatSalaryAmount(p.annualNet, p.currency as "EUR" | "ALL")}</p>
+                    </div>
+                  </div>
+                </div>
+              ))}
+            </div>
+          )}
+        </CardContent>
+      </Card>
     </div>
   );
 }

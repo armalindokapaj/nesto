@@ -18,6 +18,14 @@ export function canManageProfile(employeeUserId: string | null, viewer: ProfileV
   return employeeUserId === viewer.userId || can(viewer.role, "HR", "FULL");
 }
 
+// Salary is restricted to HR, Finance, Admin, and Owner — deliberately NOT
+// gated the same way as Work Contract above (which the employee can also see
+// themselves). Owner/Admin get access automatically via FULL_ADMIN in the
+// permission matrix, so this one check covers exactly the requested set.
+export function canViewSalary(viewer: ProfileViewer) {
+  return can(viewer.role, "HR", "FULL") || can(viewer.role, "FINANCE", "FULL");
+}
+
 // Directory — every active company member, company-wide (no HR gate), same
 // spirit as PRD_10's "every company member can discover" principle applied
 // to people instead of projects.
@@ -53,8 +61,77 @@ export async function getEmployeeProfile(tenantId: string, employeeId: string, v
 
   const showContract = canViewWorkContract(employee.userId, viewer);
   const documents = employee.documents.filter((d) => d.visibility === "COMPANY" || showContract);
+  const showSalary = canViewSalary(viewer);
+  // Fetched and attached only when authorized — the page component never
+  // receives salary data at all rather than receiving-then-hiding it.
+  const currentSalary = showSalary
+    ? await db.salaryRecord.findFirst({ where: { tenantId, employeeId, status: "CURRENT" } })
+    : null;
 
-  return { ...employee, documents, canManage: canManageProfile(employee.userId, viewer), canViewContract: showContract };
+  return {
+    ...employee,
+    documents,
+    canManage: canManageProfile(employee.userId, viewer),
+    canViewContract: showContract,
+    canViewSalary: showSalary,
+    currentSalary,
+  };
+}
+
+export type SalaryRecordInput = {
+  effectiveStartDate: Date;
+  currency: "EUR" | "ALL";
+  grossSalary: number;
+  netSalary: number;
+  paymentFrequency: "MONTHLY" | "BIWEEKLY" | "WEEKLY" | "ANNUAL";
+  notes?: string;
+};
+
+export async function getSalaryHistory(tenantId: string, employeeId: string, viewer: ProfileViewer) {
+  assertTenant(await db.employee.findUnique({ where: { id: employeeId } }), tenantId, "Employee");
+  if (!canViewSalary(viewer)) throw new Error("You do not have permission to view salary information.");
+  return db.salaryRecord.findMany({
+    where: { tenantId, employeeId },
+    orderBy: { effectiveStartDate: "desc" },
+    include: {
+      createdBy: { select: { displayName: true } },
+      updatedBy: { select: { displayName: true } },
+    },
+  });
+}
+
+// Salary history is append-only: creating a record supersedes the current
+// one (status flips to PREVIOUS, effectiveEndDate is set) rather than
+// editing it in place — past records are never overwritten.
+export async function createSalaryRecord(
+  tenantId: string,
+  employeeId: string,
+  viewer: ProfileViewer,
+  input: SalaryRecordInput
+) {
+  assertTenant(await db.employee.findUnique({ where: { id: employeeId } }), tenantId, "Employee");
+  if (!canViewSalary(viewer)) throw new Error("You do not have permission to manage salary information.");
+
+  return db.$transaction(async (tx) => {
+    await tx.salaryRecord.updateMany({
+      where: { tenantId, employeeId, status: "CURRENT" },
+      data: { status: "PREVIOUS", effectiveEndDate: input.effectiveStartDate },
+    });
+    return tx.salaryRecord.create({
+      data: {
+        tenantId,
+        employeeId,
+        effectiveStartDate: input.effectiveStartDate,
+        currency: input.currency,
+        grossSalary: input.grossSalary,
+        netSalary: input.netSalary,
+        paymentFrequency: input.paymentFrequency,
+        notes: input.notes,
+        status: "CURRENT",
+        createdById: viewer.userId,
+      },
+    });
+  });
 }
 
 export async function updateEmployeePhoto(tenantId: string, employeeId: string, viewer: ProfileViewer, photoDataUrl: string | null) {

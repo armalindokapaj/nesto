@@ -5,6 +5,7 @@ import { Sidebar } from "@/components/workspace/sidebar";
 import { Topbar } from "@/components/workspace/topbar";
 import { useI18n } from "@/lib/i18n/locale-provider";
 import type { Role } from "@/lib/constants";
+import type { ModuleKey } from "@/lib/modules";
 
 export function WorkspaceShell({
   companyName,
@@ -15,6 +16,7 @@ export function WorkspaceShell({
   notificationCount,
   inboxCount,
   isPlatformAdmin,
+  disabledModules,
   children,
 }: {
   companyName: string;
@@ -25,6 +27,7 @@ export function WorkspaceShell({
   notificationCount: number;
   inboxCount: number;
   isPlatformAdmin?: boolean;
+  disabledModules?: ModuleKey[];
   children: React.ReactNode;
 }) {
   const [collapsed, setCollapsed] = useState(false);
@@ -40,6 +43,7 @@ export function WorkspaceShell({
         companyName={companyName}
         workspaceLabel={workspaceLabel}
         role={role}
+        disabledModules={disabledModules}
       />
       <div className="flex-1 flex flex-col min-w-0">
         <Topbar
