@@ -4,6 +4,7 @@ import { revalidatePath } from "next/cache";
 import { db } from "@/lib/db";
 import { getCurrentUser } from "@/lib/dal";
 import { can } from "@/lib/permissions";
+import { emitDomainEvent, dispatchDomainEvents } from "@/lib/domain-events";
 
 // PRD_2 §8 — posting is deliberate, atomic and one-way. Once an invoice is
 // POSTED it cannot be edited; corrections go through reverseInvoiceAction,
@@ -17,14 +18,14 @@ export async function postInvoiceAction(invoiceId: string) {
     throw new Error("You do not have permission to post financial records.");
   }
 
-  await db.$transaction(async (tx) => {
+  const eventId = await db.$transaction(async (tx) => {
     const invoice = await tx.invoice.findUnique({ where: { id: invoiceId } });
     if (!invoice || invoice.tenantId !== tenantId) {
       throw new Error("Invoice not found.");
     }
     if (invoice.status === "POSTED") {
       // Idempotent: a duplicate post request is a no-op, not an error.
-      return;
+      return null;
     }
 
     await tx.financialLedgerEntry.create({
@@ -51,10 +52,28 @@ export async function postInvoiceAction(invoiceId: string) {
         targetId: invoiceId,
       },
     });
+
+    // Reference workflow (Audit 2 §5) — posting a contract's PAYMENT invoice
+    // is the "Payment Recorded" step; the reaction reconciles the contract's
+    // completion state from the sum of its posted payments, never from a
+    // direct status write. Other invoice types have no reaction registered.
+    if (invoice.type === "PAYMENT" && invoice.contractId) {
+      return emitDomainEvent(tx, tenantId, "PaymentRecorded", {
+        invoiceId,
+        contractId: invoice.contractId,
+        amount: invoice.amount,
+        currency: invoice.currency,
+      });
+    }
+    return null;
   });
+
+  if (eventId) await dispatchDomainEvents([eventId]);
 
   revalidatePath("/dashboard/finance");
   revalidatePath("/dashboard/finance/invoices");
+  revalidatePath("/dashboard/finance/payments");
+  revalidatePath("/contracts");
 }
 
 export async function reverseInvoiceAction(invoiceId: string, reason: string) {

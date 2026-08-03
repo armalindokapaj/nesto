@@ -5,6 +5,7 @@ import { revalidatePath } from "next/cache";
 import { getCurrentUser } from "@/lib/dal";
 import { can } from "@/lib/permissions";
 import { createContract } from "@/server/contracts";
+import { approveContract } from "@/server/contract-lifecycle";
 
 const CreateContractSchema = z.object({
   title: z.string().min(2, "Enter a contract title"),
@@ -34,6 +35,24 @@ export async function createContractAction(_prev: CreateContractState, formData:
   }
 
   await createContract(tenantId, parsed.data);
+  revalidatePath("/contracts");
+  return undefined;
+}
+
+export type ApproveContractState = { error: string } | undefined;
+
+export async function approveContractAction(contractId: string): Promise<ApproveContractState> {
+  const { tenantId, role, user } = await getCurrentUser();
+  if (!can(role, "CONTRACTS", "FULL")) {
+    return { error: "You do not have permission to approve contracts." };
+  }
+
+  try {
+    await approveContract(tenantId, user.id, contractId);
+  } catch (err) {
+    return { error: err instanceof Error ? err.message : "Could not approve contract." };
+  }
+
   revalidatePath("/contracts");
   return undefined;
 }

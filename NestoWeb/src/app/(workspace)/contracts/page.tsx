@@ -9,6 +9,7 @@ import { Card, CardHeader, CardTitle, CardDescription, CardContent } from "@/com
 import { Table, THead, TBody, TRow, TH, TD } from "@/components/ui/table";
 import { Badge } from "@/components/ui/badge";
 import { CreateContractDialog } from "@/components/contracts/create-contract-dialog";
+import { ContractActions } from "@/components/contracts/contract-actions";
 import { CreateContractorDialog } from "@/components/contractors/create-contractor-dialog";
 import { formatCurrency, formatDate } from "@/lib/utils";
 import { getT } from "@/lib/i18n/server";
@@ -18,6 +19,7 @@ export default async function ContractsPage() {
   if (!can(role, "CONTRACTS", "READ")) redirect("/dashboard/executive");
   const canCreate = can(role, "CONTRACTS", "WRITE");
   const canCreateContractor = can(role, "COMPANY_NETWORK", "WRITE");
+  const canApprove = can(role, "CONTRACTS", "FULL");
 
   const [contracts, contractors, projects] = await Promise.all([
     listContracts(tenantId),
@@ -56,6 +58,7 @@ export default async function ContractsPage() {
                 <TH>{t("contracts.value")}</TH>
                 <TH>{t("common.status")}</TH>
                 <TH>{t("contracts.endDate")}</TH>
+                {canApprove && <TH>{t("common.actions")}</TH>}
               </TRow>
             </THead>
             <TBody>
@@ -86,11 +89,16 @@ export default async function ContractsPage() {
                     <Badge status={contract.status}>{t(`contracts.${contract.status.toLowerCase()}`)}</Badge>
                   </TD>
                   <TD className="text-ink-muted">{contract.endDate ? formatDate(contract.endDate) : "—"}</TD>
+                  {canApprove && (
+                    <TD>
+                      <ContractActions contractId={contract.id} status={contract.status} />
+                    </TD>
+                  )}
                 </TRow>
               ))}
               {contracts.length === 0 && (
                 <TRow>
-                  <TD colSpan={7} className="text-center text-ink-faint py-8">
+                  <TD colSpan={canApprove ? 8 : 7} className="text-center text-ink-faint py-8">
                     {t("contracts.noContracts")}
                   </TD>
                 </TRow>

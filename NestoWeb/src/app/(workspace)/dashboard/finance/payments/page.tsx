@@ -6,12 +6,14 @@ import { listInvoicesByType } from "@/server/finance";
 import { Card, CardContent } from "@/components/ui/card";
 import { Table, THead, TBody, TRow, TH, TD } from "@/components/ui/table";
 import { Badge } from "@/components/ui/badge";
+import { InvoiceActions } from "@/components/finance/invoice-actions";
 import { formatCurrency, formatDate } from "@/lib/utils";
 import { getT } from "@/lib/i18n/server";
 
 export default async function PaymentsPage() {
   const { tenantId, role } = await getCurrentUser();
   if (!can(role, "FINANCE", "READ")) redirect("/dashboard/executive");
+  const canPost = can(role, "FINANCE", "FULL");
 
   const payments = await listInvoicesByType(tenantId, "PAYMENT");
   const { t } = await getT();
@@ -32,6 +34,7 @@ export default async function PaymentsPage() {
                 <TH>{t("common.project")}</TH>
                 <TH>{t("common.amount")}</TH>
                 <TH>{t("common.status")}</TH>
+                {canPost && <TH>{t("common.actions")}</TH>}
               </TRow>
             </THead>
             <TBody>
@@ -57,11 +60,16 @@ export default async function PaymentsPage() {
                   <TD>
                     <Badge status={p.status}>{p.status}</Badge>
                   </TD>
+                  {canPost && (
+                    <TD>
+                      <InvoiceActions invoiceId={p.id} status={p.status} />
+                    </TD>
+                  )}
                 </TRow>
               ))}
               {payments.length === 0 && (
                 <TRow>
-                  <TD colSpan={5} className="text-center text-ink-faint py-8">
+                  <TD colSpan={canPost ? 6 : 5} className="text-center text-ink-faint py-8">
                     {t("common.noResults")}
                   </TD>
                 </TRow>

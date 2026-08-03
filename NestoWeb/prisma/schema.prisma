@@ -35,6 +35,7 @@ model Tenant {
   timelineEvents         TimelineEvent[]
   notifications          Notification[]
   auditEvents            AuditEvent[]
+  domainEvents           DomainEvent[]
   invoices               Invoice[]
   financeAccounts        FinanceAccount[]
   employees              Employee[]
@@ -761,6 +762,27 @@ model AuditEvent {
   @@index([tenantId, createdAt])
 }
 
+// Audit 2 §5 "Cross-Module Interaction Through Domain Events" — transactional
+// outbox for the Contract Approved -> Finance Structure -> Payment Recorded
+// reference workflow (src/lib/domain-events.ts). Written inside the SAME
+// transaction as the state change that raised it, so the event can never be
+// lost even if in-process dispatch fails right after commit; a row left
+// PENDING/FAILED here is exactly what a future background worker would
+// sweep and retry, without any schema change.
+model DomainEvent {
+  id          String    @id @default(cuid())
+  tenantId    String
+  tenant      Tenant    @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  type        String // e.g. "ContractApproved", "PaymentRecorded"
+  payload     String // JSON
+  status      String    @default("PENDING") // PENDING | PROCESSED | FAILED
+  error       String?
+  createdAt   DateTime  @default(now())
+  processedAt DateTime?
+
+  @@index([tenantId, status])
+}
+
 // ---------------------------------------------------------------------------
 // Phase-1 dashboard support tables (minimal slices of Phase 2+ modules,
 // just enough to render real Finance/HR/Architect dashboard data)
@@ -782,6 +804,11 @@ model Invoice {
   tenant      Tenant    @relation(fields: [tenantId], references: [id], onDelete: Cascade)
   projectId   String?
   project     Project?  @relation(fields: [projectId], references: [id])
+  // Set only on the type="PAYMENT" invoices auto-created by the
+  // ContractApproved reaction (src/server/contract-lifecycle-reactions.ts)
+  // as the contract's "Finance Structure" — not a client-facing field.
+  contractId  String?
+  contract    Contract? @relation(fields: [contractId], references: [id])
   number      String
   type        String // INVOICE | BILL | PAYMENT | EXPENSE
   description String?
@@ -799,6 +826,7 @@ model Invoice {
 
   @@index([tenantId, type])
   @@index([tenantId, status])
+  @@index([tenantId, contractId])
 }
 
 model Employee {
@@ -1051,6 +1079,10 @@ model Contract {
   title        String
   value        Float
   currency     String      @default("EUR")
+  // Controlled lifecycle (Audit 2 §7) — the only writer of this field is
+  // src/server/contract-lifecycle.ts's transition guard, not ad-hoc updates.
+  // DRAFT -> ACTIVE (approveContract) -> COMPLETED (auto, once posted
+  // PAYMENT invoices reach the contract value) | TERMINATED.
   status       String      @default("DRAFT") // DRAFT | ACTIVE | COMPLETED | TERMINATED
   startDate    DateTime?
   endDate      DateTime?
@@ -1058,6 +1090,7 @@ model Contract {
 
   taskLinks       TaskContractLink[]
   taskAssignments TaskContractorAssignment[]
+  invoices        Invoice[]
 
   @@index([tenantId, status])
   @@index([tenantId, projectId])

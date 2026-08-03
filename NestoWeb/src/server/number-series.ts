@@ -16,6 +16,7 @@ const SERIES_CONFIG: Record<string, { prefix: string; seqLength: number; include
   ASSET: { prefix: "AST", seqLength: 5, includeYear: false },
   SUPPLIER: { prefix: "SUP", seqLength: 6, includeYear: false },
   PURCHASE_ORDER: { prefix: "PO", seqLength: 5, includeYear: true },
+  PAYMENT: { prefix: "PAY", seqLength: 6, includeYear: true },
 };
 
 export async function allocateNumber(tenantId: string, entityType: keyof typeof SERIES_CONFIG): Promise<string> {
