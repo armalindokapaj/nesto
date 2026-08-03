@@ -10,13 +10,46 @@ export async function listProjects(tenantId: string) {
   });
 }
 
+// A separate query from listProjects() — the Projects index is the one place
+// that needs each project's relationship signal (PRD_10 §5.1 badge), so only
+// it pays for the extra task/member fields; every other listProjects() call
+// site (dropdowns, filters) stays on the lean query above.
+const TASK_VISIBILITY_SELECT = {
+  visibility: true,
+  createdById: true,
+  mainResponsibleId: true,
+  taskManagerId: true,
+  decisionOwnerId: true,
+  finalApproverId: true,
+  departmentRole: true,
+  contributions: { select: { userId: true } },
+  participants: { select: { userId: true, role: true } },
+} as const;
+
+export async function listProjectsWithRelationship(tenantId: string) {
+  return db.project.findMany({
+    where: { tenantId },
+    orderBy: { createdAt: "desc" },
+    include: {
+      _count: { select: { tasks: true } },
+      members: { select: { userId: true } },
+      tasks: { select: TASK_VISIBILITY_SELECT },
+    },
+  });
+}
+
 export async function getProject(tenantId: string, projectId: string) {
   const project = await db.project.findUnique({
     where: { id: projectId },
     include: {
       tasks: {
         orderBy: { createdAt: "desc" },
-        include: { mainResponsible: true, contributions: { include: { user: true } }, _count: { select: { documents: true } } },
+        include: {
+          mainResponsible: true,
+          contributions: { include: { user: true } },
+          participants: { select: { userId: true, role: true } },
+          _count: { select: { documents: true } },
+        },
       },
       members: { include: { user: true } },
     },
@@ -54,6 +87,8 @@ export async function createTask(
     mainResponsibleId?: string;
     priority?: string;
     dueDate?: Date;
+    visibility?: string;
+    departmentRole?: string;
   }
 ) {
   const code = await allocateNumber(tenantId, "TASK");
@@ -68,6 +103,8 @@ export async function createTask(
       mainResponsibleId: input.mainResponsibleId,
       priority: input.priority ?? "MEDIUM",
       dueDate: input.dueDate,
+      visibility: input.visibility ?? "COMPANY_PUBLIC",
+      departmentRole: input.departmentRole,
     },
   });
 }
@@ -82,7 +119,13 @@ export async function listTasks(tenantId: string, projectId?: string) {
   return db.task.findMany({
     where: { tenantId, ...(projectId ? { projectId } : {}) },
     orderBy: { createdAt: "desc" },
-    include: { mainResponsible: true, project: true, _count: { select: { documents: true } } },
+    include: {
+      mainResponsible: true,
+      project: true,
+      contributions: { select: { userId: true } },
+      participants: { select: { userId: true, role: true } },
+      _count: { select: { documents: true } },
+    },
   });
 }
 

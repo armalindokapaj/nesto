@@ -132,6 +132,13 @@ export const TASK_STATUS_KEY: Record<TaskStatus, string> = {
 export const TASK_PRIORITIES = ["LOW", "MEDIUM", "HIGH", "CRITICAL"] as const;
 export type TaskPriority = (typeof TASK_PRIORITIES)[number];
 
+// PRD_10 §6/FR-003 — who besides the creator/responsible/contributors can see
+// a task at all, independent of the coarser TASKS resource permission. This
+// field existed on the schema since PRD_3 but was never settable or enforced
+// anywhere until PRD_10 — see lib/project-access.ts for the read-side check.
+export const TASK_VISIBILITIES = ["COMPANY_PUBLIC", "DEPARTMENT_PUBLIC", "PRIVATE"] as const;
+export type TaskVisibility = (typeof TASK_VISIBILITIES)[number];
+
 export const PROJECT_STATUSES = [
   "ON_TRACK",
   "AT_RISK",
@@ -222,6 +229,30 @@ export const STATUS_TONE: Record<string, "success" | "warning" | "danger" | "inf
   ACTION_REQUIRED: "warning",
   COMMENT_ONLY: "neutral",
   REDIRECTED: "neutral",
+
+  // --- PRD_6 Public Sign-Up / Platform Approval --------------------------
+  EMAIL_VERIFICATION_REQUIRED: "warning",
+  PROFILE_INCOMPLETE: "warning",
+  READY_TO_SUBMIT: "info",
+  PENDING_PLATFORM_REVIEW: "info",
+  CHANGES_REQUESTED: "warning",
+  RESUBMITTED: "info",
+  APPROVED_WITH_RESTRICTIONS: "warning",
+  DEACTIVATED: "neutral",
+  UNVERIFIED: "neutral",
+  VERIFIED: "success",
+  DISPUTED: "danger",
+  CONFIDENTIAL: "neutral",
+  ONGOING: "info",
+  CONCEPT: "neutral",
+
+  // --- PRD_10 — Project Interaction with Company Members ----------------
+  APPROVER: "success",
+  TASK_CONTRIBUTOR: "info",
+  REVIEWER: "info",
+  WATCHER: "neutral",
+  DEPARTMENT_INVOLVED: "neutral",
+  UNASSIGNED: "neutral",
 };
 
 // ---------------------------------------------------------------------------
@@ -407,3 +438,184 @@ export const DEFAULT_WORKFLOW_STAGES: readonly { key: string; label: string }[] 
 // the task-specific chain is exhausted, escalation continues through
 // company-wide PM then CEO.
 export const ESCALATION_CHAIN: readonly Role[] = ["PM", "CEO"];
+
+// ---------------------------------------------------------------------------
+// PRD_6 — Professional and Contractor Public Sign-Up
+// ---------------------------------------------------------------------------
+
+export const PUBLIC_ACCOUNT_TYPES = ["PROFESSIONAL", "CONTRACTOR"] as const;
+export type PublicAccountType = (typeof PUBLIC_ACCOUNT_TYPES)[number];
+
+export const PUBLIC_ACCOUNT_STATUSES = [
+  "DRAFT",
+  "EMAIL_VERIFICATION_REQUIRED",
+  "PROFILE_INCOMPLETE",
+  "READY_TO_SUBMIT",
+  "PENDING_PLATFORM_REVIEW",
+  "CHANGES_REQUESTED",
+  "RESUBMITTED",
+  "APPROVED",
+  "APPROVED_WITH_RESTRICTIONS",
+  "REJECTED",
+  "SUSPENDED",
+  "DEACTIVATED",
+] as const;
+export type PublicAccountStatus = (typeof PUBLIC_ACCOUNT_STATUSES)[number];
+
+// §12.3 — none of these are available until Platform Admin approves.
+export const PUBLIC_ACCOUNT_STATUSES_ALLOWING_EDIT: readonly PublicAccountStatus[] = [
+  "DRAFT",
+  "PROFILE_INCOMPLETE",
+  "READY_TO_SUBMIT",
+  "PENDING_PLATFORM_REVIEW",
+  "CHANGES_REQUESTED",
+  "RESUBMITTED",
+];
+
+export const PUBLIC_ACCOUNT_STATUSES_ACTIVE: readonly PublicAccountStatus[] = ["APPROVED", "APPROVED_WITH_RESTRICTIONS"];
+
+// §3.1 — Platform-Admin-managed profession taxonomy (a fixed starter list
+// stands in for a manageable taxonomy table, which is out of scope this pass).
+export const PROFESSIONS = [
+  "ARCHITECT",
+  "INTERIOR_DESIGNER",
+  "STRUCTURAL_ENGINEER",
+  "CIVIL_ENGINEER",
+  "MECHANICAL_ENGINEER",
+  "ELECTRICAL_ENGINEER",
+  "MEP_ENGINEER",
+  "QUANTITY_SURVEYOR",
+  "PROJECT_MANAGER",
+  "SITE_MANAGER",
+  "BIM_SPECIALIST",
+  "CAD_TECHNICIAN",
+  "SURVEYOR",
+  "HSE_SPECIALIST",
+  "QAQC_SPECIALIST",
+  "LEGAL_SPECIALIST",
+  "FINANCE_SPECIALIST",
+  "PROCUREMENT_SPECIALIST",
+  "OTHER",
+] as const;
+export type Profession = (typeof PROFESSIONS)[number];
+
+export const EMPLOYMENT_STATUSES = ["EMPLOYED", "SELF_EMPLOYED", "FREELANCE", "SEEKING_WORK", "OTHER"] as const;
+export const AVAILABILITY_STATUSES = ["AVAILABLE_NOW", "AVAILABLE_FROM", "NOT_AVAILABLE", "OPEN_TO_OFFERS"] as const;
+export const PROFILE_VISIBILITY_LEVELS = ["PRIVATE", "APPROVED_COMPANIES", "SELECTED_COMPANIES", "PUBLIC"] as const;
+
+// §9.1
+export const CONTRACTOR_TYPES = [
+  "REGISTERED_COMPANY",
+  "SOLE_TRADER",
+  "INDEPENDENT_CONTRACTOR",
+  "SPECIALIST_SUBCONTRACTOR",
+  "SUPPLIER_INSTALLER",
+] as const;
+export type ContractorAccountType = (typeof CONTRACTOR_TYPES)[number];
+
+// §9.3 — example service-category taxonomy.
+export const CONTRACTOR_SERVICE_CATEGORIES = [
+  "GENERAL_CONSTRUCTION",
+  "FACADE",
+  "CONCRETE",
+  "STEEL",
+  "ROOFING",
+  "ELECTRICAL",
+  "PLUMBING",
+  "HVAC",
+  "FIRE_PROTECTION",
+  "FIT_OUT",
+  "FLOORING",
+  "PAINTING",
+  "JOINERY",
+  "ALUMINIUM",
+  "GLASS",
+  "LANDSCAPING",
+  "EXCAVATION",
+  "ROAD_WORKS",
+  "DEMOLITION",
+  "WATERPROOFING",
+  "SCAFFOLDING",
+  "EQUIPMENT_RENTAL",
+  "OTHER",
+] as const;
+
+export const CONTRACTOR_CONTACT_ROLES = [
+  "OWNER",
+  "COMMERCIAL",
+  "TENDER",
+  "PROJECT_MANAGER",
+  "SITE_MANAGER",
+  "HSE",
+  "FINANCE",
+  "LEGAL",
+] as const;
+
+// §8.2/§9.5
+export const PROFILE_DOCUMENT_CATEGORIES = [
+  "CV",
+  "COMPANY_PROFILE",
+  "PORTFOLIO",
+  "CERTIFICATION",
+  "LICENSE",
+  "REGISTRATION",
+  "VAT",
+  "INSURANCE",
+  "HSE_QAQC",
+  "NDA",
+  "ORG_CHART",
+  "OTHER",
+] as const;
+
+export const PORTFOLIO_PROJECT_STATUSES = ["CONCEPT", "ONGOING", "COMPLETED", "CONFIDENTIAL"] as const;
+
+export const PROFESSIONAL_SKILL_CATEGORIES = ["PROFESSIONAL", "SOFTWARE", "LANGUAGE"] as const;
+
+// §14 — every Platform Admin review decision is a typed action, never a
+// plain comment (same discipline as PRD_4's CTO-061 for task approvals).
+export const APPLICATION_REVIEW_ACTIONS = [
+  "APPROVE",
+  "APPROVE_WITH_RESTRICTIONS",
+  "REQUEST_CHANGES",
+  "REQUEST_DOCUMENTS",
+  "REJECT",
+  "SUSPEND",
+  "REACTIVATE",
+] as const;
+export type ApplicationReviewAction = (typeof APPLICATION_REVIEW_ACTIONS)[number];
+
+// ---------------------------------------------------------------------------
+// PRD_9 — Personal Calendar, Leave Workflow, Reminders, Adaptive Themes
+// ---------------------------------------------------------------------------
+
+// Creative User Type Theme (PRD_9 §6.1) was removed per explicit product
+// decision — only Platform Default and Night Mode remain.
+export const THEMES = ["PLATFORM_DEFAULT", "NIGHT"] as const;
+export type Theme = (typeof THEMES)[number];
+
+// §5.1 — the calendar item categories a user can set their own reminder lead
+// time for. AGENDA covers personal agenda events; DEADLINE reuses Task's own
+// dueDate (this app has no separate Deadline model to attach a reminder to).
+export const REMINDER_ITEM_TYPES = ["MEETING", "TASK", "DEADLINE", "AGENDA", "INSPECTION"] as const;
+export type ReminderItemType = (typeof REMINDER_ITEM_TYPES)[number];
+
+export const REMINDER_MINUTES_OPTIONS = [0, 5, 15, 30, 60, 120, 1440] as const;
+
+export const LEAVE_STATUSES = ["PENDING", "APPROVED", "REJECTED", "CANCELLED"] as const;
+export type LeaveStatus = (typeof LEAVE_STATUSES)[number];
+
+// CAL-003 — one color category per calendar-item source. Lives here (not in
+// server/calendar.ts, which has `import "server-only"`) so client components
+// rendering calendar chips can import the tone map directly.
+export const CALENDAR_ITEM_SOURCES = ["AGENDA", "TASK", "MEETING", "LEAVE", "MILESTONE", "INSPECTION"] as const;
+export type CalendarItemSource = (typeof CALENDAR_ITEM_SOURCES)[number];
+
+export const CALENDAR_ITEM_TONE: Record<CalendarItemSource, "success" | "warning" | "danger" | "info" | "neutral" | "gold"> = {
+  AGENDA: "neutral",
+  TASK: "gold",
+  MEETING: "info",
+  LEAVE: "success",
+  MILESTONE: "warning",
+  INSPECTION: "danger",
+};
+

@@ -2,6 +2,7 @@ import { redirect } from "next/navigation";
 import { getCurrentUser } from "@/lib/dal";
 import { getContractorWorkPackages } from "@/server/task-orchestration";
 import { ContractorAssignmentCard } from "@/components/projects/contractor-assignment-card";
+import { DashboardGreeting } from "@/components/dashboards/dashboard-greeting";
 import { getT } from "@/lib/i18n/server";
 
 // PRD_4 §10/§14 (CTO-100) — a contractor's entire workspace is this one
@@ -17,10 +18,7 @@ export default async function ContractorDashboardPage() {
 
   return (
     <div className="space-y-6">
-      <div>
-        <h1 className="text-xl font-semibold text-ink">{t("orchestration.contractorDashboardTitle")}</h1>
-        <p className="text-sm text-ink-muted mt-0.5">{t("orchestration.contractorDashboardSubtitle")}</p>
-      </div>
+      <DashboardGreeting greetingRole="CONTRACTOR" />
 
       {assignments.length === 0 ? (
         <div className="rounded-xl border border-dashed border-border py-16 text-center text-sm text-ink-faint">

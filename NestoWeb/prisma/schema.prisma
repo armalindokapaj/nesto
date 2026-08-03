@@ -75,6 +75,13 @@ model Tenant {
   taskInspections           TaskInspection[]
   taskCompletionRecords     TaskCompletionRecord[]
   taskReopeningRecords      TaskReopeningRecord[]
+
+  // --- PRD_6 Public Sign-Up / Platform Approval -------------------------
+  profileInvitations ProfileInvitation[]
+
+  // --- PRD_9 Personal Calendar / Leave / Reminders -----------------------
+  agendaEvents      AgendaEvent[]
+  projectMilestones ProjectMilestone[]
 }
 
 model Company {
@@ -117,6 +124,10 @@ model UserIdentity {
   displayName  String
   avatarColor  String   @default("#B8860B")
   createdAt    DateTime @default(now())
+  // PRD_9 §6 — belongs to the identity, not a tenant membership, so the
+  // preference (and role-derived Creative flavor) follows the user across
+  // devices and workspaces. PLATFORM_DEFAULT | NIGHT | CREATIVE
+  theme        String   @default("PLATFORM_DEFAULT")
 
   memberships             CompanyMembership[]
   projectMembers          ProjectMember[]
@@ -159,6 +170,22 @@ model UserIdentity {
   taskReopeningsRecorded     TaskReopeningRecord[]          @relation("TaskReopenedBy")
   stagesSkipped              TaskStage[]                    @relation("StageSkippedBy")
   contractorProfile          Contractor?                    @relation("ContractorLogin")
+
+  // --- PRD_6 Public Sign-Up / Platform Approval -------------------------
+  // A single flag on the existing company-scoped identity, not a separate
+  // tenant-independent Platform Admin account model (that's PRD_7's fuller
+  // scope) — enough to gate a minimal /platform/applications review queue.
+  isPlatformAdmin            Boolean              @default(false)
+  reviewedApplications       ProfileApplication[] @relation("ApplicationReviewer")
+  applicationReviewsAuthored ApplicationReview[]  @relation("ApplicationReviewAuthor")
+  profileInvitationsSent     ProfileInvitation[]
+
+  // --- PRD_9 Personal Calendar / Leave / Reminders -----------------------
+  agendaEvents         AgendaEvent[]
+  reminderPreferences  ReminderPreference[]
+  createdMilestones    ProjectMilestone[]
+  leaveRequestsCreated LeaveRequest[]       @relation("LeaveCreatedBy")
+  leaveRequestsDecided LeaveRequest[]       @relation("LeaveDecidedBy")
 }
 
 // Links an identity to a tenant workspace with a role, department and access mode.
@@ -224,6 +251,7 @@ model Project {
   assets         Asset[]
   hseReports     HseReport[]
   purchaseOrders PurchaseOrder[]
+  milestones     ProjectMilestone[]
 
   @@unique([tenantId, code])
 }
@@ -755,33 +783,56 @@ model Invoice {
 }
 
 model Employee {
-  id          String        @id @default(cuid())
-  tenantId    String
-  tenant      Tenant        @relation(fields: [tenantId], references: [id], onDelete: Cascade)
-  userId      String?       @unique
-  user        UserIdentity? @relation(fields: [userId], references: [id])
-  fullName    String
-  position    String
-  department  String
-  hireDate    DateTime
-  status      String        @default("ACTIVE") // ACTIVE | ON_LEAVE | TERMINATED
-  avatarColor String        @default("#1A1D23")
-  birthday    DateTime?
+  id           String        @id @default(cuid())
+  tenantId     String
+  tenant       Tenant        @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  userId       String?       @unique
+  user         UserIdentity? @relation(fields: [userId], references: [id])
+  fullName     String
+  position     String
+  department   String
+  hireDate     DateTime
+  status       String        @default("ACTIVE") // ACTIVE | ON_LEAVE | TERMINATED
+  avatarColor  String        @default("#1A1D23")
+  birthday     DateTime?
+  // Employee Profile — contact info shown to any active company member so
+  // colleagues can reach out; a base64 data URL rather than a real file/blob
+  // store, since this app has no object storage anywhere (every other
+  // "document" feature is metadata-only) — this is the one place a real
+  // inline image is actually rendered, so it needs real bytes, not just a name.
+  phone        String?
+  photoDataUrl String?
+  // PRD_9 LEV-001 — "direct superior" for leave-request creation. Self-relation
+  // rather than reusing CompanyMembership.managerId (a dormant, unused, un-typed
+  // field with no clear FK target) since leave lives on Employee, not on the
+  // tenant-membership record.
+  managerId    String?
+  manager      Employee?     @relation("EmployeeManager", fields: [managerId], references: [id])
 
   leaveRequests LeaveRequest[]
+  reports       Employee[]     @relation("EmployeeManager")
+  documents     DocumentFile[]
 }
 
 model LeaveRequest {
-  id         String   @id @default(cuid())
-  tenantId   String
-  tenant     Tenant   @relation(fields: [tenantId], references: [id], onDelete: Cascade)
-  employeeId String
-  employee   Employee @relation(fields: [employeeId], references: [id], onDelete: Cascade)
-  startDate  DateTime
-  endDate    DateTime
-  status     String   @default("PENDING") // PENDING | APPROVED | REJECTED
-  reason     String?
-  createdAt  DateTime @default(now())
+  id          String        @id @default(cuid())
+  tenantId    String
+  tenant      Tenant        @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  employeeId  String
+  employee    Employee      @relation(fields: [employeeId], references: [id], onDelete: Cascade)
+  startDate   DateTime
+  endDate     DateTime
+  status      String        @default("PENDING") // PENDING | APPROVED | REJECTED | CANCELLED
+  reason      String?
+  createdAt   DateTime      @default(now())
+  // PRD_9 §4.1 — who created the request (the employee themselves, their
+  // direct superior, or HR on someone's behalf) and, once decided, who at HR
+  // decided it. Nullable: rows created before this PRD had no such actor.
+  createdById String?
+  createdBy   UserIdentity? @relation("LeaveCreatedBy", fields: [createdById], references: [id])
+  decidedById String?
+  decidedBy   UserIdentity? @relation("LeaveDecidedBy", fields: [decidedById], references: [id])
+  updatedAt   DateTime      @updatedAt
 }
 
 model HrAppointment {
@@ -933,17 +984,20 @@ model Client {
 }
 
 model Contractor {
-  id         String   @id @default(cuid())
-  tenantId   String
-  tenant     Tenant   @relation(fields: [tenantId], references: [id], onDelete: Cascade)
-  number     String // Number Series: CTR-{SEQ6}
-  name       String
-  tradeType  String
-  email      String?
-  phone      String?
-  status     String   @default("PENDING") // PENDING | APPROVED | SUSPENDED
-  riskRating String   @default("LOW") // LOW | MEDIUM | HIGH
-  createdAt  DateTime @default(now())
+  id          String   @id @default(cuid())
+  tenantId    String
+  tenant      Tenant   @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  number      String // Number Series: CTR-{SEQ6}
+  name        String
+  tradeType   String
+  email       String?
+  phone       String?
+  // Local business identifiers — NIPT is Albania's tax identification number.
+  taxId       String?
+  bankAccount String?
+  status      String   @default("PENDING") // PENDING | APPROVED | SUSPENDED
+  riskRating  String   @default("LOW") // LOW | MEDIUM | HIGH
+  createdAt   DateTime @default(now())
 
   // PRD_4 §10/§14 — an optional portal login for this contractor, restricted
   // to their own TaskContractorAssignments (CTO-100 task-scoped access).
@@ -986,6 +1040,14 @@ model DocumentFile {
   task         Task?        @relation(fields: [taskId], references: [id], onDelete: Cascade)
   clientId     String?
   client       Client?      @relation(fields: [clientId], references: [id], onDelete: Cascade)
+  // Employee Profile — CV/certification/work-contract attachments. Reuses
+  // this same document model rather than a parallel one (matches every other
+  // "attach a file" feature in the app), with `visibility` gating who besides
+  // the uploader can see it: COMPANY (default, the profile directory) or
+  // PRIVATE_HR (work contracts — only the employee themselves and HR).
+  employeeId   String?
+  employee     Employee?    @relation(fields: [employeeId], references: [id], onDelete: Cascade)
+  visibility   String       @default("COMPANY")
   name         String
   category     String       @default("General")
   // PRD_4 §8.2 categories (INITIAL_EVIDENCE | TECHNICAL_ASSESSMENT | DRAWING |
@@ -1068,6 +1130,15 @@ model NumberSeries {
   @@unique([tenantId, entityType])
 }
 
+// Same allocation pattern as NumberSeries, but for platform-level entities
+// (PRD_6 applications/profiles) that have no tenant to scope under.
+model PlatformNumberSeries {
+  id         String @id @default(cuid())
+  entityType String @unique // "APPLICATION" | "PROFILE"
+  prefix     String
+  nextValue  Int    @default(1)
+}
+
 // ---------------------------------------------------------------------------
 // PRD_2 — Dimensions: reusable analytical tags attached to records (§7).
 // Visibility/permissions are unaffected — dimensions are for reporting only.
@@ -1129,4 +1200,357 @@ model FinancialLedgerEntry {
   reversesEntryId String?
   reversesEntry   FinancialLedgerEntry?  @relation("Reversal", fields: [reversesEntryId], references: [id])
   reversedBy      FinancialLedgerEntry[] @relation("Reversal")
+}
+
+// ---------------------------------------------------------------------------
+// PRD_6 — Professional and Contractor Public Sign-Up. Deliberately outside
+// the Tenant graph: a PublicAccount is not a company member and must never
+// be reachable through tenant-scoped queries (public profile data and
+// private company data stay separated per §2's non-interference rule).
+// Approval never grants private workspace access — that's a distinct,
+// separate ProfileInvitation a Company Admin sends afterward (§21).
+// ---------------------------------------------------------------------------
+
+model PublicAccount {
+  id                String    @id @default(cuid())
+  email             String    @unique
+  username          String    @unique
+  passwordHash      String
+  preferredLanguage String    @default("sq")
+  country           String
+  timeZone          String
+  accountType       String // PROFESSIONAL | CONTRACTOR
+  status            String    @default("DRAFT")
+  // DRAFT | EMAIL_VERIFICATION_REQUIRED | PROFILE_INCOMPLETE | READY_TO_SUBMIT |
+  // PENDING_PLATFORM_REVIEW | CHANGES_REQUESTED | RESUBMITTED | APPROVED |
+  // APPROVED_WITH_RESTRICTIONS | REJECTED | SUSPENDED | DEACTIVATED
+  emailVerified     Boolean   @default(false)
+  emailVerifiedAt   DateTime?
+  termsAcceptedAt   DateTime?
+  termsVersion      String?
+  privacyAcceptedAt DateTime?
+  privacyVersion    String?
+  createdAt         DateTime  @default(now())
+  updatedAt         DateTime  @updatedAt
+
+  professionalProfile     ProfessionalProfile?
+  contractorProfile       ContractorProfile?
+  documents               ProfileDocument[]
+  portfolioProjects       PortfolioProject[]
+  application             ProfileApplication?
+  auditEvents             ProfileAuditEvent[]
+  emailVerificationTokens EmailVerificationToken[]
+  invitations             ProfileInvitation[]
+}
+
+model EmailVerificationToken {
+  id              String        @id @default(cuid())
+  publicAccountId String
+  publicAccount   PublicAccount @relation(fields: [publicAccountId], references: [id], onDelete: Cascade)
+  token           String        @unique
+  expiresAt       DateTime
+  consumedAt      DateTime?
+  createdAt       DateTime      @default(now())
+}
+
+model ProfessionalProfile {
+  id                     String        @id @default(cuid())
+  publicAccountId        String        @unique
+  publicAccount          PublicAccount @relation(fields: [publicAccountId], references: [id], onDelete: Cascade)
+  firstName              String?
+  lastName               String?
+  title                  String?
+  primaryProfession      String?
+  photoUrl               String?
+  country                String?
+  city                   String?
+  headline               String?
+  summary                String?
+  yearsExperience        Int?
+  employmentStatus       String? // EMPLOYED | SELF_EMPLOYED | FREELANCE | SEEKING_WORK | OTHER
+  availabilityStatus     String? // AVAILABLE_NOW | AVAILABLE_FROM | NOT_AVAILABLE | OPEN_TO_OFFERS
+  professionalEmail      String?
+  phone                  String?
+  website                String?
+  linkedin               String?
+  portfolioWebsite       String?
+  addressVisibility      String        @default("PRIVATE") // PRIVATE | APPROVED_COMPANIES | SELECTED_COMPANIES | PUBLIC
+  preferredContactMethod String?
+  engagementTypes        String? // JSON array
+  relocationAvailable    Boolean?
+  expectedSalary         String?
+  preferredProjectTypes  String? // JSON array
+  preferredCompanyTypes  String? // JSON array
+  workAuthorization      String?
+  noticePeriod           String?
+  availabilityDate       DateTime?
+
+  experiences    ProfessionalExperience[]
+  educations     ProfessionalEducation[]
+  certifications ProfessionalCertification[]
+  skills         ProfessionalSkill[]
+}
+
+model ProfessionalExperience {
+  id               String              @id @default(cuid())
+  profileId        String
+  profile          ProfessionalProfile @relation(fields: [profileId], references: [id], onDelete: Cascade)
+  employer         String
+  position         String
+  employmentType   String?
+  country          String?
+  city             String?
+  startDate        DateTime
+  endDate          DateTime?
+  currentlyWorking Boolean             @default(false)
+  description      String
+  createdAt        DateTime            @default(now())
+}
+
+model ProfessionalEducation {
+  id             String              @id @default(cuid())
+  profileId      String
+  profile        ProfessionalProfile @relation(fields: [profileId], references: [id], onDelete: Cascade)
+  institution    String
+  degree         String
+  fieldOfStudy   String
+  country        String?
+  startDate      DateTime
+  graduationDate DateTime?
+  ongoing        Boolean             @default(false)
+  createdAt      DateTime            @default(now())
+}
+
+model ProfessionalCertification {
+  id                  String              @id @default(cuid())
+  profileId           String
+  profile             ProfessionalProfile @relation(fields: [profileId], references: [id], onDelete: Cascade)
+  name                String
+  issuingOrganization String
+  certificateNumber   String?
+  issueDate           DateTime?
+  expiryDate          DateTime?
+  country             String?
+  verificationUrl     String?
+  createdAt           DateTime            @default(now())
+}
+
+// Professional, software and language skills share one flexible list rather
+// than three rigid taxonomy tables — §8.6 keeps software/language skills
+// optional and open-ended, so one categorized list captures the requirement
+// without a hard-coded managed taxonomy this platform doesn't have yet.
+model ProfessionalSkill {
+  id        String              @id @default(cuid())
+  profileId String
+  profile   ProfessionalProfile @relation(fields: [profileId], references: [id], onDelete: Cascade)
+  name      String
+  category  String              @default("PROFESSIONAL") // PROFESSIONAL | SOFTWARE | LANGUAGE
+  level     String?
+}
+
+model ContractorProfile {
+  id                        String        @id @default(cuid())
+  publicAccountId           String        @unique
+  publicAccount             PublicAccount @relation(fields: [publicAccountId], references: [id], onDelete: Cascade)
+  contractorType            String? // REGISTERED_COMPANY | SOLE_TRADER | INDEPENDENT_CONTRACTOR | SPECIALIST_SUBCONTRACTOR | SUPPLIER_INSTALLER
+  legalBusinessName         String?
+  tradingName               String?
+  registrationNumber        String?
+  vatNumber                 String?
+  countryOfRegistration     String?
+  legalStructure            String?
+  foundingYear              Int?
+  headquarters              String?
+  mainContactPerson         String?
+  businessEmail             String?
+  businessPhone             String?
+  website                   String?
+  companySize               String?
+  shortDescription          String?
+  fullDescription           String?
+  primaryService            String?
+  additionalServices        String? // JSON array
+  countriesServed           String? // JSON array
+  maxProjectDistance        String?
+  internationalAvailability Boolean?
+  typicalProjectSize        String?
+  minContractValue          Float?
+  maxContractValue          Float?
+  activeTeams               String?
+  equipmentCapacity         String?
+
+  contacts ContractorContact[]
+}
+
+model ContractorContact {
+  id        String            @id @default(cuid())
+  profileId String
+  profile   ContractorProfile @relation(fields: [profileId], references: [id], onDelete: Cascade)
+  name      String
+  role      String // OWNER | COMMERCIAL | TENDER | PROJECT_MANAGER | SITE_MANAGER | HSE | FINANCE | LEGAL
+  email     String?
+  phone     String?
+  createdAt DateTime          @default(now())
+}
+
+// Shared portfolio entry for both account types (§8.8/§9.6) — a Professional
+// shows personal contribution, a Contractor shows company-executed scope;
+// same shape, same review/visibility rules either way.
+model PortfolioProject {
+  id                 String        @id @default(cuid())
+  publicAccountId    String
+  publicAccount      PublicAccount @relation(fields: [publicAccountId], references: [id], onDelete: Cascade)
+  title              String
+  projectType        String
+  location           String?
+  completionYear     Int?
+  clientOrEmployer   String?
+  role               String
+  description        String
+  status             String        @default("COMPLETED") // CONCEPT | ONGOING | COMPLETED | CONFIDENTIAL
+  coverImageUrl      String?
+  contractValue      Float?
+  startDate          DateTime?
+  completionDate     DateTime?
+  teamSize           Int?
+  publicVisibility   Boolean       @default(true)
+  ownershipConfirmed Boolean       @default(false)
+  createdAt          DateTime      @default(now())
+}
+
+// Covers CVs, company profiles, certificates, licenses, registration/VAT,
+// insurance and other applicant-uploaded evidence (§8.3/§9.5) with the same
+// never-overwrite revision chain used elsewhere in this app (DocumentFile).
+model ProfileDocument {
+  id                 String           @id @default(cuid())
+  publicAccountId    String
+  publicAccount      PublicAccount    @relation(fields: [publicAccountId], references: [id], onDelete: Cascade)
+  category           String // CV | COMPANY_PROFILE | PORTFOLIO | CERTIFICATION | LICENSE | REGISTRATION | VAT | INSURANCE | HSE_QAQC | NDA | ORG_CHART | OTHER
+  name               String
+  version            Int              @default(1)
+  supersedesId       String?          @unique
+  supersedes         ProfileDocument? @relation("ProfileDocumentRevision", fields: [supersedesId], references: [id])
+  supersededBy       ProfileDocument? @relation("ProfileDocumentRevision")
+  isActive           Boolean          @default(true)
+  visibility         String           @default("PRIVATE")
+  issueDate          DateTime?
+  expiryDate         DateTime?
+  verificationStatus String           @default("UNVERIFIED") // UNVERIFIED | SUBMITTED | VERIFIED | DISPUTED
+  uploadedAt         DateTime         @default(now())
+}
+
+model ProfileApplication {
+  id                    String        @id @default(cuid())
+  publicAccountId       String        @unique
+  publicAccount         PublicAccount @relation(fields: [publicAccountId], references: [id], onDelete: Cascade)
+  applicationNumber     String        @unique
+  status                String        @default("PENDING_PLATFORM_REVIEW")
+  submittedAt           DateTime      @default(now())
+  reviewerId            String?
+  reviewer              UserIdentity? @relation("ApplicationReviewer", fields: [reviewerId], references: [id])
+  decisionReason        String?
+  decidedAt             DateTime?
+  restrictions          String? // JSON array, set when APPROVED_WITH_RESTRICTIONS
+  approvedProfileNumber String? // permanent number-series value, set on approval
+
+  reviews ApplicationReview[]
+}
+
+model ApplicationReview {
+  id              String             @id @default(cuid())
+  applicationId   String
+  application     ProfileApplication @relation(fields: [applicationId], references: [id], onDelete: Cascade)
+  reviewerId      String
+  reviewer        UserIdentity       @relation("ApplicationReviewAuthor", fields: [reviewerId], references: [id])
+  action          String // APPROVE | APPROVE_WITH_RESTRICTIONS | REQUEST_CHANGES | REQUEST_DOCUMENTS | REJECT | SUSPEND | REACTIVATE
+  reason          String?
+  fieldsRequested String? // JSON array of field/section keys, for REQUEST_CHANGES/REQUEST_DOCUMENTS
+  createdAt       DateTime           @default(now())
+}
+
+// Append-only, mirrors TaskEvent's discipline (§24 — "events cannot be
+// deleted; corrections create new events"). Separate from the tenant-scoped
+// AuditEvent/TimelineEvent tables since PublicAccount has no tenant.
+model ProfileAuditEvent {
+  id              String        @id @default(cuid())
+  publicAccountId String
+  publicAccount   PublicAccount @relation(fields: [publicAccountId], references: [id], onDelete: Cascade)
+  actorType       String // APPLICANT | PLATFORM_ADMIN | SYSTEM
+  actorId         String? // PublicAccount.id or UserIdentity.id depending on actorType
+  eventType       String
+  summary         String
+  previousStatus  String?
+  newStatus       String?
+  createdAt       DateTime      @default(now())
+}
+
+// §21's data-model hook for "Company Admin invites an approved public
+// profile into a workspace." The invitation UI itself (company-side search +
+// send) is out of scope for this pass — this just gives the relationship a
+// real, queryable home so it isn't bolted on awkwardly later.
+model ProfileInvitation {
+  id              String        @id @default(cuid())
+  publicAccountId String
+  publicAccount   PublicAccount @relation(fields: [publicAccountId], references: [id], onDelete: Cascade)
+  tenantId        String
+  tenant          Tenant        @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  invitedById     String
+  invitedBy       UserIdentity  @relation(fields: [invitedById], references: [id])
+  proposedRole    String
+  status          String        @default("PENDING") // PENDING | ACCEPTED | DECLINED | REVOKED
+  respondedAt     DateTime?
+  createdAt       DateTime      @default(now())
+}
+
+// ---------------------------------------------------------------------------
+// PRD_9 — Personal Calendar, HR Leave Workflow, Reminders, Adaptive Themes.
+// Team Availability (shared colleague-leave visibility) and external
+// Google/Outlook sync are explicitly deferred — the PRD itself blocks their
+// release until population/conflict-resolution rules are defined.
+// ---------------------------------------------------------------------------
+
+// A private, per-user agenda item — the one calendar item type with no other
+// source-of-truth record to link back to (§3.1 "Personal agenda" row).
+// Always scoped to its own userId; never shared, so it needs no separate
+// visibility rules the way leave/tasks/meetings do.
+model AgendaEvent {
+  id        String       @id @default(cuid())
+  tenantId  String
+  tenant    Tenant       @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  userId    String
+  user      UserIdentity @relation(fields: [userId], references: [id], onDelete: Cascade)
+  title     String
+  startAt   DateTime
+  endAt     DateTime?
+  location  String?
+  notes     String?
+  createdAt DateTime     @default(now())
+  updatedAt DateTime     @updatedAt
+}
+
+// §3.1 "Project milestone" row — didn't exist as a model before PRD_9.
+model ProjectMilestone {
+  id          String       @id @default(cuid())
+  tenantId    String
+  tenant      Tenant       @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  projectId   String
+  project     Project      @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  title       String
+  dueDate     DateTime
+  createdById String
+  createdBy   UserIdentity @relation(fields: [createdById], references: [id])
+  createdAt   DateTime     @default(now())
+}
+
+// §5.1 — per-user, per-item-type reminder lead time. Deliberately separate
+// from NotificationPreference (that model is about which *channel* fires for
+// an event category; this is about *how long before* a calendar item).
+model ReminderPreference {
+  id            String       @id @default(cuid())
+  userId        String
+  user          UserIdentity @relation(fields: [userId], references: [id], onDelete: Cascade)
+  itemType      String // MEETING | TASK | DEADLINE | AGENDA | INSPECTION
+  minutesBefore Int          @default(30)
+
+  @@unique([userId, itemType])
 }

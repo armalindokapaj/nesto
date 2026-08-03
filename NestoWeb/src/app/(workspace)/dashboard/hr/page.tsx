@@ -8,6 +8,7 @@ import { Card, CardHeader, CardTitle, CardContent } from "@/components/ui/card";
 import { Avatar } from "@/components/ui/avatar";
 import { Badge } from "@/components/ui/badge";
 import { DonutChart } from "@/components/ui/charts/donut-chart";
+import { DashboardGreeting } from "@/components/dashboards/dashboard-greeting";
 import { formatDate } from "@/lib/utils";
 import { getT } from "@/lib/i18n/server";
 
@@ -21,10 +22,7 @@ export default async function HrDashboardPage() {
 
   return (
     <div className="space-y-6">
-      <div>
-        <h1 className="text-xl font-semibold text-ink">{t("dashboards.hr.title")}</h1>
-        <p className="text-sm text-ink-muted mt-0.5">{t("dashboards.hr.subtitle")}</p>
-      </div>
+      <DashboardGreeting greetingRole="HR" />
 
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
         <StatTile label={t("dashboards.hr.totalEmployees")} value={String(data.totalEmployees)} icon={Users} iconColor="#2457C5" iconBg="#E4ECFB" href="/dashboard/hr/employees" />

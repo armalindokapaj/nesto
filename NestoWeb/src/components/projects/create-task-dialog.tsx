@@ -6,6 +6,8 @@ import { Plus, X, Paperclip } from "lucide-react";
 import { createTaskAction } from "@/app/actions/projects";
 import { Button } from "@/components/ui/button";
 import { Input, Label } from "@/components/ui/input";
+import { DEPARTMENT_ROLES, DEPARTMENT_LABELS, TASK_VISIBILITIES } from "@/lib/constants";
+import type { TaskVisibility } from "@/lib/constants";
 import { useI18n } from "@/lib/i18n/locale-provider";
 
 type Props = {
@@ -19,6 +21,7 @@ export function CreateTaskDialog({ projectId, clientId, projects, members }: Pro
   const { t } = useI18n();
   const [open, setOpen] = useState(false);
   const [attachDocument, setAttachDocument] = useState(false);
+  const [visibility, setVisibility] = useState<TaskVisibility>("COMPANY_PUBLIC");
   const [state, formAction, pending] = useActionState(createTaskAction, undefined);
 
   return (
@@ -106,6 +109,42 @@ export function CreateTaskDialog({ projectId, clientId, projects, members }: Pro
                 <option value="CRITICAL">{t("task.critical")}</option>
               </select>
             </div>
+
+            <div className="space-y-1.5">
+              <Label htmlFor="visibility">{t("task.visibility")}</Label>
+              <select
+                id="visibility"
+                name="visibility"
+                value={visibility}
+                onChange={(e) => setVisibility(e.target.value as TaskVisibility)}
+                className="h-10 w-full rounded-lg border border-border bg-surface px-3 text-sm text-ink focus:outline-none focus:border-gold focus:ring-2 focus:ring-gold/20"
+              >
+                {TASK_VISIBILITIES.map((v) => (
+                  <option key={v} value={v}>
+                    {t(`task.visibility_${v}`)}
+                  </option>
+                ))}
+              </select>
+              <p className="text-xs text-ink-faint">{t(`task.visibilityDesc_${visibility}`)}</p>
+            </div>
+
+            {visibility === "DEPARTMENT_PUBLIC" && (
+              <div className="space-y-1.5">
+                <Label htmlFor="departmentRole">{t("task.department")}</Label>
+                <select
+                  id="departmentRole"
+                  name="departmentRole"
+                  defaultValue={DEPARTMENT_ROLES[0]}
+                  className="h-10 w-full rounded-lg border border-border bg-surface px-3 text-sm text-ink focus:outline-none focus:border-gold focus:ring-2 focus:ring-gold/20"
+                >
+                  {DEPARTMENT_ROLES.map((d) => (
+                    <option key={d} value={d}>
+                      {DEPARTMENT_LABELS[d]}
+                    </option>
+                  ))}
+                </select>
+              </div>
+            )}
 
             <label className="flex items-center gap-2 text-sm text-ink-muted cursor-pointer select-none">
               <input

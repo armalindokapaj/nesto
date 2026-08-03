@@ -1,6 +1,8 @@
 import { redirect } from "next/navigation";
 import { getCurrentUser } from "@/lib/dal";
 import { can } from "@/lib/permissions";
+import { canViewTask } from "@/lib/project-access";
+import type { Role } from "@/lib/constants";
 import { listTasks, listProjects } from "@/server/projects";
 import { Card, CardContent } from "@/components/ui/card";
 import { Table, THead, TBody, TRow, TH, TD } from "@/components/ui/table";
@@ -28,8 +30,12 @@ export default async function TasksPage({
 
   const { status, projectId } = await searchParams;
   const [allTasks, projects] = await Promise.all([listTasks(tenantId), listProjects(tenantId)]);
+  const viewer = { userId: user.id, role: role as Role };
   const tasks = allTasks.filter(
-    (task) => (!status || task.status === status) && (!projectId || task.projectId === projectId)
+    (task) =>
+      canViewTask(task, viewer) &&
+      (!status || task.status === status) &&
+      (!projectId || task.projectId === projectId)
   );
   const { t } = await getT();
 

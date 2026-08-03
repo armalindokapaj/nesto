@@ -4,6 +4,7 @@ import { z } from "zod";
 import { revalidatePath } from "next/cache";
 import { getCurrentUser } from "@/lib/dal";
 import { can } from "@/lib/permissions";
+import { DEPARTMENT_ROLES, TASK_VISIBILITIES } from "@/lib/constants";
 import * as projectsRepo from "@/server/projects";
 import { createDocument } from "@/server/documents";
 
@@ -61,6 +62,8 @@ const CreateTaskSchema = z.object({
   clientId: z.string().optional(),
   mainResponsibleId: z.string().optional(),
   priority: z.enum(["LOW", "MEDIUM", "HIGH", "CRITICAL"]).optional(),
+  visibility: z.enum(TASK_VISIBILITIES).optional(),
+  departmentRole: z.enum(DEPARTMENT_ROLES).optional(),
   documentName: z.string().optional(),
   documentCategory: z.string().optional(),
 });
@@ -79,6 +82,8 @@ export async function createTaskAction(_prev: CreateTaskState, formData: FormDat
     clientId: formData.get("clientId") || undefined,
     mainResponsibleId: formData.get("mainResponsibleId") || undefined,
     priority: formData.get("priority") || undefined,
+    visibility: formData.get("visibility") || undefined,
+    departmentRole: formData.get("visibility") === "DEPARTMENT_PUBLIC" ? formData.get("departmentRole") || undefined : undefined,
     documentName: formData.get("documentName") || undefined,
     documentCategory: formData.get("documentCategory") || undefined,
   });

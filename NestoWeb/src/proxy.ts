@@ -7,7 +7,7 @@ import { decryptSession, SESSION_COOKIE_NAME } from "@/lib/session";
 // guide — it reads the session cookie without hitting the database. The
 // authoritative checks (role/permission, access-mode, tenant match) happen
 // in the DAL (src/lib/dal.ts) on every Server Component / Route Handler.
-const PUBLIC_ROUTES = ["/", "/apply", "/request-demo", "/security"];
+const PUBLIC_ROUTES = ["/", "/request-demo", "/security"];
 
 export async function proxy(request: NextRequest) {
   const { pathname } = request.nextUrl;
@@ -17,6 +17,15 @@ export async function proxy(request: NextRequest) {
     pathname.startsWith("/_next") ||
     pathname.includes(".")
   ) {
+    return NextResponse.next();
+  }
+
+  // PRD_6 — /apply and everything under it is gated by its own public-account
+  // session (lib/public-session.ts / lib/public-dal.ts), not the tenant
+  // session this proxy checks. Always let it through here; each /apply page
+  // enforces its own auth requirement (some steps need a public session,
+  // the entry step doesn't).
+  if (pathname === "/apply" || pathname.startsWith("/apply/")) {
     return NextResponse.next();
   }
 

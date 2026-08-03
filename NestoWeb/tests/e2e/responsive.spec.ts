@@ -36,7 +36,7 @@ test.describe("responsive layout", () => {
     await page.getByRole("button", { name: /sign in/i }).click();
     await page.waitForURL(/\/dashboard\//);
     await page.goto("/dashboard/admin");
-    await expect(page.getByRole("heading", { name: /company admin dashboard/i })).toBeVisible();
+    await expect(page.getByRole("heading", { name: "Good morning, Admin Team" })).toBeVisible();
     await page.screenshot({ path: `test-results/screenshots/admin-${testInfo.project.name}.png`, fullPage: true });
   });
 });

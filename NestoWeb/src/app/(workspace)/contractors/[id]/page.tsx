@@ -7,6 +7,7 @@ import { getContractor } from "@/server/contractors";
 import { Card, CardHeader, CardTitle, CardDescription, CardContent } from "@/components/ui/card";
 import { Table, THead, TBody, TRow, TH, TD } from "@/components/ui/table";
 import { Badge } from "@/components/ui/badge";
+import { ContractorFinancialForm } from "@/components/contractors/contractor-financial-form";
 import { formatCurrency, formatDate } from "@/lib/utils";
 import { getT } from "@/lib/i18n/server";
 
@@ -29,6 +30,7 @@ export default async function ContractorProfilePage({ params }: { params: Promis
 
   const contractor = await getContractor(tenantId, id);
   const { t } = await getT();
+  const canEdit = can(role, "COMPANY_NETWORK", "WRITE");
 
   const activeContracts = contractor.contracts.filter((c) => c.status === "ACTIVE");
 
@@ -72,6 +74,31 @@ export default async function ContractorProfilePage({ params }: { params: Promis
               <p className="text-sm font-medium text-ink mt-1">{activeContracts.length}</p>
             </div>
           </div>
+        </CardContent>
+      </Card>
+
+      <Card>
+        <CardHeader>
+          <div>
+            <CardTitle>{t("contractors.financialDetailsTitle")}</CardTitle>
+            <CardDescription>{t("contractors.financialDetailsSubtitle")}</CardDescription>
+          </div>
+        </CardHeader>
+        <CardContent>
+          {canEdit ? (
+            <ContractorFinancialForm contractorId={contractor.id} taxId={contractor.taxId} bankAccount={contractor.bankAccount} />
+          ) : (
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+              <div>
+                <p className="text-xs text-ink-muted">{t("contractors.taxId")}</p>
+                <p className="text-sm font-medium text-ink mt-1">{contractor.taxId ?? "—"}</p>
+              </div>
+              <div>
+                <p className="text-xs text-ink-muted">{t("contractors.bankAccount")}</p>
+                <p className="text-sm font-medium text-ink mt-1">{contractor.bankAccount ?? "—"}</p>
+              </div>
+            </div>
+          )}
         </CardContent>
       </Card>
 

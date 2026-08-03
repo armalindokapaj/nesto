@@ -15,8 +15,9 @@ import { DeleteTaskButton } from "@/components/projects/delete-task-button";
 import { TaskDocumentsBadge } from "@/components/projects/task-documents-badge";
 import { CreateDocumentDialog } from "@/components/documents/create-document-dialog";
 import { can } from "@/lib/permissions";
+import { canViewTask, canViewProjectFinance, getProjectRelationship } from "@/lib/project-access";
 import { TASK_STATUS_KEY } from "@/lib/constants";
-import type { TaskStatus } from "@/lib/constants";
+import type { TaskStatus, Role } from "@/lib/constants";
 import { formatCurrency, formatDate } from "@/lib/utils";
 import { getT } from "@/lib/i18n/server";
 
@@ -29,18 +30,30 @@ export default async function ProjectDetailPage({ params }: { params: Promise<{ 
   const canWrite = can(role, "TASKS", "WRITE");
   const canUploadDocuments = can(role, "PROJECTS", "WRITE");
   const canViewContracts = can(role, "CONTRACTS", "READ");
+  const canViewFinance = canViewProjectFinance(role as Role);
   const [contracts, documents] = await Promise.all([
     canViewContracts ? listContractsByProject(tenantId, project.id) : Promise.resolve([]),
     listProjectDocuments(tenantId, project.id),
   ]);
   const { t } = await getT();
 
-  const tasksByStatus = BOARD_COLUMNS.reduce<Record<TaskStatus, typeof project.tasks>>((acc, s) => {
-    acc[s] = project.tasks.filter((task) => task.status === s || (s === "COMPLETED" && task.status === "APPROVED"));
-    return acc;
-  }, {} as Record<TaskStatus, typeof project.tasks>);
+  const viewer = { userId: user.id, role: role as Role };
+  const relationship = getProjectRelationship(
+    { memberUserIds: project.members.map((m) => m.userId), tasks: project.tasks },
+    viewer
+  );
 
-  const overflowTasks = project.tasks.filter((task) => !BOARD_COLUMNS.includes(task.status as TaskStatus) && task.status !== "APPROVED");
+  // PRD_10 FR-003/FR-004 — a task's own visibility gates it independently of
+  // the project shell being open to everyone; hidden tasks are excluded from
+  // the data itself (not just the UI), so counts/columns never leak them.
+  const visibleTasks = project.tasks.filter((task) => canViewTask(task, viewer));
+
+  const tasksByStatus = BOARD_COLUMNS.reduce<Record<TaskStatus, typeof visibleTasks>>((acc, s) => {
+    acc[s] = visibleTasks.filter((task) => task.status === s || (s === "COMPLETED" && task.status === "APPROVED"));
+    return acc;
+  }, {} as Record<TaskStatus, typeof visibleTasks>);
+
+  const overflowTasks = visibleTasks.filter((task) => !BOARD_COLUMNS.includes(task.status as TaskStatus) && task.status !== "APPROVED");
 
   return (
     <div className="space-y-6">
@@ -53,6 +66,7 @@ export default async function ProjectDetailPage({ params }: { params: Promise<{ 
           <div className="flex items-center gap-2 flex-wrap">
             <h1 className="text-xl font-semibold text-ink">{project.name}</h1>
             <Badge status={project.status}>{t(`projectStatus.${project.status}`)}</Badge>
+            <Badge status={relationship}>{t(`projects.relationship.${relationship}`)}</Badge>
           </div>
           <p className="text-sm text-ink-muted mt-1">
             {project.code} · {project.clientName ?? t("projects.internalProject")}
@@ -73,7 +87,9 @@ export default async function ProjectDetailPage({ params }: { params: Promise<{ 
           </div>
           <div>
             <p className="text-xs text-ink-muted">{t("projects.budget")}</p>
-            <p className="text-sm font-medium text-ink mt-1.5">{project.budget ? formatCurrency(project.budget) : "—"}</p>
+            <p className="text-sm font-medium text-ink mt-1.5">
+              {!project.budget ? "—" : canViewFinance ? formatCurrency(project.budget) : t("projects.restricted")}
+            </p>
           </div>
           <div>
             <p className="text-xs text-ink-muted">{t("projects.team")}</p>

@@ -4,6 +4,7 @@ import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { NestoLogo, NestoMark } from "@/components/branding/NestoLogo";
 import { NAV_SECTIONS, workspaceKeyFromPath, visibleNavSections } from "@/lib/nav-config";
+import { DASHBOARD_BY_ROLE } from "@/lib/permissions";
 import { cn } from "@/lib/utils";
 import { useI18n } from "@/lib/i18n/locale-provider";
 import { X } from "lucide-react";
@@ -26,7 +27,7 @@ export function Sidebar({
 }) {
   const pathname = usePathname();
   const { t } = useI18n();
-  const sections = visibleNavSections(NAV_SECTIONS[workspaceKeyFromPath(pathname)], role);
+  const sections = visibleNavSections(NAV_SECTIONS[workspaceKeyFromPath(pathname, role)], role);
 
   return (
     <>
@@ -47,12 +48,14 @@ export function Sidebar({
       >
         <div className="flex items-center justify-between h-16 px-4 border-b border-border shrink-0">
           {collapsed ? (
-            <NestoMark size={26} className="text-gold mx-auto" />
+            <Link href={DASHBOARD_BY_ROLE[role]} className="mx-auto" aria-label="Go to dashboard">
+              <NestoMark size={26} className="text-gold" />
+            </Link>
           ) : (
-            <div>
+            <Link href={DASHBOARD_BY_ROLE[role]} aria-label="Go to dashboard">
               <NestoLogo size={22} />
               <p className="text-[0.65rem] text-ink-muted mt-0.5 truncate max-w-[180px]">{workspaceLabel}</p>
-            </div>
+            </Link>
           )}
           <button onClick={onCloseMobile} className="md:hidden text-ink-muted" aria-label="Close menu">
             <X size={18} />

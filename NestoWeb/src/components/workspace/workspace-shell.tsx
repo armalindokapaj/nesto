@@ -14,6 +14,7 @@ export function WorkspaceShell({
   avatarColor,
   notificationCount,
   inboxCount,
+  isPlatformAdmin,
   children,
 }: {
   companyName: string;
@@ -23,6 +24,7 @@ export function WorkspaceShell({
   avatarColor: string;
   notificationCount: number;
   inboxCount: number;
+  isPlatformAdmin?: boolean;
   children: React.ReactNode;
 }) {
   const [collapsed, setCollapsed] = useState(false);
@@ -49,6 +51,7 @@ export function WorkspaceShell({
           avatarColor={avatarColor}
           notificationCount={notificationCount}
           inboxCount={inboxCount}
+          isPlatformAdmin={isPlatformAdmin}
         />
         <main className="flex-1 p-4 md:p-6 max-w-[1600px] w-full mx-auto">{children}</main>
         <footer className="px-4 md:px-6 py-4 text-center text-xs text-ink-faint border-t border-border">

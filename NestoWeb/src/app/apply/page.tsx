@@ -1,24 +1,37 @@
-import Link from "next/link";
-import { ArrowLeft } from "lucide-react";
+import { redirect } from "next/navigation";
+import { peekPublicSession } from "@/lib/public-dal";
+import { db } from "@/lib/db";
 import { NestoLogo } from "@/components/branding/NestoLogo";
+import { ApplyEntry } from "@/components/apply/apply-entry";
 import { getT } from "@/lib/i18n/server";
 
-// Professional/contractor sign-up (the "Construction Passport" identity layer,
-// PRD Section 6 & 10) is Phase 4 in the delivery roadmap — this route exists
-// so the landing page's link resolves to something real rather than a dead
-// link, and states that plainly instead of faking a working form.
+// PRD_6 — replaces the old "this isn't open yet" placeholder with the real
+// public registration entry point. If the visitor already has a public
+// session, route them straight to wherever their application actually is
+// instead of showing the pitch screen again.
 export default async function ApplyPage() {
+  const session = await peekPublicSession();
+  if (session) {
+    const account = await db.publicAccount.findUnique({ where: { id: session.publicAccountId } });
+    if (account) {
+      if (!account.emailVerified) redirect("/apply/verify");
+      if (account.status === "PROFILE_INCOMPLETE" || account.status === "READY_TO_SUBMIT" || account.status === "CHANGES_REQUESTED") {
+        redirect("/apply/onboarding");
+      }
+      redirect("/apply/pending");
+    }
+  }
+
   const { t } = await getT();
+
   return (
-    <div className="flex min-h-screen flex-col items-center justify-center gap-6 bg-canvas px-6 text-center">
+    <div className="flex min-h-screen flex-col items-center justify-center gap-8 bg-canvas px-6 py-12">
       <NestoLogo size={28} />
-      <div className="max-w-md">
-        <h1 className="font-serif text-2xl text-ink">{t("apply.title")}</h1>
-        <p className="mt-3 text-sm leading-relaxed text-ink-muted">{t("apply.body")}</p>
+      <div className="max-w-md text-center">
+        <h1 className="font-serif text-2xl text-ink">{t("apply.heading")}</h1>
+        <p className="mt-3 text-sm leading-relaxed text-ink-muted">{t("apply.supportingText")}</p>
       </div>
-      <Link href="/" className="inline-flex items-center gap-1.5 text-sm font-medium text-gold hover:underline">
-        <ArrowLeft size={14} /> {t("apply.backToSignIn")}
-      </Link>
+      <ApplyEntry />
     </div>
   );
 }

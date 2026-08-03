@@ -21,6 +21,7 @@ export default async function WorkspaceLayout({ children }: { children: React.Re
       avatarColor={user.avatarColor}
       notificationCount={notificationCount}
       inboxCount={inboxCount}
+      isPlatformAdmin={user.isPlatformAdmin}
     >
       {children}
     </WorkspaceShell>

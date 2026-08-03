@@ -82,3 +82,34 @@ body {
   scrollbar-width: thin;
   scrollbar-color: var(--color-border-strong) transparent;
 }
+
+/*
+ * PRD_9 §6 — Night Mode. Same token names as :root above; the cascade means
+ * every existing bg-canvas/text-ink/etc. utility already using these
+ * variables repaints automatically once this attribute is on <html>, no
+ * component changes required.
+ */
+[data-theme="dark"] {
+  --color-canvas: #14161a;
+  --color-surface: #1c1f26;
+  --color-surface-sunken: #23262e;
+  --color-border: #2e323c;
+  --color-border-strong: #3c4049;
+
+  --color-ink: #e7e6e2;
+  --color-ink-muted: #a7acb8;
+  --color-ink-faint: #6b7280;
+
+  --color-gold: #d4a04c;
+  --color-gold-strong: #e8b869;
+  --color-gold-soft: #3a2f1a;
+
+  --color-success: #3fbd7d;
+  --color-success-soft: #163527;
+  --color-warning: #e0a23a;
+  --color-warning-soft: #3a2c11;
+  --color-danger: #e2596a;
+  --color-danger-soft: #3a1a20;
+  --color-info: #5b8def;
+  --color-info-soft: #16213a;
+}

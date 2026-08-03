@@ -38,3 +38,13 @@ export async function createContractor(
     },
   });
 }
+
+export async function updateContractorFinancialDetails(
+  tenantId: string,
+  contractorId: string,
+  input: { taxId?: string; bankAccount?: string }
+) {
+  const contractor = await db.contractor.findUnique({ where: { id: contractorId } });
+  assertTenant(contractor, tenantId, "Contractor");
+  return db.contractor.update({ where: { id: contractorId }, data: input });
+}

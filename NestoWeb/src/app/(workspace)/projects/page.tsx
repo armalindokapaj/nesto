@@ -1,27 +1,43 @@
 import Link from "next/link";
 import { getCurrentUser } from "@/lib/dal";
-import { listProjects } from "@/server/projects";
+import { listProjectsWithRelationship } from "@/server/projects";
 import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { ProgressBar } from "@/components/ui/progress-bar";
 import { CreateProjectDialog } from "@/components/projects/create-project-dialog";
 import { can } from "@/lib/permissions";
+import { getProjectRelationship, canViewProjectFinance, PROJECT_RELATIONSHIPS } from "@/lib/project-access";
 import { PROJECT_STATUSES } from "@/lib/constants";
+import type { Role } from "@/lib/constants";
 import { formatCurrency } from "@/lib/utils";
 import { getT } from "@/lib/i18n/server";
 
 export default async function ProjectsPage({
   searchParams,
 }: {
-  searchParams: Promise<{ status?: string }>;
+  searchParams: Promise<{ status?: string; relationship?: string }>;
 }) {
-  const { tenantId, role } = await getCurrentUser();
-  const { status } = await searchParams;
-  const allProjects = await listProjects(tenantId);
-  const projects =
-    status && (PROJECT_STATUSES as readonly string[]).includes(status)
-      ? allProjects.filter((p) => p.status === status)
-      : allProjects;
+  const { tenantId, role, user } = await getCurrentUser();
+  const { status, relationship } = await searchParams;
+  const allProjectsRaw = await listProjectsWithRelationship(tenantId);
+  const canViewFinance = canViewProjectFinance(role as Role);
+
+  // PRD_10 §5.1 — every project is discoverable company-wide; the relationship
+  // badge tells the viewer *why* they're connected (or not) without hiding
+  // the project itself.
+  const allProjects = allProjectsRaw.map((p) => ({
+    ...p,
+    relationship: getProjectRelationship(
+      { memberUserIds: p.members.map((m) => m.userId), tasks: p.tasks },
+      { userId: user.id, role: role as Role }
+    ),
+  }));
+
+  const projects = allProjects.filter(
+    (p) =>
+      (!status || !(PROJECT_STATUSES as readonly string[]).includes(status) || p.status === status) &&
+      (!relationship || !(PROJECT_RELATIONSHIPS as readonly string[]).includes(relationship) || p.relationship === relationship)
+  );
   const canCreate = can(role, "PROJECTS", "WRITE");
   const { t } = await getT();
 
@@ -56,7 +72,10 @@ export default async function ProjectsPage({
                       <p className="font-medium text-ink truncate">{p.name}</p>
                       <p className="text-xs text-ink-muted">{p.code}</p>
                     </div>
-                    <Badge status={p.status}>{t(`projectStatus.${p.status}`)}</Badge>
+                    <div className="flex flex-col items-end gap-1">
+                      <Badge status={p.status}>{t(`projectStatus.${p.status}`)}</Badge>
+                      <Badge status={p.relationship}>{t(`projects.relationship.${p.relationship}`)}</Badge>
+                    </div>
                   </div>
                   <p className="text-xs text-ink-muted">{p.clientName ?? t("projects.internalProject")}{p.location ? ` · ${p.location}` : ""}</p>
                   <div className="flex items-center gap-3">
@@ -65,7 +84,7 @@ export default async function ProjectsPage({
                   </div>
                   <div className="flex items-center justify-between text-xs text-ink-faint pt-1 border-t border-border">
                     <span>{p._count.tasks} {p._count.tasks === 1 ? t("projects.taskCount") : t("projects.tasksCount")}</span>
-                    {p.budget && <span>{formatCurrency(p.budget)}</span>}
+                    {p.budget != null && (canViewFinance ? <span>{formatCurrency(p.budget)}</span> : <span>{t("projects.restricted")}</span>)}
                   </div>
                 </CardContent>
               </Card>

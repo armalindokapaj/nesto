@@ -10,6 +10,7 @@ import { Avatar } from "@/components/ui/avatar";
 import { Badge } from "@/components/ui/badge";
 import { DonutChart } from "@/components/ui/charts/donut-chart";
 import { CreateUserDialog } from "@/components/dashboards/admin/create-user-dialog";
+import { DashboardGreeting } from "@/components/dashboards/dashboard-greeting";
 import { ROLE_LABELS } from "@/lib/constants";
 import type { Role } from "@/lib/constants";
 import { formatDate } from "@/lib/utils";
@@ -25,10 +26,7 @@ export default async function AdminDashboardPage() {
   return (
     <div className="space-y-6">
       <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
-        <div>
-          <h1 className="text-xl font-semibold text-ink">{t("dashboards.admin.title")}</h1>
-          <p className="text-sm text-ink-muted mt-0.5">{t("dashboards.admin.subtitle")}</p>
-        </div>
+        <DashboardGreeting greetingRole="ADMIN" />
       </div>
 
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">

@@ -6,6 +6,7 @@ import { getProcurementDashboardData } from "@/server/procurement";
 import { StatTile } from "@/components/ui/stat-tile";
 import { Card, CardHeader, CardTitle, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
+import { DashboardGreeting } from "@/components/dashboards/dashboard-greeting";
 import { formatCurrency, formatDate } from "@/lib/utils";
 import { getT } from "@/lib/i18n/server";
 
@@ -18,10 +19,7 @@ export default async function ProcurementDashboardPage() {
 
   return (
     <div className="space-y-6">
-      <div>
-        <h1 className="text-xl font-semibold text-ink">{t("dashboards.procurement.title")}</h1>
-        <p className="text-sm text-ink-muted mt-0.5">{t("dashboards.procurement.subtitle")}</p>
-      </div>
+      <DashboardGreeting greetingRole="PROCUREMENT" />
 
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
         <StatTile

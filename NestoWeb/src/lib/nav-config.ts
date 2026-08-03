@@ -22,7 +22,6 @@ import {
   TrendingUp,
   Boxes,
   Percent,
-  Settings,
   UserPlus,
   ClipboardList,
   CalendarClock,
@@ -38,8 +37,9 @@ import {
   Truck,
   PackageOpen,
   Workflow,
+  Contact,
 } from "lucide-react";
-import { can, type Resource, type Level } from "@/lib/permissions";
+import { can, DASHBOARD_BY_ROLE, type Resource, type Level } from "@/lib/permissions";
 import type { Role } from "@/lib/constants";
 
 // `labelKey`/`titleKey` are dot-paths into the i18n dictionary (see
@@ -60,7 +60,10 @@ export type NavSection = { titleKey?: string; items: NavItem[] };
 export const NAV_SECTIONS: Record<string, NavSection[]> = {
   executive: [
     {
-      items: [{ labelKey: "nav.dashboard", href: "/dashboard/executive", icon: LayoutDashboard }],
+      items: [
+        { labelKey: "nav.dashboard", href: "/dashboard/executive", icon: LayoutDashboard },
+        { labelKey: "nav.employeeDirectory", href: "/employees", icon: Contact },
+      ],
     },
     {
       titleKey: "nav.operations",
@@ -94,7 +97,12 @@ export const NAV_SECTIONS: Record<string, NavSection[]> = {
     },
   ],
   admin: [
-    { items: [{ labelKey: "nav.dashboard", href: "/dashboard/admin", icon: LayoutDashboard, resource: "USER_MANAGEMENT" }] },
+    {
+      items: [
+        { labelKey: "nav.dashboard", href: "/dashboard/admin", icon: LayoutDashboard, resource: "USER_MANAGEMENT" },
+        { labelKey: "nav.employeeDirectory", href: "/employees", icon: Contact },
+      ],
+    },
     {
       titleKey: "nav.userManagement",
       items: [
@@ -116,7 +124,12 @@ export const NAV_SECTIONS: Record<string, NavSection[]> = {
     },
   ],
   finance: [
-    { items: [{ labelKey: "nav.dashboard", href: "/dashboard/finance", icon: LayoutDashboard, resource: "FINANCE" }] },
+    {
+      items: [
+        { labelKey: "nav.dashboard", href: "/dashboard/finance", icon: LayoutDashboard, resource: "FINANCE" },
+        { labelKey: "nav.employeeDirectory", href: "/employees", icon: Contact },
+      ],
+    },
     {
       titleKey: "nav.transactions",
       items: [
@@ -133,6 +146,7 @@ export const NAV_SECTIONS: Record<string, NavSection[]> = {
         { labelKey: "nav.projects", href: "/projects", icon: FolderKanban },
         { labelKey: "nav.assets", href: "/dashboard/finance/assets", icon: Boxes, resource: "FINANCE" },
         { labelKey: "nav.clients", href: "/clients", icon: Handshake, resource: "CLIENTS" },
+        { labelKey: "nav.contractors", href: "/contractors", icon: UserCog, resource: "COMPANY_NETWORK" },
         { labelKey: "nav.procurement", href: "/dashboard/procurement", icon: Truck, resource: "PROCUREMENT" },
       ],
     },
@@ -143,10 +157,14 @@ export const NAV_SECTIONS: Record<string, NavSection[]> = {
         { labelKey: "nav.auditLogs", href: "/dashboard/admin/audit", icon: ScrollText, resource: "AUDIT_LOGS" },
       ],
     },
-    { titleKey: "nav.settings", items: [{ labelKey: "nav.settings", href: "/dashboard/finance/settings", icon: Settings, resource: "FINANCE" }] },
   ],
   hr: [
-    { items: [{ labelKey: "nav.overview", href: "/dashboard/hr", icon: LayoutDashboard, resource: "HR" }] },
+    {
+      items: [
+        { labelKey: "nav.overview", href: "/dashboard/hr", icon: LayoutDashboard, resource: "HR" },
+        { labelKey: "nav.employeeDirectory", href: "/employees", icon: Contact },
+      ],
+    },
     {
       titleKey: "nav.workforce",
       items: [
@@ -159,10 +177,14 @@ export const NAV_SECTIONS: Record<string, NavSection[]> = {
       ],
     },
     { titleKey: "nav.reports", items: [{ labelKey: "nav.reports", href: "/dashboard/hr/reports", icon: BarChart3, resource: "HR" }] },
-    { titleKey: "nav.settings", items: [{ labelKey: "nav.settings", href: "/dashboard/hr/settings", icon: Settings, resource: "HR" }] },
   ],
   architect: [
-    { items: [{ labelKey: "nav.overview", href: "/dashboard/architect", icon: LayoutDashboard, resource: "PROJECTS" }] },
+    {
+      items: [
+        { labelKey: "nav.overview", href: "/dashboard/architect", icon: LayoutDashboard, resource: "PROJECTS" },
+        { labelKey: "nav.employeeDirectory", href: "/employees", icon: Contact },
+      ],
+    },
     {
       titleKey: "nav.designManagement",
       items: [
@@ -176,10 +198,14 @@ export const NAV_SECTIONS: Record<string, NavSection[]> = {
         { labelKey: "nav.hseReports", href: "/hse-reports", icon: ShieldAlert, resource: "HSE_REPORTS" },
       ],
     },
-    { titleKey: "nav.projectSettings", items: [{ labelKey: "nav.settings", href: "/dashboard/architect/settings", icon: Settings, resource: "PROJECTS" }] },
   ],
   procurement: [
-    { items: [{ labelKey: "nav.overview", href: "/dashboard/procurement", icon: LayoutDashboard, resource: "PROCUREMENT" }] },
+    {
+      items: [
+        { labelKey: "nav.overview", href: "/dashboard/procurement", icon: LayoutDashboard, resource: "PROCUREMENT" },
+        { labelKey: "nav.employeeDirectory", href: "/employees", icon: Contact },
+      ],
+    },
     {
       titleKey: "nav.purchasing",
       items: [
@@ -188,17 +214,59 @@ export const NAV_SECTIONS: Record<string, NavSection[]> = {
         { labelKey: "nav.projects", href: "/projects", icon: FolderKanban },
       ],
     },
-    { titleKey: "nav.settings", items: [{ labelKey: "nav.settings", href: "/dashboard/procurement/settings", icon: Settings, resource: "PROCUREMENT" }] },
   ],
   // PRD_4 CTO-100 — a contractor's entire workspace is their restricted work
   // package view; no resource-gated items apply since CONTRACTOR is NONE on
   // every general resource (see permissions.ts).
-  contractor: [{ items: [{ labelKey: "nav.dashboard", href: "/dashboard/contractor", icon: LayoutDashboard }] }],
+  contractor: [
+    {
+      items: [
+        { labelKey: "nav.dashboard", href: "/dashboard/contractor", icon: LayoutDashboard },
+      ],
+    },
+  ],
 };
 
-export function workspaceKeyFromPath(pathname: string): keyof typeof NAV_SECTIONS {
+// A dashboard subtree that belongs to a specific department resource — only
+// a role with FULL access to that resource (i.e. the role that actually owns
+// the department, or Owner/Admin doing legitimate cross-department oversight)
+// gets dropped into that subtree's own shell. "executive"/"architect"/
+// "contractor" have no entry since they aren't a single department's console.
+const SUBTREE_RESOURCE: Partial<Record<keyof typeof NAV_SECTIONS, Resource>> = {
+  admin: "USER_MANAGEMENT",
+  finance: "FINANCE",
+  hr: "HR",
+  procurement: "PROCUREMENT",
+};
+
+// PRD_5 — the dashboard shell is resolved from the authenticated user's own
+// role, never from the page they happen to be on. A *shared* module route
+// (/clients, /projects, /tasks, /contracts, /documents, ...) is not owned by
+// any role — it must render inside the current user's own shell, not
+// silently fall back to a hard-coded default and strip away their sidebar.
+//
+// A path inside another role's dedicated dashboard subtree (e.g. Admin
+// browsing /dashboard/finance) shows that subtree's own shell ONLY when the
+// visiting role has FULL access to the resource that subtree represents.
+// Bug fix: a Sales/PM/Legal/Finance user with mere READ/WRITE visibility
+// into another department (e.g. Sales -> FINANCE: READ) must NOT get
+// dropped into that department's full console/shell just by clicking a
+// cross-department summary link in their own sidebar — they keep their own
+// shell while the destination page renders inside it.
+export function workspaceKeyFromPath(pathname: string, role?: Role): keyof typeof NAV_SECTIONS {
   const match = pathname.match(/^\/dashboard\/(executive|admin|finance|hr|architect|procurement|contractor)/);
-  return (match?.[1] as keyof typeof NAV_SECTIONS) ?? "executive";
+  if (match) {
+    const key = match[1] as keyof typeof NAV_SECTIONS;
+    const requiredResource = SUBTREE_RESOURCE[key];
+    if (!requiredResource || !role || can(role, requiredResource, "FULL")) return key;
+  }
+
+  if (role) {
+    const homeKey = DASHBOARD_BY_ROLE[role].replace("/dashboard/", "");
+    if (homeKey in NAV_SECTIONS) return homeKey as keyof typeof NAV_SECTIONS;
+  }
+
+  return "executive";
 }
 
 // Filters out nav items (and any section left empty) the given role doesn't

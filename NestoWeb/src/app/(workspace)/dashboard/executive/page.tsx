@@ -7,20 +7,19 @@ import { Card, CardHeader, CardTitle, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { ProgressBar } from "@/components/ui/progress-bar";
 import { TrendLineChart } from "@/components/ui/charts/line-chart";
+import { DashboardGreeting } from "@/components/dashboards/dashboard-greeting";
+import type { Role } from "@/lib/constants";
 import { formatCurrency } from "@/lib/utils";
 import { getT } from "@/lib/i18n/server";
 
 export default async function ExecutiveDashboardPage() {
-  const { tenantId, company } = await getCurrentUser();
+  const { tenantId, role } = await getCurrentUser();
   const data = await getExecutiveDashboardData(tenantId);
   const { t } = await getT();
 
   return (
     <div className="space-y-6">
-      <div>
-        <h1 className="text-xl font-semibold text-ink">{company?.name ?? "Nesto"}</h1>
-        <p className="text-sm text-ink-muted mt-0.5">{t("dashboards.executive.subtitle")}</p>
-      </div>
+      <DashboardGreeting greetingRole={role as Role} />
 
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
         <StatTile label={t("dashboards.executive.activeProjects")} value={String(data.activeProjectCount)} icon={FolderKanban} iconColor="#2457C5" iconBg="#E4ECFB" href="/projects" />

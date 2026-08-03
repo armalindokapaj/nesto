@@ -1,4 +1,5 @@
 import { redirect } from "next/navigation";
+import Link from "next/link";
 import { getCurrentUser } from "@/lib/dal";
 import { can } from "@/lib/permissions";
 import { listEmployees } from "@/server/hr";
@@ -44,10 +45,10 @@ export default async function EmployeesPage() {
               {employees.map((e) => (
                 <TRow key={e.id}>
                   <TD>
-                    <div className="flex items-center gap-2.5">
+                    <Link href={`/employees/${e.id}`} className="flex items-center gap-2.5 hover:text-gold">
                       <Avatar name={e.fullName} color={e.avatarColor} size={28} />
                       <span className="font-medium text-ink">{e.fullName}</span>
-                    </div>
+                    </Link>
                   </TD>
                   <TD className="text-ink-muted">{e.position}</TD>
                   <TD className="text-ink-muted">{e.department}</TD>

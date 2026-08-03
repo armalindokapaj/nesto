@@ -984,6 +984,7 @@ export async function getTaskOrchestration(tenantId: string, taskId: string) {
       stages: { orderBy: { sequence: "asc" } },
       departments: { include: { owner: true, deliverable: true } },
       participants: { include: { user: true } },
+      contributions: { select: { userId: true } },
       events: { include: { actor: true }, orderBy: { createdAt: "asc" } },
       approvals: { include: { approver: true, delegatedTo: true }, orderBy: { createdAt: "desc" } },
       involvementRequests: { include: { requestedBy: true, respondedBy: true }, orderBy: { createdAt: "desc" } },

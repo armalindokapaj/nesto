@@ -37,9 +37,7 @@ export async function saveTenantSettingsAction(_prev: SaveSettingsState, formDat
     update: parsed.data,
   });
 
-  revalidatePath("/dashboard/finance/settings");
-  revalidatePath("/dashboard/hr/settings");
-  revalidatePath("/dashboard/architect/settings");
+  revalidatePath("/account");
   return { success: true };
 }
 

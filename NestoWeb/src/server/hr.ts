@@ -61,3 +61,47 @@ export async function listLeaveRequests(tenantId: string) {
     orderBy: { createdAt: "desc" },
   });
 }
+
+// PRD_9 LEV-001 — the employee themselves, their direct superior, or an
+// HR-permission holder may create a request; all three paths land here.
+export async function createLeaveRequest(
+  tenantId: string,
+  employeeId: string,
+  createdById: string,
+  input: { startDate: Date; endDate: Date; reason?: string }
+) {
+  return db.leaveRequest.create({ data: { tenantId, employeeId, createdById, ...input } });
+}
+
+// PRD_9 LEV-002 — only reachable from an HR-FULL-gated action.
+export async function decideLeaveRequest(
+  tenantId: string,
+  decidedById: string,
+  leaveRequestId: string,
+  decision: "APPROVED" | "REJECTED"
+) {
+  const leave = await db.leaveRequest.findUnique({ where: { id: leaveRequestId } });
+  if (!leave || leave.tenantId !== tenantId) throw new Error("Leave request not found.");
+  return db.leaveRequest.update({ where: { id: leaveRequestId }, data: { status: decision, decidedById } });
+}
+
+// PRD_9 LEV-003 — "only HR shall be able to change or cancel an approved
+// leave entry"; both functions require the entry to already be APPROVED.
+export async function cancelApprovedLeave(tenantId: string, decidedById: string, leaveRequestId: string) {
+  const leave = await db.leaveRequest.findUnique({ where: { id: leaveRequestId } });
+  if (!leave || leave.tenantId !== tenantId) throw new Error("Leave request not found.");
+  if (leave.status !== "APPROVED") throw new Error("Only an approved leave entry can be cancelled.");
+  return db.leaveRequest.update({ where: { id: leaveRequestId }, data: { status: "CANCELLED", decidedById } });
+}
+
+export async function updateApprovedLeave(
+  tenantId: string,
+  decidedById: string,
+  leaveRequestId: string,
+  input: { startDate: Date; endDate: Date; reason?: string }
+) {
+  const leave = await db.leaveRequest.findUnique({ where: { id: leaveRequestId } });
+  if (!leave || leave.tenantId !== tenantId) throw new Error("Leave request not found.");
+  if (leave.status !== "APPROVED") throw new Error("Only an approved leave entry can be edited.");
+  return db.leaveRequest.update({ where: { id: leaveRequestId }, data: { ...input, decidedById } });
+}

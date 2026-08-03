@@ -1,18 +1,29 @@
 import { getCurrentUser } from "@/lib/dal";
 import { db } from "@/lib/db";
+import { can } from "@/lib/permissions";
+import { getOrCreateTenantSettings } from "@/app/actions/tenant-settings";
+import { getReminderPreferences } from "@/server/calendar";
 import { Card, CardHeader, CardTitle, CardDescription, CardContent } from "@/components/ui/card";
 import { Avatar } from "@/components/ui/avatar";
 import { Badge } from "@/components/ui/badge";
 import { ChangePasswordForm } from "@/components/account/change-password-form";
 import { NotificationPreferencesForm } from "@/components/account/notification-preferences-form";
+import { ReminderPreferencesForm } from "@/components/account/reminder-preferences-form";
+import { ThemeSelector } from "@/components/account/theme-selector";
 import { LanguageSwitcher } from "@/components/ui/language-switcher";
+import { TenantSettingsForm } from "@/components/settings/tenant-settings-form";
 import { ROLE_LABELS } from "@/lib/constants";
-import type { Role } from "@/lib/constants";
+import type { Role, Theme } from "@/lib/constants";
 import { getT } from "@/lib/i18n/server";
 
 export default async function AccountPage() {
-  const { user, membership, role, company } = await getCurrentUser();
-  const preferences = await db.notificationPreference.findMany({ where: { userId: user.id } });
+  const { user, tenantId, membership, role, company } = await getCurrentUser();
+  const [preferences, reminderPreferences] = await Promise.all([
+    db.notificationPreference.findMany({ where: { userId: user.id } }),
+    getReminderPreferences(user.id),
+  ]);
+  const canManageTenantSettings = can(role as Role, "COMPANY_SETTINGS", "FULL") || can(role as Role, "FINANCE", "FULL");
+  const tenantSettings = canManageTenantSettings ? await getOrCreateTenantSettings(tenantId) : null;
   const { t } = await getT();
 
   return (
@@ -99,6 +110,44 @@ export default async function AccountPage() {
           <NotificationPreferencesForm preferences={preferences} />
         </CardContent>
       </Card>
+
+      <Card>
+        <CardHeader>
+          <div>
+            <CardTitle>{t("account.reminders")}</CardTitle>
+            <CardDescription>{t("account.remindersDesc")}</CardDescription>
+          </div>
+        </CardHeader>
+        <CardContent>
+          <ReminderPreferencesForm preferences={reminderPreferences} />
+        </CardContent>
+      </Card>
+
+      <Card>
+        <CardHeader>
+          <div>
+            <CardTitle>{t("account.theme")}</CardTitle>
+            <CardDescription>{t("account.themeDesc")}</CardDescription>
+          </div>
+        </CardHeader>
+        <CardContent>
+          <ThemeSelector currentTheme={user.theme as Theme} />
+        </CardContent>
+      </Card>
+
+      {tenantSettings && (
+        <Card>
+          <CardHeader>
+            <div>
+              <CardTitle>{t("account.companySettings")}</CardTitle>
+              <CardDescription>{t("account.companySettingsDesc")}</CardDescription>
+            </div>
+          </CardHeader>
+          <CardContent>
+            <TenantSettingsForm settings={tenantSettings} />
+          </CardContent>
+        </Card>
+      )}
     </div>
   );
 }

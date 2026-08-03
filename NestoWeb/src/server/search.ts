@@ -1,5 +1,6 @@
 import { db } from "@/lib/db";
 import { can } from "@/lib/permissions";
+import { canViewTask } from "@/lib/project-access";
 import type { Role } from "@/lib/constants";
 
 export type SearchResult = {
@@ -18,8 +19,13 @@ export type SearchResult = {
 // "locked result, request access" affordance instead of hiding that data
 // exists at all. Full per-record visibility overrides (JV sharing, explicit
 // grants) are Phase 2+ work — see the deferred-scope note in the build plan.
+//
+// PRD_10 §12.3/FR-005 — a task's own visibility (PRIVATE/DEPARTMENT_PUBLIC)
+// is enforced here too, and the Finance-locked entry never reveals a count
+// ("a hidden record must not be discoverable through a count difference").
 export async function globalSearch(
   tenantId: string,
+  userId: string,
   role: Role,
   query: string
 ): Promise<SearchResult[]> {
@@ -33,9 +39,13 @@ export async function globalSearch(
     }),
     db.task.findMany({
       where: { tenantId, title: { contains: q } },
-      take: 5,
+      take: 10,
+      include: { contributions: { select: { userId: true } }, participants: { select: { userId: true, role: true } } },
     }),
   ]);
+
+  const viewer = { userId, role };
+  const visibleTasks = tasks.filter((t) => canViewTask(t, viewer)).slice(0, 5);
 
   const results: SearchResult[] = [
     ...projects.map((p) => ({
@@ -45,7 +55,7 @@ export async function globalSearch(
       subtitle: p.code,
       href: `/projects/${p.id}`,
     })),
-    ...tasks.map((t) => ({
+    ...visibleTasks.map((t) => ({
       id: t.id,
       type: "task" as const,
       title: t.title,
@@ -76,7 +86,7 @@ export async function globalSearch(
       results.push({
         id: "locked-finance",
         type: "invoice",
-        title: `${invoiceCount} finance record${invoiceCount === 1 ? "" : "s"}`,
+        title: "Finance records",
         subtitle: "Restricted — request access",
         href: "#",
         locked: true,

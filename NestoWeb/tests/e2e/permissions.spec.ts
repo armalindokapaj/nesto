@@ -20,7 +20,7 @@ async function login(page: import("@playwright/test").Page, username: string) {
 test("Architect lands on the architect dashboard and cannot open Finance", async ({ page }) => {
   await login(page, "elira.doda");
   await expect(page).toHaveURL(/\/dashboard\/architect/);
-  await expect(page.getByRole("heading", { name: /architect dashboard/i })).toBeVisible();
+  await expect(page.getByRole("heading", { name: "Good morning, Design Team" })).toBeVisible();
 
   // Architect has NONE on FINANCE per the permission matrix — the dashboard
   // page itself redirects away rather than trusting client-side hiding alone.

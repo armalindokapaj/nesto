@@ -3,7 +3,7 @@
 import { useTransition } from "react";
 import Link from "next/link";
 import * as DropdownMenu from "@radix-ui/react-dropdown-menu";
-import { Menu, ChevronDown, LogOut, Settings, HelpCircle, PanelLeftClose, PanelLeftOpen, ClipboardCheck } from "lucide-react";
+import { Menu, ChevronDown, LogOut, Settings, HelpCircle, PanelLeftClose, PanelLeftOpen, ClipboardCheck, ShieldCheck, CalendarDays } from "lucide-react";
 import { Avatar } from "@/components/ui/avatar";
 import { ROLE_LABELS } from "@/lib/constants";
 import type { Role } from "@/lib/constants";
@@ -21,6 +21,7 @@ export function Topbar({
   avatarColor,
   notificationCount,
   inboxCount,
+  isPlatformAdmin,
 }: {
   onToggleMobile: () => void;
   onToggleCollapse: () => void;
@@ -30,6 +31,7 @@ export function Topbar({
   avatarColor: string;
   notificationCount: number;
   inboxCount: number;
+  isPlatformAdmin?: boolean;
 }) {
   const { t } = useI18n();
   const [, startTransition] = useTransition();
@@ -52,6 +54,14 @@ export function Topbar({
       </div>
 
       <div className="flex items-center gap-1.5 ml-auto">
+        <Link
+          href="/calendar"
+          className="flex h-9 w-9 items-center justify-center rounded-lg text-ink-muted hover:bg-surface-sunken hover:text-ink transition-colors"
+          aria-label={t("calendar.title")}
+          title={t("calendar.title")}
+        >
+          <CalendarDays size={18} />
+        </Link>
         <Link
           href="/inbox"
           className="relative flex h-9 w-9 items-center justify-center rounded-lg text-ink-muted hover:bg-surface-sunken hover:text-ink transition-colors"
@@ -100,6 +110,16 @@ export function Topbar({
                   <HelpCircle size={15} className="text-ink-muted" /> {t("common.helpSupport")}
                 </Link>
               </DropdownMenu.Item>
+              {isPlatformAdmin && (
+                <DropdownMenu.Item asChild>
+                  <Link
+                    href="/platform/applications"
+                    className="flex items-center gap-2 rounded-lg px-2.5 py-2 text-sm text-ink hover:bg-surface-sunken cursor-pointer outline-none"
+                  >
+                    <ShieldCheck size={15} className="text-gold" /> {t("platform.applicationsTitle")}
+                  </Link>
+                </DropdownMenu.Item>
+              )}
               <DropdownMenu.Separator className="my-1 h-px bg-border" />
               <DropdownMenu.Item
                 onSelect={() => startTransition(() => logout())}
