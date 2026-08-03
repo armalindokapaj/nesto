@@ -4,7 +4,7 @@ import { ROLES } from "../src/lib/constants";
 
 const db = new PrismaClient();
 
-const DEMO_PASSWORD = "Nesto2026!";
+const DEMO_PASSWORD = "1";
 
 // Mirrors src/server/number-series.ts's format/atomicity contract, duplicated
 // here (rather than imported) so this script doesn't depend on the "@/"
@@ -49,12 +49,40 @@ async function main() {
       countryCode: "AL",
       planName: "Enterprise",
       seatLimit: 50,
+      isParent: true,
     },
   });
 
   await db.branch.create({
     data: { companyId: company.id, name: "Tirana HQ", address: "Rruga e Kavajës, Tirana", isRegisteredBranch: true },
   });
+
+  // --- Business Group: child companies ------------------------------------
+  // Schema-level parent/child hierarchy only (Company.isParent/parentCompanyId)
+  // — there is no companyId column yet on Contract/Client/Contractor/Employee/
+  // etc., and CompanyMembership is tenant-scoped, not company-scoped (see
+  // memory: prd16-business-group-scalability). So these two child companies
+  // are real rows with real branches, visible on the Company page, but every
+  // other seeded record below still belongs to the tenant as a whole rather
+  // than to one specific company in the hierarchy.
+  const childCompanySeeds = [
+    { name: "BuildCore Facilities", legalName: "BuildCore Facilities Sh.p.k.", branch: "Durrës Depot" },
+    { name: "BuildCore Interiors", legalName: "BuildCore Interiors Sh.p.k.", branch: "Tirana Design Studio" },
+  ];
+  for (const c of childCompanySeeds) {
+    const child = await db.company.create({
+      data: {
+        tenantId: tenant.id,
+        name: c.name,
+        legalName: c.legalName,
+        countryCode: "AL",
+        planName: "Enterprise",
+        seatLimit: 20,
+        parentCompanyId: company.id,
+      },
+    });
+    await db.branch.create({ data: { companyId: child.id, name: c.branch, isRegisteredBranch: true } });
+  }
 
   // --- Users -----------------------------------------------------------
   const users = await Promise.all(
@@ -246,6 +274,15 @@ async function main() {
     { fullName: "Ana Krasniqi", position: "HR Manager", department: "Human Resources", hireDate: monthsAgo(14), userId: ana.id, color: "#1baf7a" },
     { fullName: "Drilon Meta", position: "Site Engineer", department: "Construction", hireDate: daysAgo(20), color: "#e34948", birthday: new Date(1990, 7, 12) },
     { fullName: "Klea Basha", position: "Quantity Surveyor", department: "Construction", hireDate: daysAgo(45), color: "#eda100", birthday: new Date(1988, 7, 20) },
+    // Additional Design Team architects — HR-only records (no login), same
+    // pattern as Drilon/Klea above, so the Employee directory has a full
+    // architecture bench to browse/click through.
+    { fullName: "Xhoana Prifti", position: "Senior Architect", department: "Design Team", hireDate: monthsAgo(28), color: "#7a4ac9", birthday: new Date(1985, 2, 14) },
+    { fullName: "Redon Vata", position: "BIM Coordinator", department: "Design Team", hireDate: monthsAgo(18), color: "#2f9e8f", birthday: new Date(1991, 10, 3) },
+    { fullName: "Megi Sokoli", position: "Interior Architect", department: "Design Team", hireDate: monthsAgo(11), color: "#c9578a", birthday: new Date(1993, 5, 22) },
+    { fullName: "Ard Bushati", position: "Landscape Architect", department: "Design Team", hireDate: monthsAgo(7), color: "#5a8f3c", birthday: new Date(1989, 8, 9) },
+    { fullName: "Enkeleda Rama", position: "Design Architect", department: "Design Team", hireDate: monthsAgo(5), color: "#d4863c", birthday: new Date(1994, 1, 27) },
+    { fullName: "Blendi Cara", position: "Junior Architect", department: "Design Team", hireDate: daysAgo(60), color: "#3c6fd4", birthday: new Date(1996, 11, 15) },
   ];
 
   const employees = await Promise.all(
@@ -323,6 +360,18 @@ async function main() {
     { name: "Elektro Al Shpk", tradeType: "Electrical", email: "info@elektroal.al", status: "APPROVED", riskRating: "LOW" },
     { name: "HidroPlumb Sh.p.k.", tradeType: "Plumbing", email: "contact@hidroplumb.al", status: "APPROVED", riskRating: "LOW" },
     { name: "Metal Frame Construction", tradeType: "Structural Steel", email: "office@metalframe.al", status: "PENDING", riskRating: "MEDIUM" },
+    { name: "KlimaTek HVAC Sh.p.k.", tradeType: "HVAC", email: "info@klimatek.al", status: "APPROVED", riskRating: "LOW" },
+    { name: "Çati e Sigurt Roofing", tradeType: "Roofing", email: "office@catisigurt.al", status: "APPROVED", riskRating: "MEDIUM" },
+    { name: "VitroFasada Glazing", tradeType: "Glazing & Curtain Wall", email: "contact@vitrofasada.al", status: "PENDING", riskRating: "MEDIUM" },
+    { name: "Gjelbërim Peizazh", tradeType: "Landscaping", email: "info@gjelberimpeizazh.al", status: "APPROVED", riskRating: "LOW" },
+    { name: "FinishPro Painting & Finishes", tradeType: "Painting & Finishes", email: "office@finishpro.al", status: "APPROVED", riskRating: "LOW" },
+    { name: "SkelaSafe Scaffolding", tradeType: "Scaffolding", email: "contact@skelasafe.al", status: "SUSPENDED", riskRating: "HIGH" },
+    { name: "FireGuard Systems Al", tradeType: "Fire Safety Systems", email: "info@fireguardal.al", status: "APPROVED", riskRating: "MEDIUM" },
+    { name: "Prishje Enterprise Demolition", tradeType: "Demolition", email: "office@prishjeenterprise.al", status: "PENDING", riskRating: "HIGH" },
+    { name: "Beton Themel Foundations", tradeType: "Concrete & Foundations", email: "contact@betonthemel.al", status: "APPROVED", riskRating: "LOW" },
+    { name: "AscensorLift Elevators", tradeType: "Elevators & Lifts", email: "info@ascensorlift.al", status: "APPROVED", riskRating: "MEDIUM" },
+    { name: "HidroIzolim Waterproofing", tradeType: "Waterproofing", email: "office@hidroizolim.al", status: "APPROVED", riskRating: "LOW" },
+    { name: "Murator Tradition Masonry", tradeType: "Masonry", email: "contact@muratortradition.al", status: "PENDING", riskRating: "MEDIUM" },
   ];
   // Sequential (not Promise.all) — allocateSeedNumber's read-then-write isn't
   // wrapped in a transaction here, so concurrent calls for the same
@@ -345,15 +394,34 @@ async function main() {
   }
 
   // --- Clients ---------------------------------------------------------------
-  const clientSeeds = [
+  const clientSeeds: { name: string; contactName: string; email: string; phone: string; createdById: string; status?: string; project?: (typeof projects)[number] }[] = [
     { name: "Riverside Holdings", contactName: "Mira Basha", email: "mira@riversideholdings.al", phone: "+355 69 200 1122", createdById: gentian.id, project: riverside },
     { name: "Metro Retail Group", contactName: "Dritan Hoxha", email: "dritan@metroretail.al", phone: "+355 69 200 3344", createdById: gentian.id, project: metroMall },
+    { name: "Green Valley SH.A", contactName: "Ledia Prifti", email: "ledia@greenvalley.al", phone: "+355 69 200 5566", createdById: gentian.id, project: greenValley },
+    { name: "Skyline Developers", contactName: "Arjan Sula", email: "arjan@skylinedev.al", phone: "+355 69 200 7788", createdById: gentian.id, project: skyline },
+    { name: "Adriatik Logistics Sh.p.k.", contactName: "Blerina Kastrati", email: "blerina@adriatiklogistics.al", phone: "+355 69 300 1111", createdById: gentian.id, status: "PROSPECT" },
+    { name: "Tirana Business Park", contactName: "Ermal Gjoka", email: "ermal@tbp.al", phone: "+355 69 300 2222", createdById: gentian.id, status: "PROSPECT" },
+    { name: "Kastrioti Hotels Group", contactName: "Anisa Leka", email: "anisa@kastriotihotels.al", phone: "+355 69 300 3333", createdById: gentian.id, status: "ACTIVE" },
+    { name: "Vjosa Residential Sh.p.k.", contactName: "Fatos Ndoja", email: "fatos@vjosaresidential.al", phone: "+355 69 300 4444", createdById: gentian.id, status: "ACTIVE" },
+    { name: "Durrës Port Authority", contactName: "Silvana Meta", email: "silvana@durrresport.al", phone: "+355 69 300 5555", createdById: gentian.id, status: "ACTIVE" },
+    { name: "Alpina Ski Resorts", contactName: "Genci Toska", email: "genci@alpinaski.al", phone: "+355 69 300 6666", createdById: gentian.id, status: "PROSPECT" },
+    { name: "Ionian Coast Developments", contactName: "Rudina Ismaili", email: "rudina@ioniancoast.al", phone: "+355 69 300 7777", createdById: gentian.id, status: "ACTIVE" },
+    { name: "Prishtina Retail Partners", contactName: "Valon Krasniqi", email: "valon@prishtinaretail.com", phone: "+383 44 100 8888", createdById: gentian.id, status: "PROSPECT" },
+    { name: "Elbasan Industrial Park", contactName: "Doriana Shehu", email: "doriana@elbasanindustrial.al", phone: "+355 69 300 9999", createdById: gentian.id, status: "INACTIVE" },
+    { name: "Korça Heritage Trust", contactName: "Petrit Manoku", email: "petrit@korcaheritage.al", phone: "+355 69 301 1010", createdById: gentian.id, status: "INACTIVE" },
   ];
   const clients = [];
   for (const c of clientSeeds) {
-    const { project, ...clientData } = c;
+    const { project, status, ...clientData } = c;
     clients.push(
-      await db.client.create({ data: { tenantId: tenant.id, ...clientData, projects: { connect: { id: project.id } } } })
+      await db.client.create({
+        data: {
+          tenantId: tenant.id,
+          ...clientData,
+          status: status ?? "ACTIVE",
+          ...(project ? { projects: { connect: { id: project.id } } } : {}),
+        },
+      })
     );
   }
   const [riversideClient] = clients;
@@ -457,7 +525,7 @@ async function main() {
     const user = await db.userIdentity.create({
       data: {
         username: name,
-        email: `${name.toLowerCase()}@nesto.test`,
+        email: name.toLowerCase(),
         displayName: name,
         avatarColor: testAccountColors[i % testAccountColors.length],
         passwordHash: testAccountPasswordHash,

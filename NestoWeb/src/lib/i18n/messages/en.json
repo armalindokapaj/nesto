@@ -113,8 +113,8 @@
   },
   "auth": {
     "signInToNesto": "Sign in to Nesto",
-    "accessWorkspace": "Access your private company workspace.",
-    "identifierLabel": "Company Email or Username",
+    "accessWorkspace": "Your company workspace.",
+    "identifierLabel": "Email or Username",
     "identifierPlaceholder": "you@company.com or username",
     "passwordLabel": "Password",
     "passwordPlaceholder": "Enter your password",
@@ -122,19 +122,22 @@
     "forgotPassword": "Forgot password?",
     "signIn": "Sign In",
     "signingIn": "Signing in…",
-    "secureAccess": "Secure company access",
+    "secureAccess": "Secure access",
     "applyForSignUp": "Apply for sign up",
-    "invalidCredentials": "Invalid credentials. Check your username and password.",
-    "noWorkspace": "This account has no active company workspace. Contact your Company Admin."
+    "invalidCredentials": "Invalid credentials.",
+    "noWorkspace": "This account has no active company workspace. Contact your Company Admin.",
+    "joinNesto": "Join Nesto",
+    "joinNestoSubtitle": "Create your independent profile.",
+    "fieldRequired": "This needs to be filled"
   },
   "landing": {
     "headlineLine1": "Private software.",
-    "headlineLine2": "Built for how **construction**",
-    "headlineLine3": "companies run.",
-    "tagline": "Nesto is a private operating system for construction companies. Your data. Your company. Your system.",
+    "headline": "Built for **construction** companies.",
+    "tagline": "Your data. Your company. Your system.",
     "about": "About",
     "requestDemo": "Request Demo",
-    "security": "Security"
+    "security": "Security",
+    "contactUs": "Contact Us"
   },
   "apply": {
     "heading": "Join the Nesto professional network",
@@ -407,9 +410,24 @@
     }
   },
   "requestDemoPage": {
-    "title": "Request a demo",
-    "body": "Nesto is currently in private build, running live for a single pilot company. Public demo scheduling isn't open yet — the platform is still in the phase where every new workspace is set up by hand.",
-    "whatItCovers": "When demos open up, a session will walk through: multi-department dashboards, the project and task workflow, cross-department client requests, and the role-based permission model that keeps each department seeing only what it should.",
+    "title": "Nesto is open",
+    "body": "Nesto is available today as a platform for construction companies — anyone in construction can join.",
+    "whatItCovers": "Architects, engineers, project managers, contractors and other professionals can create an independent profile in minutes. Running a construction company and want a full workspace? Reach out and we'll set one up with you directly.",
+    "cta": "Apply now",
+    "contactCta": "Email us",
+    "backToSignIn": "Back to sign in"
+  },
+  "contactPage": {
+    "title": "Contact Nesto",
+    "intro": "Have a question, want to see the platform, or need to report a security concern? Here's how to reach us.",
+    "supportTitle": "General support",
+    "supportBody": "Account, workspace or billing questions — we typically reply within one business day.",
+    "salesTitle": "Sales & demo",
+    "salesBody": "Want to see Nesto in action, or apply for a company workspace?",
+    "salesLink": "Go to Request a Demo",
+    "securityTitle": "Security disclosures",
+    "securityBody": "Found a security issue, or want to understand our tenant isolation and access model?",
+    "securityLink": "Read our security page",
     "backToSignIn": "Back to sign in"
   },
   "securityPage": {
@@ -678,6 +696,7 @@
     "active": "Active",
     "completed": "Completed",
     "terminated": "Terminated",
+    "approve": "Approve",
     "contractorNotListed": "Don't see the contractor you need? Add their profile without losing this form."
   },
   "meetings": {
@@ -737,7 +756,9 @@
     "address": "Address",
     "registeredBranch": "Registered Branch",
     "updateProfile": "Update Company Profile",
-    "saved": "Company profile updated."
+    "saved": "Company profile updated.",
+    "childCompanies": "Business Group",
+    "childCompaniesSubtitle": "Child companies under this parent company."
   },
   "clients": {
     "title": "Clients",

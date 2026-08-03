@@ -71,6 +71,34 @@ export default async function CompanyPage() {
           )}
         </CardContent>
       </Card>
+
+      {company.isParent && (
+        <Card>
+          <CardHeader>
+            <CardTitle>{t("company.childCompanies")}</CardTitle>
+            <CardDescription>{t("company.childCompaniesSubtitle")}</CardDescription>
+          </CardHeader>
+          <CardContent>
+            {company.childCompanies.length === 0 ? (
+              <p className="text-sm text-ink-faint py-6 text-center">—</p>
+            ) : (
+              <ul className="space-y-3">
+                {company.childCompanies.map((child) => (
+                  <li key={child.id} className="border-b border-border last:border-0 pb-3 last:pb-0">
+                    <p className="font-medium text-ink text-sm">{child.name}</p>
+                    <p className="text-xs text-ink-muted">{child.legalName}</p>
+                    {child.branches.length > 0 && (
+                      <p className="text-xs text-ink-faint mt-1">
+                        {child.branches.map((b) => b.name).join(" · ")}
+                      </p>
+                    )}
+                  </li>
+                ))}
+              </ul>
+            )}
+          </CardContent>
+        </Card>
+      )}
     </div>
   );
 }

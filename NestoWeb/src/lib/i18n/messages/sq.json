@@ -113,8 +113,8 @@
   },
   "auth": {
     "signInToNesto": "Kyçu në Nesto",
-    "accessWorkspace": "Qasuni në hapësirën private të kompanisë suaj.",
-    "identifierLabel": "Email-i i Kompanisë ose Përdoruesi",
+    "accessWorkspace": "Hapësira e kompanisë suaj.",
+    "identifierLabel": "Email ose Përdoruesi",
     "identifierPlaceholder": "ju@kompania.com ose përdoruesi",
     "passwordLabel": "Fjalëkalimi",
     "passwordPlaceholder": "Vendosni fjalëkalimin",
@@ -122,19 +122,22 @@
     "forgotPassword": "Keni harruar fjalëkalimin?",
     "signIn": "Kyçu",
     "signingIn": "Duke u kyçur…",
-    "secureAccess": "Qasje e sigurt kompanie",
+    "secureAccess": "Qasje e sigurt",
     "applyForSignUp": "Apliko për regjistrim",
-    "invalidCredentials": "Kredenciale të pavlefshme. Kontrolloni përdoruesin dhe fjalëkalimin.",
-    "noWorkspace": "Ky llogari nuk ka qasje aktive në ndonjë hapësirë kompanie. Kontaktoni Administratorin e Kompanisë."
+    "invalidCredentials": "Kredenciale të pavlefshme.",
+    "noWorkspace": "Ky llogari nuk ka qasje aktive në ndonjë hapësirë kompanie. Kontaktoni Administratorin e Kompanisë.",
+    "joinNesto": "Bashkohu me Nesto",
+    "joinNestoSubtitle": "Krijoni profilin tuaj të pavarur.",
+    "fieldRequired": "Kjo duhet plotësuar"
   },
   "landing": {
     "headlineLine1": "Software privat.",
-    "headlineLine2": "Ndërtuar për mënyrën si funksionojnë",
-    "headlineLine3": "kompanitë e **ndërtimit**.",
-    "tagline": "Nesto është një sistem operativ privat për kompanitë e ndërtimit. Të dhënat tuaja. Kompania juaj. Sistemi juaj.",
+    "headline": "Ndërtuar për kompanitë e **ndërtimit**.",
+    "tagline": "Të dhënat tuaja. Kompania juaj. Sistemi juaj.",
     "about": "Rreth",
     "requestDemo": "Kërko Demo",
-    "security": "Siguria"
+    "security": "Siguria",
+    "contactUs": "Na Kontaktoni"
   },
   "apply": {
     "heading": "Bashkohuni me rrjetin profesional të Nesto-s",
@@ -385,9 +388,24 @@
     }
   },
   "requestDemoPage": {
-    "title": "Kërko një demonstrim",
-    "body": "Nesto ndodhet aktualisht në ndërtim privat, duke funksionuar për një kompani pilote të vetme. Caktimi publik i demonstrimeve nuk është ende i hapur — platforma është ende në fazën kur çdo hapësirë e re konfigurohet manualisht.",
-    "whatItCovers": "Kur demonstrimet të hapen, një sesion do të kalojë nëpër: panelet e departamenteve, rrjedhën e projekteve dhe detyrave, kërkesat ndër-departamentale të klientëve, dhe modelin e lejeve sipas roleve që mban çdo departament të shohë vetëm atë që duhet.",
+    "title": "Nesto është i hapur",
+    "body": "Nesto është i disponueshëm sot si një platformë për kompanitë e ndërtimit — kushdo në ndërtim mund të bashkohet.",
+    "whatItCovers": "Arkitektë, inxhinierë, menaxherë projektesh, kontraktorë dhe profesionistë të tjerë mund të krijojnë një profil të pavarur brenda pak minutash. Drejtoni një kompani ndërtimi dhe doni një hapësirë të plotë pune? Na kontaktoni dhe do ta konfigurojmë së bashku me ju.",
+    "cta": "Apliko tani",
+    "contactCta": "Na shkruani",
+    "backToSignIn": "Kthehu te kyçja"
+  },
+  "contactPage": {
+    "title": "Kontaktoni Nesto",
+    "intro": "Keni një pyetje, doni të shihni platformën, apo doni të raportoni një shqetësim sigurie? Ja si të na kontaktoni.",
+    "supportTitle": "Mbështetje e përgjithshme",
+    "supportBody": "Pyetje për llogarinë, hapësirën e punës apo faturimin — zakonisht përgjigjemi brenda një dite pune.",
+    "salesTitle": "Shitje & demonstrim",
+    "salesBody": "Doni ta shihni Nesto në veprim, ose të aplikoni për një hapësirë pune të kompanisë?",
+    "salesLink": "Shko te Kërko një Demonstrim",
+    "securityTitle": "Raportime sigurie",
+    "securityBody": "Keni gjetur një problem sigurie, apo doni të kuptoni modelin tonë të izolimit dhe qasjes?",
+    "securityLink": "Lexoni faqen tonë të sigurisë",
     "backToSignIn": "Kthehu te kyçja"
   },
   "securityPage": {
@@ -656,6 +674,7 @@
     "active": "Aktive",
     "completed": "Përfunduar",
     "terminated": "Përfunduar Parakohe",
+    "approve": "Miratoni",
     "contractorNotListed": "Nuk e shihni kontraktorin që kërkoni? Shtoni profilin e tij pa humbur këtë formular."
   },
   "meetings": {
@@ -715,7 +734,9 @@
     "address": "Adresa",
     "registeredBranch": "Degë e Regjistruar",
     "updateProfile": "Përditëso Profilin e Kompanisë",
-    "saved": "Profili i kompanisë u përditësua."
+    "saved": "Profili i kompanisë u përditësua.",
+    "childCompanies": "Grupi i Biznesit",
+    "childCompaniesSubtitle": "Kompanitë bija nën këtë kompani mëmë."
   },
   "clients": {
     "title": "Klientët",

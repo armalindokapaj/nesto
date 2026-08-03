@@ -12,10 +12,13 @@ import type { PublicAccountType } from "@/lib/constants";
 
 type View = "select" | "register" | "signin";
 
-export function ApplyEntry() {
+export function ApplyEntry({ initialAccountType }: { initialAccountType?: PublicAccountType }) {
   const { t, locale } = useI18n();
-  const [view, setView] = useState<View>("select");
-  const [accountType, setAccountType] = useState<PublicAccountType>("PROFESSIONAL");
+  // Coming from the landing card's Professional/Contractor flip choice
+  // (?type=professional|contractor) skips straight to the register view
+  // instead of showing this same choice a second time.
+  const [view, setView] = useState<View>(initialAccountType ? "register" : "select");
+  const [accountType, setAccountType] = useState<PublicAccountType>(initialAccountType ?? "PROFESSIONAL");
   const [registerState, registerFormAction, registerPending] = useActionState(registerAction, undefined);
   const [loginState, loginFormAction, loginPending] = useActionState(loginPublicAction, undefined);
 

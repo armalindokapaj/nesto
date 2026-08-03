@@ -7,7 +7,7 @@ import { decryptSession, SESSION_COOKIE_NAME } from "@/lib/session";
 // guide — it reads the session cookie without hitting the database. The
 // authoritative checks (role/permission, access-mode, tenant match) happen
 // in the DAL (src/lib/dal.ts) on every Server Component / Route Handler.
-const PUBLIC_ROUTES = ["/", "/request-demo", "/security"];
+const PUBLIC_ROUTES = ["/", "/request-demo", "/security", "/contact"];
 
 export async function proxy(request: NextRequest) {
   const { pathname } = request.nextUrl;

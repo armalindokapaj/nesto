@@ -3,7 +3,7 @@ import { db } from "@/lib/db";
 export async function getCompanyProfile(tenantId: string) {
   return db.company.findFirst({
     where: { tenantId },
-    include: { branches: true },
+    include: { branches: true, childCompanies: { include: { branches: true } } },
   });
 }
 
