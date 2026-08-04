@@ -142,3 +142,49 @@ export async function deleteTaskAction(taskId: string, projectId: string | undef
   if (projectId) revalidatePath(`/projects/${projectId}`);
   if (clientId) revalidatePath(`/clients/${clientId}`);
 }
+
+export async function toggleProjectPinAction(projectId: string) {
+  const { tenantId, user } = await getCurrentUser();
+  const pinned = await projectsRepo.toggleProjectPin(tenantId, user.id, projectId);
+  revalidatePath("/projects");
+  revalidatePath(`/projects/${projectId}`);
+  return pinned;
+}
+
+const BrandKitSchema = z.object({
+  projectId: z.string().min(1),
+  accentColor: z.string().regex(/^#[0-9a-fA-F]{6}$/).optional().or(z.literal("")),
+  logoDataUrl: z
+    .string()
+    .refine((v) => v.startsWith("data:image/"), "Logo must be an image.")
+    .refine((v) => v.length < 1_000_000, "Logo image is too large.")
+    .optional()
+    .or(z.literal("")),
+});
+
+export type BrandKitState = { error: string } | undefined;
+
+export async function updateProjectBrandKitAction(_prev: BrandKitState, formData: FormData): Promise<BrandKitState> {
+  const { tenantId, role } = await getCurrentUser();
+  if (!can(role, "PROJECTS", "WRITE")) {
+    return { error: "You do not have permission to edit this project's brand kit." };
+  }
+
+  const parsed = BrandKitSchema.safeParse({
+    projectId: formData.get("projectId"),
+    accentColor: formData.get("accentColor") || undefined,
+    logoDataUrl: formData.get("logoDataUrl") || undefined,
+  });
+  if (!parsed.success) {
+    return { error: parsed.error.issues[0]?.message ?? "Invalid input" };
+  }
+
+  const { projectId, accentColor, logoDataUrl } = parsed.data;
+  await projectsRepo.updateProjectBrandKit(tenantId, projectId, {
+    accentColor: accentColor || undefined,
+    logoDataUrl: logoDataUrl || undefined,
+  });
+  revalidatePath(`/projects/${projectId}`);
+  revalidatePath("/projects");
+  return undefined;
+}

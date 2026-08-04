@@ -1,7 +1,7 @@
 import "server-only";
 import { createHash } from "crypto";
 import { db } from "@/lib/db";
-import { assertTenant, requireTenantProject, requireTenantClient, requireTenantTask } from "@/lib/tenant";
+import { assertTenant, requireTenantProject, requireTenantClient, requireTenantTask, requireTenantUnit } from "@/lib/tenant";
 import { buildActorSnapshot } from "@/lib/actor-snapshot";
 import { emitDomainEvent, dispatchDomainEvents } from "@/lib/domain-events";
 import { can } from "@/lib/permissions";
@@ -38,6 +38,14 @@ export async function listProjectDocuments(tenantId: string, projectId: string) 
   });
 }
 
+export async function listUnitDocuments(tenantId: string, unitId: string) {
+  return db.documentFile.findMany({
+    where: { tenantId, unitId, supersededBy: null },
+    include: { uploadedBy: true },
+    orderBy: { createdAt: "desc" },
+  });
+}
+
 export async function createDocument(
   tenantId: string,
   input: {
@@ -46,6 +54,7 @@ export async function createDocument(
     projectId?: string;
     taskId?: string;
     clientId?: string;
+    unitId?: string;
     uploadedById: string;
     // Optional — placeholder "expected document" call sites (project/task
     // creation) omit this; the generic Documents module's own create action
@@ -57,6 +66,7 @@ export async function createDocument(
     input.projectId ? requireTenantProject(tenantId, input.projectId) : null,
     input.taskId ? requireTenantTask(tenantId, input.taskId) : null,
     input.clientId ? requireTenantClient(tenantId, input.clientId) : null,
+    input.unitId ? requireTenantUnit(tenantId, input.unitId) : null,
   ]);
 
   const checksum = input.file ? createHash("sha256").update(input.file.data).digest("hex") : undefined;
@@ -70,6 +80,7 @@ export async function createDocument(
       projectId: input.projectId,
       taskId: input.taskId,
       clientId: input.clientId,
+      unitId: input.unitId,
       uploadedById: input.uploadedById,
       fileData: input.file?.data,
       fileMimeType: input.file?.mimeType,

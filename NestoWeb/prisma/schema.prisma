@@ -61,6 +61,21 @@ model Tenant {
   suppliers              Supplier[]
   purchaseOrders         PurchaseOrder[]
 
+  // --- PRD_Rework_1 Projects Module & Project Page Redesign ----------------
+  projectRenders      ProjectRender[]
+  projectPins         ProjectPin[]
+  projectWorkPackages ProjectWorkPackage[]
+  projectApprovals    ProjectApproval[]
+  projectPhotos       ProjectPhoto[]
+
+  // --- PRD_Units / PRD_Unit_Page Real Estate Inventory ----------------------
+  projectStructures  ProjectStructure[]
+  projectFloors      ProjectFloor[]
+  units              Unit[]
+  unitAreaComponents UnitAreaComponent[]
+  unitRenders        UnitRender[]
+  unitActivityEvents UnitActivityEvent[]
+
   // --- PRD_4 Cross-Department Task Orchestration -----------------------
   taskStages                TaskStage[]
   taskDepartments           TaskDepartment[]
@@ -108,6 +123,7 @@ model Company {
 
   branches Branch[]
   projects Project[]
+  units    Unit[]
 }
 
 model Branch {
@@ -202,6 +218,18 @@ model UserIdentity {
 
   // --- PRD_18 Document Passport / Blue Ticket -------------------------------
   documentApprovalsGiven DocumentApproval[]
+
+  // --- PRD_Rework_1 Projects Module & Project Page Redesign ----------------
+  projectPins                ProjectPin[]
+  uploadedProjectRenders     ProjectRender[]
+  uploadedProjectPhotos      ProjectPhoto[]
+  projectWorkPackagesCreated ProjectWorkPackage[]
+  projectApprovalsRequested  ProjectApproval[]    @relation("ApprovalRequester")
+  projectApprovalsToApprove  ProjectApproval[]    @relation("ApprovalApprover")
+
+  // --- PRD_Units / PRD_Unit_Page Real Estate Inventory ----------------------
+  uploadedUnitRenders     UnitRender[]
+  unitActivityEventsActed UnitActivityEvent[]
 }
 
 // Links an identity to a tenant workspace with a role, department and access mode.
@@ -256,6 +284,14 @@ model Project {
   progressPct   Int       @default(0)
   createdAt     DateTime  @default(now())
 
+  // PRD_Rework_1 Brand Kit — the pinned render doubles as both the Project
+  // Page cover image and the universal thumbnail everywhere (cards, search,
+  // notifications, ...), per PRD §6. No separate coverImageId field.
+  accentColor    String?
+  logoDataUrl    String?
+  pinnedRenderId String?        @unique
+  pinnedRender   ProjectRender? @relation("ProjectPinnedRender", fields: [pinnedRenderId], references: [id], onDelete: SetNull)
+
   members        ProjectMember[]
   tasks          Task[]
   drawings       Drawing[]
@@ -268,6 +304,17 @@ model Project {
   hseReports     HseReport[]
   purchaseOrders PurchaseOrder[]
   milestones     ProjectMilestone[]
+
+  // PRD_Rework_1 Projects Module & Project Page Redesign
+  renders      ProjectRender[]      @relation("ProjectRenderGallery")
+  pins         ProjectPin[]
+  workPackages ProjectWorkPackage[]
+  approvals    ProjectApproval[]
+  photos       ProjectPhoto[]
+
+  // PRD_Units / PRD_Unit_Page Real Estate Inventory
+  structures ProjectStructure[]
+  units      Unit[]
 
   @@unique([tenantId, code])
   @@index([tenantId, status])
@@ -283,6 +330,282 @@ model ProjectMember {
   createdAt     DateTime     @default(now())
 
   @@unique([projectId, userId])
+}
+
+// ---------------------------------------------------------------------------
+// PRD_Rework_1 — Projects Module & Project Page Redesign
+// ---------------------------------------------------------------------------
+// Technical Documents and Government & Legal need no new model here — they
+// reuse DocumentFile's existing revision chain (supersedesId/supersededBy/
+// version) and DocumentApproval "Blue Ticket" decisions, just filtered by a
+// category list (see lib/constants.ts). Everything below is genuinely new.
+
+model ProjectRender {
+  id           String       @id @default(cuid())
+  tenantId     String
+  tenant       Tenant       @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  projectId    String
+  project      Project      @relation("ProjectRenderGallery", fields: [projectId], references: [id], onDelete: Cascade)
+  fileData     Bytes
+  fileMimeType String
+  fileSize     Int
+  checksum     String
+  uploadedById String
+  uploadedBy   UserIdentity @relation(fields: [uploadedById], references: [id])
+  createdAt    DateTime     @default(now())
+
+  pinnedByProject Project? @relation("ProjectPinnedRender")
+
+  @@index([tenantId, projectId])
+}
+
+model ProjectPin {
+  id        String       @id @default(cuid())
+  tenantId  String
+  tenant    Tenant       @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  projectId String
+  project   Project      @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  userId    String
+  user      UserIdentity @relation(fields: [userId], references: [id], onDelete: Cascade)
+  createdAt DateTime     @default(now())
+
+  @@unique([projectId, userId])
+  @@index([tenantId, userId])
+}
+
+model ProjectWorkPackage {
+  id                 String       @id @default(cuid())
+  tenantId           String
+  tenant             Tenant       @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  projectId          String
+  project            Project      @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  name               String
+  status             String       @default("NOT_STARTED") // NOT_STARTED | IN_PROGRESS | ON_HOLD | COMPLETED
+  progressPct        Int          @default(0)
+  area               String?
+  contractorId       String?
+  contractor         Contractor?  @relation(fields: [contractorId], references: [id])
+  startDate          DateTime?
+  expectedFinishDate DateTime?
+  latestUpdate       String?
+  createdById        String
+  createdBy          UserIdentity @relation(fields: [createdById], references: [id])
+  createdAt          DateTime     @default(now())
+
+  photos ProjectPhoto[]
+
+  @@index([tenantId, projectId])
+}
+
+model ProjectApproval {
+  id              String       @id @default(cuid())
+  tenantId        String
+  tenant          Tenant       @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  projectId       String
+  project         Project      @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  title           String
+  description     String?
+  department      String?
+  relatedEntity   String?
+  optionsProposed String?
+  costImpact      String?
+  timelineImpact  String?
+  technicalImpact String?
+  requesterId     String
+  requester       UserIdentity @relation("ApprovalRequester", fields: [requesterId], references: [id])
+  approverId      String
+  approver        UserIdentity @relation("ApprovalApprover", fields: [approverId], references: [id])
+  deadline        DateTime?
+  status          String       @default("PENDING") // PENDING | APPROVED | REJECTED
+  decidedAt       DateTime?
+  decisionNote    String?
+  createdAt       DateTime     @default(now())
+
+  attachments DocumentFile[]
+
+  @@index([tenantId, projectId])
+}
+
+model ProjectPhoto {
+  id            String              @id @default(cuid())
+  tenantId      String
+  tenant        Tenant              @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  projectId     String
+  project       Project             @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  workPackageId String?
+  workPackage   ProjectWorkPackage? @relation(fields: [workPackageId], references: [id])
+  fileData      Bytes
+  fileMimeType  String
+  fileSize      Int
+  checksum      String
+  caption       String?
+  takenAt       DateTime            @default(now())
+  uploadedById  String
+  uploadedBy    UserIdentity        @relation(fields: [uploadedById], references: [id])
+  createdAt     DateTime            @default(now())
+
+  @@index([tenantId, projectId])
+}
+
+// ---------------------------------------------------------------------------
+// PRD_Units / PRD_Unit_Page — Real Estate Inventory (Pass 1)
+// ---------------------------------------------------------------------------
+// Pass 1 covers the inventory grid + a basic single-unit workspace (overview,
+// component-based pricing, documents/renders, a thin activity log). The full
+// sales workflow (holds, reservations, payments, linked packages, client
+// changes, handover, split/merge) is Pass 2 — deliberately not modeled yet.
+
+model ProjectStructure {
+  id        String   @id @default(cuid())
+  tenantId  String
+  tenant    Tenant   @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  projectId String
+  project   Project  @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  name      String
+  kind      String   @default("BUILDING") // BUILDING | BLOCK | TOWER | PHASE | ZONE
+  order     Int      @default(0)
+  createdAt DateTime @default(now())
+
+  floors ProjectFloor[]
+  units  Unit[]
+
+  @@unique([projectId, name])
+  @@index([tenantId, projectId])
+}
+
+model ProjectFloor {
+  id          String           @id @default(cuid())
+  tenantId    String
+  tenant      Tenant           @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  structureId String
+  structure   ProjectStructure @relation(fields: [structureId], references: [id], onDelete: Cascade)
+  label       String // "Ground Floor", "Level 3"
+  level       Int // signed, for sorting — basements negative
+  order       Int              @default(0)
+  createdAt   DateTime         @default(now())
+
+  units Unit[]
+
+  @@unique([structureId, label])
+  @@index([tenantId, structureId])
+}
+
+model Unit {
+  id        String  @id @default(cuid())
+  tenantId  String
+  tenant    Tenant  @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  companyId String
+  company   Company @relation(fields: [companyId], references: [id], onDelete: Cascade)
+  projectId String
+  project   Project @relation(fields: [projectId], references: [id], onDelete: Cascade)
+
+  structureId String?
+  structure   ProjectStructure? @relation(fields: [structureId], references: [id])
+  floorId     String?
+  floor       ProjectFloor?     @relation(fields: [floorId], references: [id])
+
+  code        String
+  type        String // APARTMENT | VILLA | OFFICE | PARKING | RETAIL | STORAGE | HOTEL_ROOM | LAND_PLOT | CUSTOM
+  displayName String?
+
+  orientation String?
+  view        String?
+  features    String?
+  notes       String?
+
+  // Physical build progress — distinct from lifecycleStatus (the sales state machine).
+  constructionStatus String? // PLANNED | UNDER_CONSTRUCTION | COMPLETED
+  lifecycleStatus    String  @default("DRAFT")
+
+  currency        String  @default("EUR")
+  fixedAdjustment Float   @default(0)
+  // JSON string of type-specific field values, keyed by the hardcoded per-type
+  // schema in lib/constants.ts (UNIT_TYPE_FIELDS) — matches DomainEvent.payload's
+  // existing String-for-JSON convention rather than introducing the Json scalar.
+  typeFields      String?
+
+  pinnedRenderId String?     @unique
+  pinnedRender   UnitRender? @relation("UnitPinnedRender", fields: [pinnedRenderId], references: [id], onDelete: SetNull)
+
+  // Optimistic concurrency — compare-and-swap on every update.
+  version    Int       @default(1)
+  createdAt  DateTime  @default(now())
+  archivedAt DateTime?
+
+  areaComponents UnitAreaComponent[]
+  renders        UnitRender[]        @relation("UnitRenderGallery")
+  documentFiles  DocumentFile[]
+  activityEvents UnitActivityEvent[]
+
+  @@unique([projectId, code])
+  @@index([tenantId, projectId])
+  @@index([tenantId, structureId])
+  @@index([tenantId, floorId])
+  @@index([tenantId, lifecycleStatus])
+}
+
+model UnitAreaComponent {
+  id       String @id @default(cuid())
+  tenantId String
+  tenant   Tenant @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  unitId   String
+  unit     Unit   @relation(fields: [unitId], references: [id], onDelete: Cascade)
+
+  componentType   String // INTERNAL | BALCONY | TERRACE | GARDEN | STORAGE | CUSTOM
+  label           String
+  areaM2          Float
+  pricePerM2      Float
+  // Exactly one true per unit — an application-layer invariant (Prisma/SQLite
+  // can't express "exactly one" declaratively), enforced transactionally
+  // whenever a unit's component set is written. Main must always have
+  // includedInTotal true, or a "final total" edit becomes a silent no-op.
+  isMain          Boolean @default(false)
+  includedInTotal Boolean @default(true)
+  order           Int     @default(0)
+
+  // subtotal is NEVER stored — always areaM2 * pricePerM2, computed at read
+  // time. No staleness risk, matches PRD_Unit_Page §6's "not a separate
+  // source of truth" language for derived pricing values.
+
+  @@index([tenantId, unitId])
+}
+
+model UnitRender {
+  id           String       @id @default(cuid())
+  tenantId     String
+  tenant       Tenant       @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  unitId       String
+  unit         Unit         @relation("UnitRenderGallery", fields: [unitId], references: [id], onDelete: Cascade)
+  fileData     Bytes
+  fileMimeType String
+  fileSize     Int
+  checksum     String
+  uploadedById String
+  uploadedBy   UserIdentity @relation(fields: [uploadedById], references: [id])
+  createdAt    DateTime     @default(now())
+
+  pinnedByUnit Unit? @relation("UnitPinnedRender")
+
+  @@index([tenantId, unitId])
+}
+
+model UnitActivityEvent {
+  id       String @id @default(cuid())
+  tenantId String
+  tenant   Tenant @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  unitId   String
+  unit     Unit   @relation(fields: [unitId], references: [id], onDelete: Cascade)
+
+  // Pass 1 subset: UNIT_CREATED | UNIT_UPDATED | STATUS_CHANGED | ARCHIVED |
+  // RESTORED. Pass 2 adds sales/payment/handover/split/merge event types.
+  eventType String
+  actorId   String
+  actor     UserIdentity @relation(fields: [actorId], references: [id])
+  summary   String
+  metadata  String?
+  createdAt DateTime     @default(now())
+
+  @@index([tenantId, unitId])
 }
 
 model Task {
@@ -1160,8 +1483,9 @@ model Contractor {
   userId String?       @unique
   user   UserIdentity? @relation("ContractorLogin", fields: [userId], references: [id])
 
-  contracts   Contract[]
-  assignments TaskContractorAssignment[]
+  contracts    Contract[]
+  assignments  TaskContractorAssignment[]
+  workPackages ProjectWorkPackage[]
 
   @@index([tenantId, status])
 }
@@ -1196,37 +1520,46 @@ model Contract {
 }
 
 model DocumentFile {
-  id           String       @id @default(cuid())
-  tenantId     String
-  tenant       Tenant       @relation(fields: [tenantId], references: [id], onDelete: Cascade)
-  projectId    String?
-  project      Project?     @relation(fields: [projectId], references: [id])
-  taskId       String?
-  task         Task?        @relation(fields: [taskId], references: [id], onDelete: Cascade)
-  clientId     String?
-  client       Client?      @relation(fields: [clientId], references: [id], onDelete: Cascade)
+  id                String           @id @default(cuid())
+  tenantId          String
+  tenant            Tenant           @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  projectId         String?
+  project           Project?         @relation(fields: [projectId], references: [id])
+  taskId            String?
+  task              Task?            @relation(fields: [taskId], references: [id], onDelete: Cascade)
+  clientId          String?
+  client            Client?          @relation(fields: [clientId], references: [id], onDelete: Cascade)
   // Employee Profile — CV/certification/work-contract attachments. Reuses
   // this same document model rather than a parallel one (matches every other
   // "attach a file" feature in the app), with `visibility` gating who besides
   // the uploader can see it: COMPANY (default, the profile directory) or
   // PRIVATE_HR (work contracts — only the employee themselves and HR).
-  employeeId   String?
-  employee     Employee?    @relation(fields: [employeeId], references: [id], onDelete: Cascade)
-  visibility   String       @default("COMPANY")
-  name         String
-  category     String       @default("General")
+  employeeId        String?
+  employee          Employee?        @relation(fields: [employeeId], references: [id], onDelete: Cascade)
+  // PRD_Rework_1 — an existing project document picked as an Approval's
+  // attachment, rather than a separate upload path/blob table.
+  projectApprovalId String?
+  projectApproval   ProjectApproval? @relation(fields: [projectApprovalId], references: [id])
+  // PRD_Units / PRD_Unit_Page — a unit's floor plan, technical drawings and
+  // other attachments, same optional-FK pattern as every other polymorphic
+  // owner on this model.
+  unitId            String?
+  unit              Unit?            @relation(fields: [unitId], references: [id], onDelete: Cascade)
+  visibility        String           @default("COMPANY")
+  name              String
+  category          String           @default("General")
   // PRD_4 §8.2 categories (INITIAL_EVIDENCE | TECHNICAL_ASSESSMENT | DRAWING |
   // CALCULATION | SPECIFICATION | QUOTATION | PURCHASE_ORDER | CONTRACT |
   // CONTRACT_VARIATION | METHOD_STATEMENT | SAFETY_DOCUMENT | INSPECTION |
   // COMPLETION_EVIDENCE | INVOICE | PAYMENT_EVIDENCE | FINAL_RECORD) apply when
   // taskId is set; pre-existing free-text categories are unaffected otherwise.
-  version      Int          @default(1)
-  status       String       @default("DRAFT")
+  version           Int              @default(1)
+  status            String           @default("DRAFT")
   // DRAFT | SUBMITTED | APPROVED (pre-existing) plus PRD_4 §8.3's fuller set when
   // task-attached: SUPPORTING | UNDER_REVIEW | REJECTED | SUPERSEDED | OFFICIAL | ARCHIVED
-  uploadedById String
-  uploadedBy   UserIdentity @relation(fields: [uploadedById], references: [id])
-  createdAt    DateTime     @default(now())
+  uploadedById      String
+  uploadedBy        UserIdentity     @relation(fields: [uploadedById], references: [id])
+  createdAt         DateTime         @default(now())
 
   // CTO-060 — an approved/official file is never overwritten; a changed
   // upload creates a new revision linked to the one it supersedes.
@@ -1242,13 +1575,13 @@ model DocumentFile {
   // PRD_18 §12 Document Passport — the actual file. Nullable so the two
   // placeholder-document call sites (project/task creation "expected
   // document" checklist entries, no upload yet) keep working unmodified.
-  fileData     Bytes?
-  fileMimeType String?
-  fileSize     Int?
-  checksum     String? // SHA-256 hex of fileData
+  fileData         Bytes?
+  fileMimeType     String?
+  fileSize         Int?
+  checksum         String? // SHA-256 hex of fileData
   // Mandatory (enforced at the action layer) when supersedesId is set —
   // "what changed and why" per §13's revision-submission rule.
-  revisionComment String?
+  revisionComment  String?
   // JSON ActorSnapshot (src/lib/actor-snapshot.ts) frozen at upload time —
   // survives the uploader's later role/company changes, per §12 "Immutable
   // origin".
@@ -1259,6 +1592,7 @@ model DocumentFile {
   @@index([tenantId, projectId])
   @@index([tenantId, taskId])
   @@index([tenantId, clientId])
+  @@index([tenantId, unitId])
 }
 
 // PRD_18 §13 Blue Approval Ticket — an append-only decision ledger bound to
@@ -1266,18 +1600,18 @@ model DocumentFile {
 // REQUEST_CHANGES round can precede the eventual APPROVE without losing
 // either decision's history.
 model DocumentApproval {
-  id             String       @id @default(cuid())
-  tenantId       String
-  tenant         Tenant       @relation(fields: [tenantId], references: [id], onDelete: Cascade)
-  documentFileId String
-  documentFile   DocumentFile @relation(fields: [documentFileId], references: [id], onDelete: Cascade)
-  approverId     String
-  approver       UserIdentity @relation(fields: [approverId], references: [id])
+  id               String       @id @default(cuid())
+  tenantId         String
+  tenant           Tenant       @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  documentFileId   String
+  documentFile     DocumentFile @relation(fields: [documentFileId], references: [id], onDelete: Cascade)
+  approverId       String
+  approver         UserIdentity @relation(fields: [approverId], references: [id])
   // JSON ActorSnapshot at decision time.
   approverSnapshot String
   decision         String // APPROVE | REQUEST_CHANGES | REJECT
   comment          String?
-  createdAt        DateTime @default(now())
+  createdAt        DateTime     @default(now())
 
   @@index([tenantId, documentFileId])
 }

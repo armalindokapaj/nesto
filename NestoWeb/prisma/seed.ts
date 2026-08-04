@@ -580,6 +580,26 @@ async function main() {
     });
   }
 
+  // --- Super user test account --------------------------------------------
+  // username "1" / password "1" for quick manual testing. Combines OWNER
+  // (FULL_ADMIN on every PERMISSION_MATRIX resource, so every in-tenant
+  // module shows in the sidebar) with isPlatformAdmin: true (cross-tenant
+  // /platform/applications access) — the broadest access the current
+  // permission model can express for a single account.
+  const superUser = await db.userIdentity.create({
+    data: {
+      username: "1",
+      email: "1",
+      displayName: "Super User",
+      avatarColor: "#dc2626",
+      passwordHash: testAccountPasswordHash,
+      isPlatformAdmin: true,
+    },
+  });
+  await db.companyMembership.create({
+    data: { tenantId: tenant.id, userId: superUser.id, role: "OWNER", department: "Testing", position: "Super User Test Account" },
+  });
+
   // --- Audit / notifications ----------------------------------------------
   await db.auditEvent.createMany({
     data: [
@@ -602,6 +622,7 @@ async function main() {
   console.log(`Demo login → username: arben.kola  password: ${DEMO_PASSWORD}`);
   console.log("Other seeded logins: elira.doda (Architect), fatjon.dervishi (Finance), ana.krasniqi (HR) — same password.");
   console.log(`Per-role test logins (password "${TEST_ACCOUNT_PASSWORD}" for all): ${ROLES.map(titleCase).join(", ")}`);
+  console.log(`Super user login → username: 1  password: 1 (OWNER + isPlatformAdmin, all modules)`);
 }
 
 main()

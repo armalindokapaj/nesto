@@ -14,10 +14,15 @@ type Props = {
   projectId?: string;
   clientId?: string;
   taskId?: string;
+  unitId?: string;
   triggerLabel?: string;
+  // PRD_Rework_1 — Technical Documents / Government & Legal sections pass a
+  // fixed category list so uploads land pre-sorted into the right folder,
+  // same select-vs-free-text pattern as the existing taskId/TASK_FILE_CATEGORIES case.
+  categoryOptions?: readonly string[];
 };
 
-export function CreateDocumentDialog({ projects, projectId, clientId, taskId, triggerLabel }: Props) {
+export function CreateDocumentDialog({ projects, projectId, clientId, taskId, unitId, triggerLabel, categoryOptions }: Props) {
   const { t } = useI18n();
   const [open, setOpen] = useState(false);
   const [state, formAction, pending] = useActionState(createDocumentAction, undefined);
@@ -48,13 +53,27 @@ export function CreateDocumentDialog({ projects, projectId, clientId, taskId, tr
             {clientId && <input type="hidden" name="clientId" value={clientId} />}
             {projectId && <input type="hidden" name="projectId" value={projectId} />}
             {taskId && <input type="hidden" name="taskId" value={taskId} />}
+            {unitId && <input type="hidden" name="unitId" value={unitId} />}
             <div className="space-y-1.5">
               <Label htmlFor="name">{t("documents.name")}</Label>
               <Input id="name" name="name" required />
             </div>
             <div className="space-y-1.5">
               <Label htmlFor="category">{t("documents.category")}</Label>
-              {taskId ? (
+              {categoryOptions ? (
+                <select
+                  id="category"
+                  name="category"
+                  defaultValue={categoryOptions[0]}
+                  className="h-10 w-full rounded-lg border border-border bg-surface px-3 text-sm text-ink focus:outline-none focus:border-gold focus:ring-2 focus:ring-gold/20"
+                >
+                  {categoryOptions.map((c) => (
+                    <option key={c} value={c}>
+                      {c}
+                    </option>
+                  ))}
+                </select>
+              ) : taskId ? (
                 <select
                   id="category"
                   name="category"

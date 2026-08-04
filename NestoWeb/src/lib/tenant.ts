@@ -66,6 +66,11 @@ export async function requireTenantTask(tenantId: string, taskId: string) {
   assertTenant(task, tenantId, "Task");
 }
 
+export async function requireTenantUnit(tenantId: string, unitId: string) {
+  const unit = await db.unit.findUnique({ where: { id: unitId }, select: { tenantId: true } });
+  assertTenant(unit, tenantId, "Unit");
+}
+
 // A UserIdentity is tenant-less by design (one login, many tenant
 // memberships) — so "does this user belong to this tenant" can only be
 // answered by whether a CompanyMembership row links them, not by any field

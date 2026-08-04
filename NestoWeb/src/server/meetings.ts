@@ -9,6 +9,15 @@ export async function listMeetings(tenantId: string) {
   });
 }
 
+export async function listMeetingsByProject(tenantId: string, projectId: string) {
+  await requireTenantProject(tenantId, projectId);
+  return db.meeting.findMany({
+    where: { tenantId, projectId },
+    include: { organiser: true },
+    orderBy: { scheduledAt: "desc" },
+  });
+}
+
 export async function createMeeting(
   tenantId: string,
   input: { title: string; scheduledAt: Date; location?: string; projectId?: string; organiserId: string }

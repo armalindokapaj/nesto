@@ -8,7 +8,10 @@ import { Button } from "@/components/ui/button";
 import { Input, Label } from "@/components/ui/input";
 import { useI18n } from "@/lib/i18n/locale-provider";
 
-export function CreateMeetingDialog({ projects }: { projects: { id: string; name: string }[] }) {
+// `projectId` locks the meeting to a single project (e.g. from the Project
+// Page's Meetings section) and hides the project picker, matching
+// create-document-dialog.tsx's projectId-vs-projects prop convention.
+export function CreateMeetingDialog({ projects, projectId }: { projects?: { id: string; name: string }[]; projectId?: string }) {
   const { t } = useI18n();
   const [open, setOpen] = useState(false);
   const [state, formAction, pending] = useActionState(createMeetingAction, undefined);
@@ -36,6 +39,7 @@ export function CreateMeetingDialog({ projects }: { projects: { id: string; name
             }}
             className="space-y-3.5"
           >
+            {projectId && <input type="hidden" name="projectId" value={projectId} />}
             <div className="space-y-1.5">
               <Label htmlFor="title">{t("task.title")}</Label>
               <Input id="title" name="title" required />
@@ -48,22 +52,24 @@ export function CreateMeetingDialog({ projects }: { projects: { id: string; name
               <Label htmlFor="location">{t("meetings.location")}</Label>
               <Input id="location" name="location" />
             </div>
-            <div className="space-y-1.5">
-              <Label htmlFor="projectId">{t("common.project")}</Label>
-              <select
-                id="projectId"
-                name="projectId"
-                defaultValue=""
-                className="h-10 w-full rounded-lg border border-border bg-surface px-3 text-sm text-ink focus:outline-none focus:border-gold focus:ring-2 focus:ring-gold/20"
-              >
-                <option value="">{t("common.none")}</option>
-                {projects.map((p) => (
-                  <option key={p.id} value={p.id}>
-                    {p.name}
-                  </option>
-                ))}
-              </select>
-            </div>
+            {projects && (
+              <div className="space-y-1.5">
+                <Label htmlFor="projectId">{t("common.project")}</Label>
+                <select
+                  id="projectId"
+                  name="projectId"
+                  defaultValue=""
+                  className="h-10 w-full rounded-lg border border-border bg-surface px-3 text-sm text-ink focus:outline-none focus:border-gold focus:ring-2 focus:ring-gold/20"
+                >
+                  <option value="">{t("common.none")}</option>
+                  {projects.map((p) => (
+                    <option key={p.id} value={p.id}>
+                      {p.name}
+                    </option>
+                  ))}
+                </select>
+              </div>
+            )}
             {state?.error && (
               <p role="alert" className="rounded-lg bg-danger-soft px-3 py-2 text-xs text-danger">
                 {state.error}

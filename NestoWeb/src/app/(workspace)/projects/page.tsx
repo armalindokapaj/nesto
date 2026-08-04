@@ -1,15 +1,12 @@
-import Link from "next/link";
 import { getCurrentUser } from "@/lib/dal";
 import { listProjectsWithRelationship } from "@/server/projects";
 import { Card, CardContent } from "@/components/ui/card";
-import { Badge } from "@/components/ui/badge";
-import { ProgressBar } from "@/components/ui/progress-bar";
+import { ProjectCard } from "@/components/projects/project-card";
 import { CreateProjectDialog } from "@/components/projects/create-project-dialog";
 import { can } from "@/lib/permissions";
-import { getProjectRelationship, canViewProjectFinance, PROJECT_RELATIONSHIPS } from "@/lib/project-access";
+import { getProjectRelationship, PROJECT_RELATIONSHIPS } from "@/lib/project-access";
 import { PROJECT_STATUSES } from "@/lib/constants";
 import type { Role } from "@/lib/constants";
-import { formatCurrency } from "@/lib/utils";
 import { getT } from "@/lib/i18n/server";
 
 export default async function ProjectsPage({
@@ -19,8 +16,7 @@ export default async function ProjectsPage({
 }) {
   const { tenantId, role, user } = await getCurrentUser();
   const { status, relationship } = await searchParams;
-  const allProjectsRaw = await listProjectsWithRelationship(tenantId);
-  const canViewFinance = canViewProjectFinance(role as Role);
+  const allProjectsRaw = await listProjectsWithRelationship(tenantId, user.id);
 
   // PRD_10 §5.1 — every project is discoverable company-wide; the relationship
   // badge tells the viewer *why* they're connected (or not) without hiding
@@ -31,13 +27,17 @@ export default async function ProjectsPage({
       { memberUserIds: p.members.map((m) => m.userId), tasks: p.tasks },
       { userId: user.id, role: role as Role }
     ),
+    pinned: p.pins.length > 0,
   }));
 
-  const projects = allProjects.filter(
-    (p) =>
-      (!status || !(PROJECT_STATUSES as readonly string[]).includes(status) || p.status === status) &&
-      (!relationship || !(PROJECT_RELATIONSHIPS as readonly string[]).includes(relationship) || p.relationship === relationship)
-  );
+  const projects = allProjects
+    .filter(
+      (p) =>
+        (!status || !(PROJECT_STATUSES as readonly string[]).includes(status) || p.status === status) &&
+        (!relationship || !(PROJECT_RELATIONSHIPS as readonly string[]).includes(relationship) || p.relationship === relationship)
+    )
+    // PRD_Rework_1 PROJ-003 — pinned projects sort first, per viewer.
+    .sort((a, b) => Number(b.pinned) - Number(a.pinned));
   const canCreate = can(role, "PROJECTS", "WRITE");
   const { t } = await getT();
 
@@ -62,33 +62,11 @@ export default async function ProjectsPage({
           </CardContent>
         </Card>
       ) : (
-        <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4">
+        // PRD_Projects §10 — 1 col <600px, 2 cols 600-1023px, 3 cols 1024-1279px, 4 cols >=1280px.
+        // Tailwind's default breakpoints (sm=640, lg=1024, xl=1280) line up closely enough to reuse as-is.
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
           {projects.map((p) => (
-            <Link key={p.id} href={`/projects/${p.id}`}>
-              <Card className="h-full hover:border-border-strong transition-colors">
-                <CardContent className="flex flex-col gap-3">
-                  <div className="flex items-start justify-between gap-2">
-                    <div className="min-w-0">
-                      <p className="font-medium text-ink truncate">{p.name}</p>
-                      <p className="text-xs text-ink-muted">{p.code}</p>
-                    </div>
-                    <div className="flex flex-col items-end gap-1">
-                      <Badge status={p.status}>{t(`projectStatus.${p.status}`)}</Badge>
-                      <Badge status={p.relationship}>{t(`projects.relationship.${p.relationship}`)}</Badge>
-                    </div>
-                  </div>
-                  <p className="text-xs text-ink-muted">{p.clientName ?? t("projects.internalProject")}{p.location ? ` · ${p.location}` : ""}</p>
-                  <div className="flex items-center gap-3">
-                    <ProgressBar value={p.progressPct} tone={p.status === "DELAYED" ? "danger" : p.status === "AT_RISK" ? "warning" : "gold"} />
-                    <span className="text-xs font-medium text-ink-muted w-9 text-right shrink-0">{p.progressPct}%</span>
-                  </div>
-                  <div className="flex items-center justify-between text-xs text-ink-faint pt-1 border-t border-border">
-                    <span>{p._count.tasks} {p._count.tasks === 1 ? t("projects.taskCount") : t("projects.tasksCount")}</span>
-                    {p.budget != null && (canViewFinance ? <span>{formatCurrency(p.budget)}</span> : <span>{t("projects.restricted")}</span>)}
-                  </div>
-                </CardContent>
-              </Card>
-            </Link>
+            <ProjectCard key={p.id} project={p} />
           ))}
         </div>
       )}

@@ -33,6 +33,7 @@ export async function createMeetingAction(_prev: CreateMeetingState, formData: F
 
   await createMeeting(tenantId, { ...parsed.data, organiserId: user.id });
   revalidatePath("/meetings");
+  if (parsed.data.projectId) revalidatePath(`/projects/${parsed.data.projectId}`);
   return undefined;
 }
 

@@ -253,6 +253,21 @@ export const STATUS_TONE: Record<string, "success" | "warning" | "danger" | "inf
   WATCHER: "neutral",
   DEPARTMENT_INVOLVED: "neutral",
   UNASSIGNED: "neutral",
+
+  // --- PRD_Rework_1 — Projects Module & Project Page Redesign -----------
+  ON_HOLD: "warning",
+
+  // --- PRD_Units / PRD_Unit_Page — Real Estate Inventory -----------------
+  AVAILABLE: "success",
+  RESERVED: "warning",
+  CONTRACTED: "info",
+  SOLD: "success",
+  HANDED_OVER: "success",
+  NOT_FOR_SALE: "neutral",
+  COMPANY_OWNED: "neutral",
+  RENTED: "info",
+  PLANNED: "neutral",
+  UNDER_CONSTRUCTION: "warning",
 };
 
 // ---------------------------------------------------------------------------
@@ -397,6 +412,54 @@ export const TASK_FILE_CATEGORIES = [
   "FINAL_RECORD",
 ] as const;
 export type TaskFileCategory = (typeof TASK_FILE_CATEGORIES)[number];
+
+// PRD_Rework_1 §9/§10 — Technical Documents and Government & Legal are both
+// just DocumentFile.category filters over the same table (no new model —
+// the revision chain/DocumentApproval infra already covers PROJ-011/012).
+export const TECHNICAL_DOCUMENT_CATEGORIES = [
+  "Facades",
+  "Floor Plans",
+  "Sections",
+  "Details",
+  "Structural",
+  "MEP",
+  "Interior",
+  "Landscape",
+  "Permits",
+  "Other",
+] as const;
+
+export const GOVERNMENT_LEGAL_CATEGORIES = [
+  "Building Permit",
+  "Permit Addendum",
+  "Construction License",
+  "Government Correspondence",
+  "Inspection Report",
+  "Legal Notice",
+  "Appeal",
+  "Fine/Penalty",
+  "Occupancy Permit",
+  "Completion Certificate",
+] as const;
+
+// PRD_Rework_1 §11 In-Progress Works
+export const WORK_PACKAGE_STATUSES = ["NOT_STARTED", "IN_PROGRESS", "ON_HOLD", "COMPLETED"] as const;
+export type WorkPackageStatus = (typeof WORK_PACKAGE_STATUSES)[number];
+export const WORK_PACKAGE_STATUS_KEY: Record<WorkPackageStatus, string> = {
+  NOT_STARTED: "workPackages.notStarted",
+  IN_PROGRESS: "workPackages.inProgress",
+  ON_HOLD: "workPackages.onHold",
+  COMPLETED: "workPackages.completed",
+};
+
+// PRD_Rework_1 §12 Approvals
+export const PROJECT_APPROVAL_STATUSES = ["PENDING", "APPROVED", "REJECTED"] as const;
+export type ProjectApprovalStatus = (typeof PROJECT_APPROVAL_STATUSES)[number];
+export const PROJECT_APPROVAL_STATUS_KEY: Record<ProjectApprovalStatus, string> = {
+  PENDING: "approvals.pending",
+  APPROVED: "approvals.approved",
+  REJECTED: "approvals.rejected",
+};
 
 export const TASK_FILE_STATES = [
   "SUPPORTING",
@@ -618,4 +681,212 @@ export const CALENDAR_ITEM_TONE: Record<CalendarItemSource, "success" | "warning
   MILESTONE: "warning",
   INSPECTION: "danger",
 };
+
+// ---------------------------------------------------------------------------
+// PRD_Units / PRD_Unit_Page — Real Estate Inventory (Pass 1)
+// ---------------------------------------------------------------------------
+
+export const UNIT_TYPES = [
+  "APARTMENT",
+  "VILLA",
+  "OFFICE",
+  "PARKING",
+  "RETAIL",
+  "STORAGE",
+  "HOTEL_ROOM",
+  "LAND_PLOT",
+  "CUSTOM",
+] as const;
+export type UnitType = (typeof UNIT_TYPES)[number];
+
+export const UNIT_TYPE_LABELS: Record<UnitType, string> = {
+  APARTMENT: "Apartment",
+  VILLA: "Villa",
+  OFFICE: "Office",
+  PARKING: "Parking",
+  RETAIL: "Retail",
+  STORAGE: "Storage",
+  HOTEL_ROOM: "Hotel Room",
+  LAND_PLOT: "Land Plot",
+  CUSTOM: "Custom",
+};
+
+// PRD_Unit_Page §9 sales lifecycle. Pass 1 only allows the transitions that
+// don't require a hold/reservation/contract object (Pass 2's domain) — the
+// remaining states exist as values so the read side (badges, filters) is
+// already correct, but the transition UI disables them with an explanation
+// until the sales workflow ships (UNIT-004's "disabled, not hidden" rule).
+export const UNIT_LIFECYCLE_STATUSES = [
+  "DRAFT",
+  "AVAILABLE",
+  "ON_HOLD",
+  "RESERVED",
+  "CONTRACTED",
+  "SOLD",
+  "HANDED_OVER",
+  "NOT_FOR_SALE",
+  "COMPANY_OWNED",
+  "RENTED",
+  "ARCHIVED",
+] as const;
+export type UnitLifecycleStatus = (typeof UNIT_LIFECYCLE_STATUSES)[number];
+
+export const UNIT_LIFECYCLE_LABEL_KEY: Record<UnitLifecycleStatus, string> = {
+  DRAFT: "unitStatus.draft",
+  AVAILABLE: "unitStatus.available",
+  ON_HOLD: "unitStatus.onHold",
+  RESERVED: "unitStatus.reserved",
+  CONTRACTED: "unitStatus.contracted",
+  SOLD: "unitStatus.sold",
+  HANDED_OVER: "unitStatus.handedOver",
+  NOT_FOR_SALE: "unitStatus.notForSale",
+  COMPANY_OWNED: "unitStatus.companyOwned",
+  RENTED: "unitStatus.rented",
+  ARCHIVED: "unitStatus.archived",
+};
+
+// Manually-triggerable transitions in Pass 1 — everything reachable without a
+// hold/reservation/contract. ON_HOLD/RESERVED/CONTRACTED/SOLD/HANDED_OVER are
+// deliberately absent as *sources* here (Pass 2 drives those) but ARE valid
+// values a unit can already display if seeded/imported in that state.
+export const UNIT_MANUAL_TRANSITIONS: Record<UnitLifecycleStatus, UnitLifecycleStatus[]> = {
+  DRAFT: ["AVAILABLE", "NOT_FOR_SALE", "ARCHIVED"],
+  AVAILABLE: ["NOT_FOR_SALE", "COMPANY_OWNED", "RENTED", "ARCHIVED"],
+  ON_HOLD: [],
+  RESERVED: [],
+  CONTRACTED: [],
+  SOLD: [],
+  HANDED_OVER: [],
+  NOT_FOR_SALE: ["AVAILABLE", "COMPANY_OWNED", "ARCHIVED"],
+  COMPANY_OWNED: ["AVAILABLE", "RENTED", "ARCHIVED"],
+  RENTED: ["COMPANY_OWNED", "AVAILABLE"],
+  ARCHIVED: [],
+};
+
+export const UNIT_CONSTRUCTION_STATUSES = ["PLANNED", "UNDER_CONSTRUCTION", "COMPLETED"] as const;
+export type UnitConstructionStatus = (typeof UNIT_CONSTRUCTION_STATUSES)[number];
+
+export const UNIT_CONSTRUCTION_STATUS_KEY: Record<UnitConstructionStatus, string> = {
+  PLANNED: "unitConstruction.planned",
+  UNDER_CONSTRUCTION: "unitConstruction.underConstruction",
+  COMPLETED: "unitConstruction.completed",
+};
+
+// PRD_Unit_Page §6 area components.
+export const UNIT_AREA_COMPONENT_TYPES = ["INTERNAL", "BALCONY", "TERRACE", "GARDEN", "STORAGE", "CUSTOM"] as const;
+export type UnitAreaComponentType = (typeof UNIT_AREA_COMPONENT_TYPES)[number];
+
+export const UNIT_AREA_COMPONENT_LABEL_KEY: Record<UnitAreaComponentType, string> = {
+  INTERNAL: "unitAreaComponent.internal",
+  BALCONY: "unitAreaComponent.balcony",
+  TERRACE: "unitAreaComponent.terrace",
+  GARDEN: "unitAreaComponent.garden",
+  STORAGE: "unitAreaComponent.storage",
+  CUSTOM: "unitAreaComponent.custom",
+};
+
+// PRD_Unit_Page §11 document categories for the unit-scoped documents panel
+// (reuses the existing DocumentFile model + CreateDocumentDialog's
+// categoryOptions prop, same pattern as the Project Page's Technical
+// Documents / Government & Legal sections).
+export const UNIT_DOCUMENT_CATEGORIES = [
+  "Floor Plan",
+  "Technical Drawing",
+  "Reservation Document",
+  "Contract Document",
+  "Attachment",
+] as const;
+
+// PRD_Unit_Page §5 type-specific fields. A hardcoded per-type schema (same
+// convention as TASK_FILE_CATEGORIES) rather than an admin-configurable EAV
+// system — the PRD itself defers admin-configurable custom types to later.
+// Universal fields (orientation, view, notes, construction status) and area
+// (via UnitAreaComponent) are NOT repeated here even where the PRD's table
+// mentions them for a type, since they already exist as first-class fields.
+export type UnitFieldDef = { key: string; label: string; type: "text" | "number" | "select"; options?: string[] };
+
+export const UNIT_TYPE_FIELDS: Record<UnitType, UnitFieldDef[]> = {
+  APARTMENT: [
+    { key: "bedrooms", label: "Bedrooms", type: "number" },
+    { key: "bathrooms", label: "Bathrooms", type: "number" },
+    { key: "livingRooms", label: "Living Rooms", type: "number" },
+    { key: "kitchenType", label: "Kitchen Type", type: "text" },
+    { key: "balconies", label: "Balconies", type: "number" },
+    { key: "furnishingPackage", label: "Furnishing / Finish Package", type: "text" },
+  ],
+  VILLA: [
+    { key: "bedrooms", label: "Bedrooms", type: "number" },
+    { key: "bathrooms", label: "Bathrooms", type: "number" },
+    { key: "livingRooms", label: "Living Rooms", type: "number" },
+    { key: "kitchenType", label: "Kitchen Type", type: "text" },
+    { key: "balconies", label: "Balconies", type: "number" },
+    { key: "furnishingPackage", label: "Furnishing / Finish Package", type: "text" },
+  ],
+  OFFICE: [
+    { key: "capacity", label: "Capacity", type: "number" },
+    { key: "openSpaceSeats", label: "Open-Space Seats", type: "number" },
+    { key: "privateOffices", label: "Private Offices", type: "number" },
+    { key: "meetingRooms", label: "Meeting Rooms", type: "number" },
+    { key: "reception", label: "Reception", type: "select", options: ["Yes", "No"] },
+    { key: "serverRoom", label: "Server Room", type: "select", options: ["Yes", "No"] },
+    { key: "fitOutState", label: "Fit-Out State", type: "text" },
+  ],
+  PARKING: [
+    { key: "coveredOpen", label: "Covered / Open", type: "select", options: ["Covered", "Open"] },
+    { key: "garageLot", label: "Garage / Lot", type: "select", options: ["Garage", "Lot"] },
+    { key: "level", label: "Level", type: "text" },
+    { key: "bayDimensions", label: "Bay Dimensions", type: "text" },
+    { key: "vehicleType", label: "Vehicle Type", type: "text" },
+    { key: "evCharger", label: "EV Charger", type: "select", options: ["Yes", "No"] },
+    { key: "accessibility", label: "Accessibility", type: "select", options: ["Yes", "No"] },
+  ],
+  RETAIL: [
+    { key: "frontage", label: "Frontage", type: "text" },
+    { key: "ceilingHeight", label: "Ceiling Height", type: "text" },
+    { key: "permittedUse", label: "Permitted / Commercial Use", type: "text" },
+    { key: "serviceAccess", label: "Service Access", type: "select", options: ["Yes", "No"] },
+    { key: "extraction", label: "Extraction", type: "select", options: ["Yes", "No"] },
+    { key: "terraceRights", label: "Terrace Rights", type: "select", options: ["Yes", "No"] },
+  ],
+  STORAGE: [
+    { key: "volume", label: "Volume (m³)", type: "number" },
+    { key: "ceilingHeight", label: "Ceiling Height", type: "text" },
+    { key: "accessType", label: "Access Type", type: "text" },
+    { key: "humidityNotes", label: "Humidity / Temperature Notes", type: "text" },
+  ],
+  HOTEL_ROOM: [
+    { key: "roomCategory", label: "Room Category", type: "text" },
+    { key: "beds", label: "Beds", type: "number" },
+    { key: "occupancy", label: "Occupancy", type: "number" },
+    { key: "bathroomType", label: "Bathroom Type", type: "text" },
+    { key: "balcony", label: "Balcony", type: "select", options: ["Yes", "No"] },
+    { key: "connectingRoom", label: "Connecting Room", type: "select", options: ["Yes", "No"] },
+  ],
+  LAND_PLOT: [
+    { key: "zoning", label: "Zoning", type: "text" },
+    { key: "buildability", label: "Buildability", type: "text" },
+    { key: "frontage", label: "Frontage", type: "text" },
+    { key: "cadastralReference", label: "Cadastral Reference", type: "text" },
+    { key: "permittedUse", label: "Permitted Use", type: "text" },
+  ],
+  CUSTOM: [],
+};
+
+// PRD_Units §10 — CSV import column order (client-safe constant; the actual
+// parser in src/server/unit-import.ts reads headers by name via csv-parse's
+// `columns: true`, this is just what the import dialog displays/documents).
+export const UNIT_IMPORT_COLUMNS = [
+  "code",
+  "type",
+  "displayName",
+  "structureName",
+  "floorLabel",
+  "internalAreaM2",
+  "internalPricePerM2",
+  "balconyAreaM2",
+  "balconyPricePerM2",
+  "orientation",
+  "view",
+  "notes",
+] as const;
 
