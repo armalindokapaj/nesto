@@ -4,6 +4,7 @@ import { useActionState } from "react";
 import { updateTeamAction } from "@/app/actions/teams-module";
 import { Button } from "@/components/ui/button";
 import { Input, Label, Textarea } from "@/components/ui/input";
+import { SuggestInput } from "@/components/ui/suggest-input";
 import { TEAM_TYPE_SUGGESTIONS } from "@/lib/team-constants";
 import { useI18n } from "@/lib/i18n/locale-provider";
 
@@ -38,12 +39,7 @@ export function TeamSettingsForm({
       </div>
       <div className="space-y-1.5">
         <Label htmlFor="team-type">{t("teamsModule.teamType")}</Label>
-        <Input id="team-type" name="teamType" list="team-type-suggestions" defaultValue={teamType ?? ""} />
-        <datalist id="team-type-suggestions">
-          {TEAM_TYPE_SUGGESTIONS.map((tt) => (
-            <option key={tt} value={tt} />
-          ))}
-        </datalist>
+        <SuggestInput id="team-type" name="teamType" suggestions={TEAM_TYPE_SUGGESTIONS} defaultValue={teamType ?? ""} />
       </div>
       <div className="space-y-1.5">
         <Label htmlFor="team-lead">{t("teamsModule.lead")}</Label>

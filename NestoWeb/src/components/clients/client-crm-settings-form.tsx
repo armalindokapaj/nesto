@@ -4,6 +4,7 @@ import { useActionState } from "react";
 import { updateClientCrmFieldsAction } from "@/app/actions/crm-module";
 import { Button } from "@/components/ui/button";
 import { Input, Label } from "@/components/ui/input";
+import { SuggestInput } from "@/components/ui/suggest-input";
 import { CLIENT_TYPE_SUGGESTIONS } from "@/lib/crm-constants";
 import { useI18n } from "@/lib/i18n/locale-provider";
 
@@ -30,12 +31,7 @@ export function ClientCrmSettingsForm({
       <input type="hidden" name="clientId" value={clientId} />
       <div className="space-y-1.5">
         <Label htmlFor="client-type">{t("crm.clientType")}</Label>
-        <Input id="client-type" name="clientType" list="client-type-suggestions" defaultValue={clientType ?? ""} />
-        <datalist id="client-type-suggestions">
-          {CLIENT_TYPE_SUGGESTIONS.map((ct) => (
-            <option key={ct} value={ct} />
-          ))}
-        </datalist>
+        <SuggestInput id="client-type" name="clientType" suggestions={CLIENT_TYPE_SUGGESTIONS} defaultValue={clientType ?? ""} />
       </div>
       <div className="space-y-1.5">
         <Label htmlFor="client-owner">{t("crm.assignedOwner")}</Label>

@@ -6,6 +6,7 @@ import { Plus, X } from "lucide-react";
 import { createLeadAction } from "@/app/actions/crm-module";
 import { Button } from "@/components/ui/button";
 import { Input, Label } from "@/components/ui/input";
+import { SuggestInput } from "@/components/ui/suggest-input";
 import { LEAD_SOURCE_SUGGESTIONS } from "@/lib/crm-constants";
 import { useI18n } from "@/lib/i18n/locale-provider";
 
@@ -57,12 +58,7 @@ export function CreateLeadDialog() {
             </div>
             <div className="space-y-1.5">
               <Label htmlFor="lead-source">{t("crm.source")}</Label>
-              <Input id="lead-source" name="source" list="lead-source-suggestions" />
-              <datalist id="lead-source-suggestions">
-                {LEAD_SOURCE_SUGGESTIONS.map((s) => (
-                  <option key={s} value={s} />
-                ))}
-              </datalist>
+              <SuggestInput id="lead-source" name="source" suggestions={LEAD_SOURCE_SUGGESTIONS} />
             </div>
             <div className="space-y-1.5">
               <Label htmlFor="lead-value">{t("crm.estimatedValue")}</Label>
