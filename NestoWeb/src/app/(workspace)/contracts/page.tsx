@@ -10,21 +10,24 @@ import { Table, THead, TBody, TRow, TH, TD } from "@/components/ui/table";
 import { Badge } from "@/components/ui/badge";
 import { CreateContractDialog } from "@/components/contracts/create-contract-dialog";
 import { ContractActions } from "@/components/contracts/contract-actions";
+import { ContractStarButton } from "@/components/contracts/contract-star-button";
 import { CreateContractorDialog } from "@/components/contractors/create-contractor-dialog";
+import { listStarredContractIds } from "@/server/contracts-module";
 import { formatCurrency, formatDate } from "@/lib/utils";
 import { getT } from "@/lib/i18n/server";
 
 export default async function ContractsPage() {
-  const { tenantId, role } = await getCurrentUser();
+  const { tenantId, role, user } = await getCurrentUser();
   if (!can(role, "CONTRACTS", "READ")) redirect("/dashboard/executive");
   const canCreate = can(role, "CONTRACTS", "WRITE");
   const canCreateContractor = can(role, "COMPANY_NETWORK", "WRITE");
   const canApprove = can(role, "CONTRACTS", "FULL");
 
-  const [contracts, contractors, projects] = await Promise.all([
+  const [contracts, contractors, projects, starredIds] = await Promise.all([
     listContracts(tenantId),
     listContractors(tenantId),
     listProjects(tenantId),
+    listStarredContractIds(tenantId, user.id),
   ]);
   const { t } = await getT();
 
@@ -51,8 +54,10 @@ export default async function ContractsPage() {
           <Table>
             <THead>
               <TRow>
+                <TH className="w-6" />
                 <TH>{t("contracts.number")}</TH>
                 <TH>{t("task.title")}</TH>
+                <TH>{t("contractsModule.contractType")}</TH>
                 <TH>{t("common.project")}</TH>
                 <TH>{t("contractors.title")}</TH>
                 <TH>{t("contracts.value")}</TH>
@@ -64,8 +69,16 @@ export default async function ContractsPage() {
             <TBody>
               {contracts.map((contract) => (
                 <TRow key={contract.id}>
-                  <TD className="font-medium text-ink">{contract.number}</TD>
+                  <TD>
+                    <ContractStarButton contractId={contract.id} starred={starredIds.has(contract.id)} />
+                  </TD>
+                  <TD className="font-medium text-ink">
+                    <Link href={`/contracts/${contract.id}`} className="hover:text-gold hover:underline">
+                      {contract.number}
+                    </Link>
+                  </TD>
                   <TD className="text-ink-muted">{contract.title}</TD>
+                  <TD className="text-ink-muted">{contract.contractType ?? "—"}</TD>
                   <TD className="text-ink-muted">
                     {contract.project ? (
                       <Link href={`/projects/${contract.project.id}`} className="hover:text-gold hover:underline">
@@ -98,7 +111,7 @@ export default async function ContractsPage() {
               ))}
               {contracts.length === 0 && (
                 <TRow>
-                  <TD colSpan={canApprove ? 8 : 7} className="text-center text-ink-faint py-8">
+                  <TD colSpan={canApprove ? 10 : 9} className="text-center text-ink-faint py-8">
                     {t("contracts.noContracts")}
                   </TD>
                 </TRow>

@@ -105,6 +105,13 @@ model Tenant {
   leads          Lead[]
   clientStars    ClientStar[]
 
+  // --- PRD_Contracts_Module (additive) -----------------------------------
+  contractParties     ContractParty[]
+  contractObligations ContractObligation[]
+  contractMilestones  ContractMilestone[]
+  contractActivity    ContractActivity[]
+  contractStars       ContractStar[]
+
   // --- PRD_6 Public Sign-Up / Platform Approval -------------------------
   profileInvitations ProfileInvitation[]
 
@@ -232,6 +239,12 @@ model UserIdentity {
   opportunitiesOwned  Opportunity[] @relation("OpportunityOwner")
   leadsOwned          Lead[]        @relation("LeadOwner")
   clientStars         ClientStar[]  @relation("ClientStarUser")
+
+  // --- PRD_Contracts_Module (additive) -----------------------------------
+  contractsResponsibleFor  Contract[]           @relation("ContractResponsible")
+  contractObligationsOwned ContractObligation[] @relation("ContractObligationOwner")
+  contractActivityActed    ContractActivity[]   @relation("ContractActivityActor")
+  contractStars            ContractStar[]       @relation("ContractStarUser")
 
   // --- PRD_6 Public Sign-Up / Platform Approval -------------------------
   // A single flag on the existing company-scoped identity, not a separate
@@ -1824,8 +1837,146 @@ model Contract {
   taskAssignments TaskContractorAssignment[]
   invoices        Invoice[]
 
+  // --- PRD_Contracts_Module (additive) ------------------------------------
+  // §11 — configurable, not an enum, same pattern as Team/Client Type.
+  contractType      String?
+  // §9 Contract Header "Responsible user" — distinct from the party-level
+  // responsibility captured on ContractObligation.
+  responsibleUserId String?
+  responsibleUser   UserIdentity? @relation("ContractResponsible", fields: [responsibleUserId], references: [id])
+  archivedAt        DateTime?
+
+  parties     ContractParty[]
+  obligations ContractObligation[]
+  milestones  ContractMilestone[]
+  activity    ContractActivity[]
+  stars       ContractStar[]
+
   @@index([tenantId, status])
   @@index([tenantId, projectId])
+}
+
+// ---------------------------------------------------------------------------
+// PRD_Contracts_Module — additive layer. §49 Data Ownership Rules: Contracts
+// owns legal terms, party roles, obligations, milestones, deliverables,
+// amendments, renewals, terminations, claims and template structure; Finance
+// owns invoices/payments (Invoice already exists and links here); Documents
+// owns files (reused via the existing DocumentLink entityType="CONTRACT",
+// no new model); Companies/CRM own canonical party records (referenced here
+// by bare id, not FK, same "source-linked not owned" pattern as
+// DocumentLink/TaskLink/Opportunity.projectId).
+//
+// Phase-1 scope: multi-party support (today's Contract has a single
+// contractorId FK), Obligations, Milestones and an Activity timeline. The
+// contract lifecycle status machine (src/server/contract-lifecycle.ts, the
+// Audit 2 reference workflow) is NOT touched — Clause library, Payment
+// Schedule, Approval/Signature tracking, Amendments/Renewals/Terminations,
+// Claims, Guarantees, Compliance and Templates are deferred.
+// ---------------------------------------------------------------------------
+
+// §14/§15 — "Company or individual"; party_entity_type is deliberately a
+// bare reference (COMPANY | CLIENT | CONTACT | CONTRACTOR | EMPLOYEE), not a
+// Prisma relation, so this never has to be re-pointed as canonical party
+// records move between modules.
+model ContractParty {
+  id                 String   @id @default(cuid())
+  tenantId           String
+  tenant             Tenant   @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  contractId         String
+  contract           Contract @relation(fields: [contractId], references: [id], onDelete: Cascade)
+  partyEntityType    String? // COMPANY | CLIENT | CONTACT | CONTRACTOR | EMPLOYEE | EXTERNAL
+  partyEntityId      String?
+  // §15 — configurable, not an enum (Client/Buyer/Seller/Employer/
+  // Contractor/Subcontractor/Supplier/Consultant/Tenant/Landlord/Lender/
+  // Borrower/Insurer/Beneficiary/Guarantor/custom).
+  role               String
+  legalName          String
+  representativeName String?
+  email              String?
+  phone              String?
+  signingAuthority   Boolean  @default(false)
+  status             String   @default("ACTIVE")
+  createdAt          DateTime @default(now())
+
+  obligations ContractObligation[]
+  milestones  ContractMilestone[]
+
+  @@index([tenantId, contractId])
+}
+
+// §20 — attributable to a party, auditable.
+model ContractObligation {
+  id               String         @id @default(cuid())
+  tenantId         String
+  tenant           Tenant         @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  contractId       String
+  contract         Contract       @relation(fields: [contractId], references: [id], onDelete: Cascade)
+  partyId          String?
+  party            ContractParty? @relation(fields: [partyId], references: [id])
+  title            String
+  description      String?
+  ownerId          String?
+  owner            UserIdentity?  @relation("ContractObligationOwner", fields: [ownerId], references: [id])
+  dueAt            DateTime?
+  priority         String         @default("NORMAL") // LOW | NORMAL | HIGH
+  status           String         @default("PENDING") // PENDING | IN_PROGRESS | COMPLETED | OVERDUE | WAIVED
+  evidenceRequired Boolean        @default(false)
+  completedAt      DateTime?
+
+  createdAt DateTime @default(now())
+
+  @@index([tenantId, contractId])
+}
+
+// §21 — planned vs actual date, optional payment trigger.
+model ContractMilestone {
+  id             String         @id @default(cuid())
+  tenantId       String
+  tenant         Tenant         @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  contractId     String
+  contract       Contract       @relation(fields: [contractId], references: [id], onDelete: Cascade)
+  title          String
+  description    String?
+  plannedAt      DateTime?
+  actualAt       DateTime?
+  partyId        String?
+  party          ContractParty? @relation(fields: [partyId], references: [id])
+  paymentTrigger Boolean        @default(false)
+  status         String         @default("PENDING") // PENDING | DUE | COMPLETED | DELAYED
+  createdAt      DateTime       @default(now())
+
+  @@index([tenantId, contractId])
+}
+
+// §39 Activity Timeline.
+model ContractActivity {
+  id         String        @id @default(cuid())
+  tenantId   String
+  tenant     Tenant        @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  contractId String
+  contract   Contract      @relation(fields: [contractId], references: [id], onDelete: Cascade)
+  actorId    String?
+  actor      UserIdentity? @relation("ContractActivityActor", fields: [actorId], references: [id])
+  eventType  String
+  summary    String
+  createdAt  DateTime      @default(now())
+
+  @@index([tenantId, contractId])
+}
+
+// §7 Personal Star — same private/per-user pattern as Documents/Tasks/CRM.
+model ContractStar {
+  id         String       @id @default(cuid())
+  tenantId   String
+  tenant     Tenant       @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  contractId String
+  contract   Contract     @relation(fields: [contractId], references: [id], onDelete: Cascade)
+  userId     String
+  user       UserIdentity @relation("ContractStarUser", fields: [userId], references: [id], onDelete: Cascade)
+  createdAt  DateTime     @default(now())
+
+  @@unique([contractId, userId])
+  @@index([tenantId, userId])
 }
 
 model DocumentFile {
