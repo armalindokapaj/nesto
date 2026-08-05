@@ -166,6 +166,12 @@ model Tenant {
   stopWorkOrders  StopWorkOrder[]
   hseActivities   HseActivity[]
 
+  // --- PRD_HR_Payroll_Workforce Phase 2 (additive: Payroll) ----------------
+  payrollGroups    PayrollGroup[]
+  payrollRuns      PayrollRun[]
+  payrollRunLines  PayrollRunLine[]
+  payrollActivities PayrollActivity[]
+
   // --- Platform Configuration ----------------------------------------------
   platformConfigSettings PlatformConfigSetting[]
 }
@@ -192,6 +198,7 @@ model Company {
 
   // --- PRD_HR_Payroll_Workforce (additive) ---------------------------------
   employmentRelationships EmploymentRelationship[]
+  payrollGroups           PayrollGroup[]
 
   // --- Platform Configuration ----------------------------------------------
   platformConfigSettings PlatformConfigSetting[]
@@ -362,6 +369,11 @@ model UserIdentity {
   stopWorkOrdersIssued    StopWorkOrder[]  @relation("StopWorkIssuedBy")
   stopWorkOrdersReleased  StopWorkOrder[]  @relation("StopWorkReleasedBy")
   hseActivityActed        HseActivity[]    @relation("HseActivityActor")
+
+  // --- PRD_HR_Payroll_Workforce Phase 2 (additive: Payroll) ----------------
+  payrollRunsCreated  PayrollRun[]      @relation("PayrollRunCreatedBy")
+  payrollRunsLocked   PayrollRun[]      @relation("PayrollRunLockedBy")
+  payrollActivityActed PayrollActivity[] @relation("PayrollActivityActor")
 }
 
 // Links an identity to a tenant workspace with a role, department and access mode.
@@ -1564,6 +1576,7 @@ model Employee {
   // --- PRD_HR_Payroll_Workforce (additive: EmploymentRelationship) --------
   employmentRelationships EmploymentRelationship[]
   reportsToRelationships  EmploymentRelationship[] @relation("EmploymentReportsTo")
+  payrollRunLines         PayrollRunLine[]
 
   @@index([tenantId, department])
 }
@@ -1593,6 +1606,8 @@ model SalaryRecord {
   updatedBy          UserIdentity? @relation("SalaryRecordUpdatedBy", fields: [updatedById], references: [id])
   createdAt          DateTime      @default(now())
   updatedAt          DateTime      @updatedAt
+
+  payrollRunLines PayrollRunLine[]
 
   @@index([tenantId, employeeId])
   @@index([tenantId, employeeId, status])
@@ -3388,6 +3403,8 @@ model EmploymentRelationship {
   createdAt   DateTime     @default(now())
   updatedAt   DateTime     @updatedAt
 
+  payrollRunLines PayrollRunLine[]
+
   @@index([tenantId, employeeId])
   @@index([tenantId, status])
 }
@@ -3631,6 +3648,109 @@ model HseActivity {
   entityId   String
   actorId    String?
   actor      UserIdentity? @relation("HseActivityActor", fields: [actorId], references: [id])
+  eventType  String
+  summary    String
+  createdAt  DateTime      @default(now())
+
+  @@index([tenantId, entityType, entityId])
+}
+
+// ---------------------------------------------------------------------------
+// PRD_HR_Payroll_Workforce — Phase 2 (Payroll: locked runs, pass-through
+// calculation). Scope decision 2026-08-06: tax/contribution calculation is
+// deliberately pass-through only — gross/net are taken directly from the
+// employee's CURRENT SalaryRecord, same numbers as today, no invented tax
+// law. Locking a run does NOT post to Finance yet ("Payroll computes,
+// Finance posts" is the PRD's own boundary — deferred, matching Inventory's
+// posting-ready-events pattern rather than posting directly). Every run line
+// still carries a calculation trace per the PRD's "no black-box numbers"
+// rule, even though the formula is intentionally trivial for now.
+// ---------------------------------------------------------------------------
+
+model PayrollGroup {
+  id        String   @id @default(cuid())
+  tenantId  String
+  tenant    Tenant   @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  companyId String
+  company   Company  @relation(fields: [companyId], references: [id])
+  name      String
+  frequency String   @default("MONTHLY") // MONTHLY | BIWEEKLY | WEEKLY | ANNUAL
+  currency  String   @default("EUR")
+  createdAt DateTime @default(now())
+
+  runs PayrollRun[]
+
+  @@index([tenantId, companyId])
+}
+
+// Locked runs are immutable — DRAFT/CALCULATED lines can be recalculated,
+// LOCKED lines never change. A correction to a locked run is a new run that
+// references it via adjustsRunId, never a reopen of the original.
+model PayrollRun {
+  id             String       @id @default(cuid())
+  tenantId       String
+  tenant         Tenant       @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  payrollGroupId String
+  payrollGroup   PayrollGroup @relation(fields: [payrollGroupId], references: [id])
+
+  periodStart DateTime
+  periodEnd   DateTime
+  payDate     DateTime
+  status      String   @default("DRAFT") // DRAFT | CALCULATED | LOCKED | CANCELLED
+
+  adjustsRunId String?      @unique
+  adjustsRun   PayrollRun?  @relation("PayrollRunAdjustment", fields: [adjustsRunId], references: [id])
+  adjustments  PayrollRun[] @relation("PayrollRunAdjustment")
+
+  createdById String
+  createdBy   UserIdentity  @relation("PayrollRunCreatedBy", fields: [createdById], references: [id])
+  lockedById  String?
+  lockedBy    UserIdentity? @relation("PayrollRunLockedBy", fields: [lockedById], references: [id])
+  lockedAt    DateTime?
+  createdAt   DateTime      @default(now())
+  updatedAt   DateTime      @updatedAt
+
+  lines PayrollRunLine[]
+
+  @@index([tenantId, payrollGroupId])
+  @@index([tenantId, status])
+}
+
+model PayrollRunLine {
+  id                       String                  @id @default(cuid())
+  tenantId                 String
+  tenant                   Tenant                  @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  payrollRunId             String
+  payrollRun               PayrollRun              @relation(fields: [payrollRunId], references: [id], onDelete: Cascade)
+  employeeId               String
+  employee                 Employee                @relation(fields: [employeeId], references: [id])
+  employmentRelationshipId String?
+  employmentRelationship   EmploymentRelationship? @relation(fields: [employmentRelationshipId], references: [id])
+  salaryRecordId           String?
+  salaryRecord             SalaryRecord?           @relation(fields: [salaryRecordId], references: [id])
+
+  grossSalary Float
+  netSalary   Float
+  currency    String @default("EUR")
+  // Phase 2 is intentionally trivial ("source: SalaryRecord X, formula:
+  // pass-through, rounding: none") — Phase 3 would replace this with the
+  // real multi-step engine (earnings/deductions/taxes/employer costs).
+  calculationTrace String
+
+  createdAt DateTime @default(now())
+
+  @@unique([payrollRunId, employeeId])
+  @@index([tenantId, employeeId])
+}
+
+model PayrollActivity {
+  id         String        @id @default(cuid())
+  tenantId   String
+  tenant     Tenant        @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  entityType String // "PayrollRun" | "PayrollGroup"
+  entityId   String
+  actorId    String?
+  actor      UserIdentity? @relation("PayrollActivityActor", fields: [actorId], references: [id])
   eventType  String
   summary    String
   createdAt  DateTime      @default(now())
