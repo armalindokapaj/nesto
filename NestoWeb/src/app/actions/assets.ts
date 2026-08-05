@@ -1,35 +1,10 @@
 "use server";
-
-import { z } from "zod";
-import { revalidatePath } from "next/cache";
-import { db } from "@/lib/db";
-import { getCurrentUser } from "@/lib/dal";
-import { can } from "@/lib/permissions";
-
-const CreateAssetSchema = z.object({
-  name: z.string().min(2),
-  type: z.enum(["EQUIPMENT", "VEHICLE", "TOOL", "OTHER"]),
-  purchaseValue: z.coerce.number().optional(),
-});
-
-export type CreateAssetState = { error: string } | undefined;
-
-export async function createAssetAction(_prev: CreateAssetState, formData: FormData): Promise<CreateAssetState> {
-  const { tenantId, role } = await getCurrentUser();
-  if (!can(role, "FINANCE", "WRITE")) {
-    return { error: "You do not have permission to create assets." };
-  }
-
-  const parsed = CreateAssetSchema.safeParse({
-    name: formData.get("name"),
-    type: formData.get("type"),
-    purchaseValue: formData.get("purchaseValue") || undefined,
-  });
-  if (!parsed.success) {
-    return { error: parsed.error.issues[0]?.message ?? "Invalid input" };
-  }
-
-  await db.asset.create({ data: { tenantId, ...parsed.data } });
-  revalidatePath("/dashboard/finance/assets");
-  return undefined;
-}
+import { z } from "zod"; import { revalidatePath } from "next/cache"; import { getCurrentUser } from "@/lib/dal"; import { can } from "@/lib/permissions"; import { assertConfigEnabled } from "@/server/platform-config"; import { assignAsset,createAsset,createWorkOrder,transferAsset,transitionAsset,transitionWorkOrder } from "@/server/assets-module";
+export type AssetActionState={error?:string;success?:string}|undefined;const err=(e:unknown,f:string)=>({error:e instanceof Error?e.message:f});const date=z.preprocess(v=>v?new Date(String(v)):undefined,z.date().optional());
+async function context(key?:string){const c=await getCurrentUser();if(!can(c.role,"PROJECTS","WRITE"))throw new Error("You do not have permission to manage assets.");if(key)await assertConfigEnabled(c.tenantId,key,c.company?.id);return c}
+export async function createAssetAction(_:AssetActionState,formData:FormData):Promise<AssetActionState>{try{const c=await context("assets.action.create");const p=z.object({projectId:z.string().optional(),categoryId:z.string().optional(),name:z.string().trim().min(2),type:z.string().min(1),manufacturer:z.string().optional(),model:z.string().optional(),serialNumber:z.string().optional(),purchaseDate:date,purchaseValue:z.coerce.number().min(0).optional(),currency:z.string().length(3).default("EUR"),usefulLifeMonths:z.coerce.number().int().positive().optional(),salvageValue:z.coerce.number().min(0).optional(),currentLocation:z.string().optional(),notes:z.string().optional()}).safeParse(Object.fromEntries(formData));if(!p.success)return{error:p.error.issues[0]?.message??"Invalid asset"};await createAsset(c.tenantId,c.user.id,{...p.data,projectId:p.data.projectId||undefined,categoryId:p.data.categoryId||undefined,ownershipCompanyId:c.company?.id,ownershipCompanyName:c.company?.name});revalidatePath("/dashboard/assets");revalidatePath("/dashboard/finance/assets");return{success:"Asset created."}}catch(e){return err(e,"Could not create asset.")}}
+export async function assignAssetAction(_:AssetActionState,formData:FormData):Promise<AssetActionState>{try{const c=await context("assets.action.assign");const p=z.object({assetId:z.string(),assigneeType:z.string(),assigneeId:z.string().optional(),assigneeName:z.string().min(2),projectId:z.string().optional(),location:z.string().optional(),conditionOut:z.string().optional(),notes:z.string().optional()}).parse(Object.fromEntries(formData));await assignAsset(c.tenantId,c.user.id,p.assetId,{...p,projectId:p.projectId||undefined,assigneeId:p.assigneeId||undefined});revalidatePath(`/dashboard/assets/${p.assetId}`);return{success:"Asset assigned."}}catch(e){return err(e,"Could not assign asset.")}}
+export async function transferAssetAction(_:AssetActionState,formData:FormData):Promise<AssetActionState>{try{const c=await context("assets.action.transfer");const p=z.object({assetId:z.string(),fromType:z.string(),fromName:z.string().min(1),toType:z.string(),toName:z.string().min(1),transferredAt:z.coerce.date(),condition:z.string().optional(),reason:z.string().min(2)}).parse(Object.fromEntries(formData));await transferAsset(c.tenantId,c.user.id,p.assetId,p);revalidatePath(`/dashboard/assets/${p.assetId}`);return{success:"Transfer recorded."}}catch(e){return err(e,"Could not transfer asset.")}}
+export async function createAssetWorkOrderAction(_:AssetActionState,formData:FormData):Promise<AssetActionState>{try{const c=await context("assets.action.create_work_order");const p=z.object({assetId:z.string(),maintenanceId:z.string().optional(),title:z.string().min(2),description:z.string().optional(),priority:z.string(),slaDueAt:date,scheduledStart:date,technicianName:z.string().optional()}).parse(Object.fromEntries(formData));await createWorkOrder(c.tenantId,c.user.id,{...p,maintenanceId:p.maintenanceId||undefined});revalidatePath("/dashboard/assets/work-orders");revalidatePath(`/dashboard/assets/${p.assetId}`);return{success:"Work order created."}}catch(e){return err(e,"Could not create work order.")}}
+export async function transitionAssetAction(id:string,status:string){const c=await context();await transitionAsset(c.tenantId,c.user.id,id,status);revalidatePath("/dashboard/assets");revalidatePath(`/dashboard/assets/${id}`)}
+export async function transitionAssetWorkOrderAction(id:string,assetId:string,status:string){const c=await context();await transitionWorkOrder(c.tenantId,c.user.id,id,status);revalidatePath("/dashboard/assets/work-orders");revalidatePath(`/dashboard/assets/${assetId}`)}

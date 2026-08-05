@@ -15,6 +15,8 @@ export type SearchResult = {
     | "contractor"
     | "contract"
     | "supplier"
+    | "purchaseRequest"
+    | "rfq"
     | "purchaseOrder"
     | "hseReport"
     | "document";
@@ -120,14 +122,28 @@ export async function globalSearch(
   await addGatedCategory(results, role, "PROCUREMENT", "supplier", "Procurement records", () =>
     db.supplier
       .findMany({ where: { tenantId, name: { contains: q } }, take: 5 })
-      .then((rows) => rows.map((s) => ({ id: s.id, type: "supplier" as const, title: s.name, subtitle: s.category, href: `/dashboard/procurement/suppliers` }))),
+      .then((rows) => rows.map((s) => ({ id: s.id, type: "supplier" as const, title: s.name, subtitle: `${s.number} · ${s.category}`, href: `/dashboard/procurement/suppliers/${s.id}` }))),
     () => db.supplier.count({ where: { tenantId, name: { contains: q } } })
+  );
+
+  await addGatedCategory(results, role, "PROCUREMENT", "purchaseRequest", "Procurement records", () =>
+    db.purchaseRequest
+      .findMany({ where: { tenantId, OR: [{ number: { contains: q } }, { title: { contains: q } }] }, take: 5 })
+      .then((rows) => rows.map((r) => ({ id: r.id, type: "purchaseRequest" as const, title: r.title, subtitle: r.number, href: `/dashboard/procurement/requests/${r.id}` }))),
+    () => db.purchaseRequest.count({ where: { tenantId, OR: [{ number: { contains: q } }, { title: { contains: q } }] } })
+  );
+
+  await addGatedCategory(results, role, "PROCUREMENT", "rfq", "Procurement records", () =>
+    db.procurementRfq
+      .findMany({ where: { tenantId, OR: [{ number: { contains: q } }, { title: { contains: q } }] }, take: 5 })
+      .then((rows) => rows.map((r) => ({ id: r.id, type: "rfq" as const, title: r.title, subtitle: r.number, href: `/dashboard/procurement/sourcing/${r.id}` }))),
+    () => db.procurementRfq.count({ where: { tenantId, OR: [{ number: { contains: q } }, { title: { contains: q } }] } })
   );
 
   await addGatedCategory(results, role, "PROCUREMENT", "purchaseOrder", "Procurement records", () =>
     db.purchaseOrder
       .findMany({ where: { tenantId, OR: [{ number: { contains: q } }, { description: { contains: q } }] }, take: 5 })
-      .then((rows) => rows.map((p) => ({ id: p.id, type: "purchaseOrder" as const, title: p.number, subtitle: p.description, href: `/dashboard/procurement/orders` }))),
+      .then((rows) => rows.map((p) => ({ id: p.id, type: "purchaseOrder" as const, title: p.number, subtitle: p.description, href: `/dashboard/procurement/orders/${p.id}` }))),
     () => db.purchaseOrder.count({ where: { tenantId, OR: [{ number: { contains: q } }, { description: { contains: q } }] } })
   );
 

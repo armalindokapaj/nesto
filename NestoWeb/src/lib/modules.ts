@@ -11,6 +11,7 @@ export const MODULES = [
   "CLIENTS",
   "HSE_REPORTS",
   "PROCUREMENT",
+  "ASSETS",
   "TRAINING",
   "LEGAL",
 ] as const;
@@ -27,6 +28,7 @@ export const MODULE_LABELS: Record<ModuleKey, string> = {
   CLIENTS: "Clients",
   HSE_REPORTS: "HSE Reports",
   PROCUREMENT: "Procurement",
+  ASSETS: "Assets",
   TRAINING: "Training",
   LEGAL: "Legal & Compliance",
 };

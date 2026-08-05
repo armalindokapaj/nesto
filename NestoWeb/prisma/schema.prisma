@@ -27,39 +27,78 @@ model Tenant {
   slug      String   @unique
   createdAt DateTime @default(now())
 
-  companies              Company[]
-  memberships            CompanyMembership[]
-  projects               Project[]
-  tasks                  Task[]
-  comments               Comment[]
-  timelineEvents         TimelineEvent[]
-  notifications          Notification[]
-  auditEvents            AuditEvent[]
-  domainEvents           DomainEvent[]
-  invoices               Invoice[]
-  financeAccounts        FinanceAccount[]
-  employees              Employee[]
-  leaveRequests          LeaveRequest[]
-  drawings               Drawing[]
-  rfis                   RFI[]
-  invitations            Invitation[]
-  teams                  Team[]
-  contracts              Contract[]
-  contractors            Contractor[]
-  documentFiles          DocumentFile[]
-  meetings               Meeting[]
-  assets                 Asset[]
-  settings               TenantSettings?
-  numberSeries           NumberSeries[]
-  dimensionDefinitions   DimensionDefinition[]
-  recordDimensions       RecordDimension[]
-  financialLedgerEntries FinancialLedgerEntry[]
-  suggestions            Suggestion[]
-  hrAppointments         HrAppointment[]
-  clients                Client[]
-  hseReports             HseReport[]
-  suppliers              Supplier[]
-  purchaseOrders         PurchaseOrder[]
+  companies                Company[]
+  memberships              CompanyMembership[]
+  projects                 Project[]
+  tasks                    Task[]
+  comments                 Comment[]
+  timelineEvents           TimelineEvent[]
+  notifications            Notification[]
+  auditEvents              AuditEvent[]
+  domainEvents             DomainEvent[]
+  invoices                 Invoice[]
+  financeAccounts          FinanceAccount[]
+  employees                Employee[]
+  leaveRequests            LeaveRequest[]
+  drawings                 Drawing[]
+  rfis                     RFI[]
+  invitations              Invitation[]
+  teams                    Team[]
+  contracts                Contract[]
+  contractors              Contractor[]
+  documentFiles            DocumentFile[]
+  meetings                 Meeting[]
+  assets                   Asset[]
+  assetCategories          AssetCategory[]
+  assetAssignments         AssetAssignment[]
+  assetLocations           AssetLocation[]
+  assetMaintenances        AssetMaintenance[]
+  assetWorkOrders          AssetWorkOrder[]
+  assetInspections         AssetInspection[]
+  assetCalibrations        AssetCalibration[]
+  assetWarranties          AssetWarranty[]
+  assetInsurancePolicies   AssetInsurancePolicy[]
+  assetReservations        AssetReservation[]
+  assetTransfers           AssetTransfer[]
+  assetDocuments           AssetDocumentLink[]
+  assetActivities          AssetActivity[]
+  settings                 TenantSettings?
+  numberSeries             NumberSeries[]
+  dimensionDefinitions     DimensionDefinition[]
+  recordDimensions         RecordDimension[]
+  financialLedgerEntries   FinancialLedgerEntry[]
+  suggestions              Suggestion[]
+  hrAppointments           HrAppointment[]
+  clients                  Client[]
+  hseReports               HseReport[]
+  suppliers                Supplier[]
+  purchaseOrders           PurchaseOrder[]
+  supplierContacts         SupplierContact[]
+  supplierQualifications   SupplierQualification[]
+  supplierRiskFlags        SupplierRiskFlag[]
+  purchaseRequests         PurchaseRequest[]
+  purchaseRequestLines     PurchaseRequestLine[]
+  procurementPackages      ProcurementPackage[]
+  procurementRfqs          ProcurementRfq[]
+  procurementRfqLines      ProcurementRfqLine[]
+  procurementRfqSuppliers  ProcurementRfqSupplier[]
+  supplierQuotations       SupplierQuotation[]
+  supplierQuotationLines   SupplierQuotationLine[]
+  purchaseOrderLines       PurchaseOrderLine[]
+  purchaseOrderRevisions   PurchaseOrderRevision[]
+  procurementDeliveries    ProcurementDelivery[]
+  procurementDeliveryLines ProcurementDeliveryLine[]
+  procurementActivities    ProcurementActivity[]
+  workPackages             WorkPackage[]
+  scheduleVersions         WorkScheduleVersion[]
+  scheduleActivities       WorkScheduleActivity[]
+  progressUpdates          WorkProgressUpdate[]
+  dailySiteReports         DailySiteReport[]
+  workConstraints          WorkConstraint[]
+  workDelayEvents          WorkDelayEvent[]
+  progressEvidence         WorkProgressEvidence[]
+  measurementSheets        WorkMeasurementSheet[]
+  workProgressActivities   WorkProgressActivity[]
 
   // --- PRD_Rework_1 Projects Module & Project Page Redesign ----------------
   projectRenders      ProjectRender[]
@@ -192,9 +231,22 @@ model Company {
   seatLimit       Int       @default(50)
   createdAt       DateTime  @default(now())
 
-  branches Branch[]
-  projects Project[]
-  units    Unit[]
+  branches                  Branch[]
+  projects                  Project[]
+  units                     Unit[]
+  procurementSuppliers      Supplier[]
+  purchaseRequests          PurchaseRequest[]
+  procurementPackages       ProcurementPackage[]
+  procurementRfqs           ProcurementRfq[]
+  supplierQuotations        SupplierQuotation[]
+  procurementPurchaseOrders PurchaseOrder[]
+  procurementDeliveries     ProcurementDelivery[]
+  workPackages              WorkPackage[]
+  scheduleVersions          WorkScheduleVersion[]
+  dailySiteReports          DailySiteReport[]
+  workConstraints           WorkConstraint[]
+  workDelayEvents           WorkDelayEvent[]
+  measurementSheets         WorkMeasurementSheet[]
 
   // --- PRD_HR_Payroll_Workforce (additive) ---------------------------------
   employmentRelationships EmploymentRelationship[]
@@ -229,25 +281,31 @@ model UserIdentity {
   // devices and workspaces. PLATFORM_DEFAULT | NIGHT | CREATIVE
   theme        String   @default("PLATFORM_DEFAULT")
 
-  memberships             CompanyMembership[]
-  projectMembers          ProjectMember[]
-  createdTasks            Task[]                   @relation("TaskCreator")
-  responsibleTasks        Task[]                   @relation("TaskResponsible")
-  taskContributions       TaskContribution[]
-  comments                Comment[]
-  notifications           Notification[]
-  employeeRecord          Employee?
-  teamMemberships         TeamMember[]
-  uploadedDocuments       DocumentFile[]
-  documentApprovals       DocumentFile[]           @relation("DocumentApprover")
-  organisedMeetings       Meeting[]
-  postedLedgerEntries     FinancialLedgerEntry[]
-  notificationPreferences NotificationPreference[]
-  suggestions             Suggestion[]
-  hrAppointments          HrAppointment[]
-  createdClients          Client[]
-  hseReports              HseReport[]
-  purchaseOrdersRequested PurchaseOrder[]
+  memberships                  CompanyMembership[]
+  projectMembers               ProjectMember[]
+  createdTasks                 Task[]                   @relation("TaskCreator")
+  responsibleTasks             Task[]                   @relation("TaskResponsible")
+  taskContributions            TaskContribution[]
+  comments                     Comment[]
+  notifications                Notification[]
+  employeeRecord               Employee?
+  teamMemberships              TeamMember[]
+  uploadedDocuments            DocumentFile[]
+  documentApprovals            DocumentFile[]           @relation("DocumentApprover")
+  organisedMeetings            Meeting[]
+  postedLedgerEntries          FinancialLedgerEntry[]
+  notificationPreferences      NotificationPreference[]
+  suggestions                  Suggestion[]
+  hrAppointments               HrAppointment[]
+  createdClients               Client[]
+  hseReports                   HseReport[]
+  purchaseOrdersRequested      PurchaseOrder[]
+  purchaseRequestsCreated      PurchaseRequest[]
+  procurementPackagesCreated   ProcurementPackage[]
+  procurementRfqsCreated       ProcurementRfq[]
+  supplierQuotationsCreated    SupplierQuotation[]
+  procurementDeliveriesCreated ProcurementDelivery[]
+  procurementActivitiesActed   ProcurementActivity[]
 
   // --- PRD_4 Cross-Department Task Orchestration -----------------------
   taskManagerFor             Task[]                         @relation("TaskManager")
@@ -436,18 +494,32 @@ model Project {
   pinnedRenderId String?        @unique
   pinnedRender   ProjectRender? @relation("ProjectPinnedRender", fields: [pinnedRenderId], references: [id], onDelete: SetNull)
 
-  members        ProjectMember[]
-  tasks          Task[]
-  drawings       Drawing[]
-  rfis           RFI[]
-  invoices       Invoice[]
-  contracts      Contract[]
-  documentFiles  DocumentFile[]
-  meetings       Meeting[]
-  assets         Asset[]
-  hseReports     HseReport[]
-  purchaseOrders PurchaseOrder[]
-  milestones     ProjectMilestone[]
+  members                ProjectMember[]
+  tasks                  Task[]
+  drawings               Drawing[]
+  rfis                   RFI[]
+  invoices               Invoice[]
+  contracts              Contract[]
+  documentFiles          DocumentFile[]
+  meetings               Meeting[]
+  assets                 Asset[]
+  hseReports             HseReport[]
+  purchaseOrders         PurchaseOrder[]
+  purchaseRequests       PurchaseRequest[]
+  procurementPackages    ProcurementPackage[]
+  procurementRfqs        ProcurementRfq[]
+  supplierQuotations     SupplierQuotation[]
+  procurementDeliveries  ProcurementDelivery[]
+  milestones             ProjectMilestone[]
+  executionWorkPackages  WorkPackage[]
+  workScheduleVersions   WorkScheduleVersion[]
+  workScheduleActivities WorkScheduleActivity[]
+  workProgressUpdates    WorkProgressUpdate[]
+  dailySiteReports       DailySiteReport[]
+  workConstraints        WorkConstraint[]
+  workDelayEvents        WorkDelayEvent[]
+  workProgressEvidence   WorkProgressEvidence[]
+  workMeasurementSheets  WorkMeasurementSheet[]
 
   // PRD_Rework_1 Projects Module & Project Page Redesign
   renders      ProjectRender[]      @relation("ProjectRenderGallery")
@@ -1738,38 +1810,798 @@ model HseReport {
 // ---------------------------------------------------------------------------
 
 model Supplier {
-  id        String   @id @default(cuid())
-  tenantId  String
-  tenant    Tenant   @relation(fields: [tenantId], references: [id], onDelete: Cascade)
-  number    String // Number Series: SUP-{SEQ6}
-  name      String
-  category  String // e.g. Steel, Concrete, Electrical, MEP
-  email     String?
-  phone     String?
-  status    String   @default("ACTIVE") // ACTIVE | SUSPENDED
-  createdAt DateTime @default(now())
+  id                  String    @id @default(cuid())
+  tenantId            String
+  tenant              Tenant    @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  companyId           String?
+  company             Company?  @relation(fields: [companyId], references: [id])
+  number              String // Number Series: SUP-{SEQ6}
+  name                String
+  legalName           String?
+  tradingName         String?
+  supplierType        String    @default("MATERIALS")
+  category            String // e.g. Steel, Concrete, Electrical, MEP
+  email               String?
+  phone               String?
+  website             String?
+  taxId               String?
+  registrationId      String?
+  countryCode         String    @default("AL")
+  address             String?
+  paymentTerms        String?
+  leadTimeDays        Int?
+  currency            String    @default("EUR")
+  qualificationStatus String    @default("NOT_STARTED")
+  overallScore        Float?
+  status              String    @default("PROSPECT") // PROSPECT | UNDER_QUALIFICATION | QUALIFIED | PREFERRED | SUSPENDED | BLACKLISTED | ARCHIVED
+  notes               String?
+  version             Int       @default(1)
+  createdAt           DateTime  @default(now())
+  updatedAt           DateTime  @default(now()) @updatedAt
+  archivedAt          DateTime?
 
+  contacts       SupplierContact[]
+  qualifications SupplierQualification[]
+  riskFlags      SupplierRiskFlag[]
+  rfqInvitations ProcurementRfqSupplier[]
+  quotations     SupplierQuotation[]
   purchaseOrders PurchaseOrder[]
+  deliveries     ProcurementDelivery[]
+
+  @@unique([tenantId, number])
+  @@index([tenantId, status])
+  @@index([tenantId, category])
+}
+
+model SupplierContact {
+  id         String   @id @default(cuid())
+  tenantId   String
+  tenant     Tenant   @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  supplierId String
+  supplier   Supplier @relation(fields: [supplierId], references: [id], onDelete: Cascade)
+  name       String
+  role       String   @default("PRIMARY")
+  email      String?
+  phone      String?
+  isPrimary  Boolean  @default(false)
+  createdAt  DateTime @default(now())
+
+  @@index([tenantId, supplierId])
+}
+
+model SupplierQualification {
+  id         String    @id @default(cuid())
+  tenantId   String
+  tenant     Tenant    @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  supplierId String
+  supplier   Supplier  @relation(fields: [supplierId], references: [id], onDelete: Cascade)
+  category   String?
+  outcome    String // QUALIFIED | CONDITIONALLY_QUALIFIED | REJECTED | SUSPENDED | RENEWAL_REQUIRED
+  score      Float?
+  validFrom  DateTime?
+  validUntil DateTime?
+  notes      String?
+  createdAt  DateTime  @default(now())
+
+  @@index([tenantId, supplierId])
+}
+
+model SupplierRiskFlag {
+  id         String    @id @default(cuid())
+  tenantId   String
+  tenant     Tenant    @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  supplierId String
+  supplier   Supplier  @relation(fields: [supplierId], references: [id], onDelete: Cascade)
+  type       String
+  severity   String    @default("MEDIUM")
+  summary    String
+  status     String    @default("OPEN")
+  reviewDate DateTime?
+  createdAt  DateTime  @default(now())
+  resolvedAt DateTime?
+
+  @@index([tenantId, supplierId, status])
+}
+
+model PurchaseRequest {
+  id               String       @id @default(cuid())
+  tenantId         String
+  tenant           Tenant       @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  companyId        String
+  company          Company      @relation(fields: [companyId], references: [id])
+  projectId        String?
+  project          Project?     @relation(fields: [projectId], references: [id])
+  number           String
+  title            String
+  type             String       @default("CONSTRUCTION_MATERIAL")
+  priority         String       @default("NORMAL")
+  status           String       @default("DRAFT")
+  justification    String?
+  requiredBy       DateTime?
+  deliveryLocation String?
+  department       String?
+  category         String?
+  estimatedAmount  Float        @default(0)
+  currency         String       @default("EUR")
+  emergencyReason  String?
+  riskStatement    String?
+  snapshot         String?
+  version          Int          @default(1)
+  createdById      String
+  createdBy        UserIdentity @relation(fields: [createdById], references: [id])
+  createdAt        DateTime     @default(now())
+  updatedAt        DateTime     @updatedAt
+  archivedAt       DateTime?
+
+  lines          PurchaseRequestLine[]
+  package        ProcurementPackage?   @relation(fields: [packageId], references: [id])
+  packageId      String?
+  rfqs           ProcurementRfq[]
+  purchaseOrders PurchaseOrder[]
+
+  @@unique([tenantId, number])
+  @@index([tenantId, status, requiredBy])
+  @@index([tenantId, projectId])
+}
+
+model PurchaseRequestLine {
+  id                String          @id @default(cuid())
+  tenantId          String
+  tenant            Tenant          @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  requestId         String
+  request           PurchaseRequest @relation(fields: [requestId], references: [id], onDelete: Cascade)
+  lineNumber        Int
+  lineType          String          @default("MATERIAL")
+  description       String
+  specification     String?
+  quantity          Float
+  unit              String
+  estimatedUnitCost Float           @default(0)
+  requiredBy        DateTime?
+  deliveryLocation  String?
+  createdAt         DateTime        @default(now())
+
+  @@unique([requestId, lineNumber])
+  @@index([tenantId, requestId])
+}
+
+model ProcurementPackage {
+  id          String       @id @default(cuid())
+  tenantId    String
+  tenant      Tenant       @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  companyId   String
+  company     Company      @relation(fields: [companyId], references: [id])
+  projectId   String?
+  project     Project?     @relation(fields: [projectId], references: [id])
+  number      String
+  name        String
+  type        String       @default("PROJECT_PACKAGE")
+  status      String       @default("PLANNING")
+  scope       String?
+  targetValue Float        @default(0)
+  currency    String       @default("EUR")
+  awardTarget DateTime?
+  riskLevel   String       @default("LOW")
+  version     Int          @default(1)
+  createdById String
+  createdBy   UserIdentity @relation(fields: [createdById], references: [id])
+  createdAt   DateTime     @default(now())
+  updatedAt   DateTime     @updatedAt
+
+  requests       PurchaseRequest[]
+  rfqs           ProcurementRfq[]
+  purchaseOrders PurchaseOrder[]
+
+  @@unique([tenantId, number])
+  @@index([tenantId, status])
+}
+
+model ProcurementRfq {
+  id             String              @id @default(cuid())
+  tenantId       String
+  tenant         Tenant              @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  companyId      String
+  company        Company             @relation(fields: [companyId], references: [id])
+  projectId      String?
+  project        Project?            @relation(fields: [projectId], references: [id])
+  requestId      String?
+  request        PurchaseRequest?    @relation(fields: [requestId], references: [id])
+  packageId      String?
+  package        ProcurementPackage? @relation(fields: [packageId], references: [id])
+  number         String
+  title          String
+  type           String              @default("RFQ")
+  status         String              @default("DRAFT")
+  deadline       DateTime?
+  instructions   String?
+  issuedSnapshot String?
+  version        Int                 @default(1)
+  createdById    String
+  createdBy      UserIdentity        @relation(fields: [createdById], references: [id])
+  createdAt      DateTime            @default(now())
+  updatedAt      DateTime            @updatedAt
+
+  lines          ProcurementRfqLine[]
+  suppliers      ProcurementRfqSupplier[]
+  quotations     SupplierQuotation[]
+  purchaseOrders PurchaseOrder[]
+
+  @@unique([tenantId, number])
+  @@index([tenantId, status, deadline])
+}
+
+model ProcurementRfqLine {
+  id          String         @id @default(cuid())
+  tenantId    String
+  tenant      Tenant         @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  rfqId       String
+  rfq         ProcurementRfq @relation(fields: [rfqId], references: [id], onDelete: Cascade)
+  lineNumber  Int
+  description String
+  quantity    Float
+  unit        String
+  requiredBy  DateTime?
+
+  quotationLines SupplierQuotationLine[]
+
+  @@unique([rfqId, lineNumber])
+  @@index([tenantId, rfqId])
+}
+
+model ProcurementRfqSupplier {
+  id            String         @id @default(cuid())
+  tenantId      String
+  tenant        Tenant         @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  rfqId         String
+  rfq           ProcurementRfq @relation(fields: [rfqId], references: [id], onDelete: Cascade)
+  supplierId    String
+  supplier      Supplier       @relation(fields: [supplierId], references: [id])
+  status        String         @default("PLANNED")
+  invitedAt     DateTime?
+  respondedAt   DateTime?
+  declineReason String?
+
+  @@unique([rfqId, supplierId])
+  @@index([tenantId, supplierId])
+}
+
+model SupplierQuotation {
+  id                String         @id @default(cuid())
+  tenantId          String
+  tenant            Tenant         @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  companyId         String
+  company           Company        @relation(fields: [companyId], references: [id])
+  projectId         String?
+  project           Project?       @relation(fields: [projectId], references: [id])
+  rfqId             String
+  rfq               ProcurementRfq @relation(fields: [rfqId], references: [id])
+  supplierId        String
+  supplier          Supplier       @relation(fields: [supplierId], references: [id])
+  number            String
+  supplierReference String?
+  status            String         @default("RECEIVED")
+  currency          String         @default("EUR")
+  subtotal          Float          @default(0)
+  discount          Float          @default(0)
+  tax               Float          @default(0)
+  freight           Float          @default(0)
+  total             Float          @default(0)
+  validityDate      DateTime?
+  leadTimeDays      Int?
+  paymentTerms      String?
+  technicalStatus   String         @default("PENDING")
+  notes             String?
+  revision          Int            @default(1)
+  createdById       String
+  createdBy         UserIdentity   @relation(fields: [createdById], references: [id])
+  createdAt         DateTime       @default(now())
+
+  lines          SupplierQuotationLine[]
+  purchaseOrders PurchaseOrder[]
+
+  @@unique([tenantId, number])
+  @@index([tenantId, rfqId, supplierId])
+}
+
+model SupplierQuotationLine {
+  id           String              @id @default(cuid())
+  tenantId     String
+  tenant       Tenant              @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  quotationId  String
+  quotation    SupplierQuotation   @relation(fields: [quotationId], references: [id], onDelete: Cascade)
+  rfqLineId    String?
+  rfqLine      ProcurementRfqLine? @relation(fields: [rfqLineId], references: [id])
+  description  String
+  quantity     Float
+  unit         String
+  unitPrice    Float
+  lineTotal    Float
+  compliance   String              @default("COMPLIANT")
+  leadTimeDays Int?
+
+  @@index([tenantId, quotationId])
 }
 
 model PurchaseOrder {
-  id            String       @id @default(cuid())
-  tenantId      String
-  tenant        Tenant       @relation(fields: [tenantId], references: [id], onDelete: Cascade)
-  number        String // Number Series: PO-{YYYY}-{SEQ5}
-  projectId     String?
-  project       Project?     @relation(fields: [projectId], references: [id])
-  supplierId    String
-  supplier      Supplier     @relation(fields: [supplierId], references: [id])
-  description   String
-  amount        Float
-  currency      String       @default("EUR")
-  status        String       @default("DRAFT") // DRAFT | SUBMITTED | APPROVED | ORDERED | RECEIVED | CANCELLED
-  requestedById String
-  requestedBy   UserIdentity @relation(fields: [requestedById], references: [id])
-  createdAt     DateTime     @default(now())
+  id                    String              @id @default(cuid())
+  tenantId              String
+  tenant                Tenant              @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  companyId             String?
+  company               Company?            @relation(fields: [companyId], references: [id])
+  number                String // Number Series: PO-{YYYY}-{SEQ5}
+  projectId             String?
+  project               Project?            @relation(fields: [projectId], references: [id])
+  supplierId            String
+  supplier              Supplier            @relation(fields: [supplierId], references: [id])
+  requestId             String?
+  request               PurchaseRequest?    @relation(fields: [requestId], references: [id])
+  packageId             String?
+  package               ProcurementPackage? @relation(fields: [packageId], references: [id])
+  rfqId                 String?
+  rfq                   ProcurementRfq?     @relation(fields: [rfqId], references: [id])
+  quotationId           String?
+  quotation             SupplierQuotation?  @relation(fields: [quotationId], references: [id])
+  title                 String?
+  type                  String              @default("STANDARD")
+  description           String
+  amount                Float
+  currency              String              @default("EUR")
+  subtotal              Float               @default(0)
+  discount              Float               @default(0)
+  tax                   Float               @default(0)
+  freight               Float               @default(0)
+  status                String              @default("DRAFT") // DRAFT | ISSUED | ACKNOWLEDGED | PARTIALLY_FULFILLED | FULFILLED | CLOSED | ON_HOLD | CANCELLED | SUPERSEDED | ARCHIVED
+  version               Int                 @default(1)
+  issueDate             DateTime?
+  requestedDeliveryDate DateTime?
+  confirmedDeliveryDate DateTime?
+  deliveryAddress       String?
+  paymentTerms          String?
+  supplierReference     String?
+  acknowledgedAt        DateTime?
+  issuedSnapshot        String?
+  requestedById         String
+  requestedBy           UserIdentity        @relation(fields: [requestedById], references: [id])
+  createdAt             DateTime            @default(now())
+  updatedAt             DateTime            @default(now()) @updatedAt
+  archivedAt            DateTime?
 
+  lines      PurchaseOrderLine[]
+  revisions  PurchaseOrderRevision[]
+  deliveries ProcurementDelivery[]
+
+  @@unique([tenantId, number])
   @@index([tenantId, status])
+}
+
+model PurchaseOrderLine {
+  id                String        @id @default(cuid())
+  tenantId          String
+  tenant            Tenant        @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  purchaseOrderId   String
+  purchaseOrder     PurchaseOrder @relation(fields: [purchaseOrderId], references: [id], onDelete: Cascade)
+  lineNumber        Int
+  lineType          String        @default("MATERIAL")
+  description       String
+  quantity          Float
+  unit              String
+  unitPrice         Float
+  discount          Float         @default(0)
+  tax               Float         @default(0)
+  lineTotal         Float
+  promisedDate      DateTime?
+  deliveredQuantity Float         @default(0)
+  acceptedQuantity  Float         @default(0)
+  rejectedQuantity  Float         @default(0)
+
+  deliveryLines ProcurementDeliveryLine[]
+
+  @@unique([purchaseOrderId, lineNumber])
+  @@index([tenantId, purchaseOrderId])
+}
+
+model PurchaseOrderRevision {
+  id              String        @id @default(cuid())
+  tenantId        String
+  tenant          Tenant        @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  purchaseOrderId String
+  purchaseOrder   PurchaseOrder @relation(fields: [purchaseOrderId], references: [id], onDelete: Cascade)
+  version         Int
+  reason          String
+  deltaAmount     Float         @default(0)
+  snapshot        String
+  createdAt       DateTime      @default(now())
+
+  @@unique([purchaseOrderId, version])
+  @@index([tenantId, purchaseOrderId])
+}
+
+model ProcurementDelivery {
+  id               String        @id @default(cuid())
+  tenantId         String
+  tenant           Tenant        @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  companyId        String
+  company          Company       @relation(fields: [companyId], references: [id])
+  projectId        String?
+  project          Project?      @relation(fields: [projectId], references: [id])
+  purchaseOrderId  String
+  purchaseOrder    PurchaseOrder @relation(fields: [purchaseOrderId], references: [id])
+  supplierId       String
+  supplier         Supplier      @relation(fields: [supplierId], references: [id])
+  number           String
+  status           String        @default("PLANNED")
+  expectedAt       DateTime?
+  actualArrival    DateTime?
+  deliveryLocation String?
+  carrierReference String?
+  exceptionType    String?
+  exceptionNote    String?
+  createdById      String
+  createdBy        UserIdentity  @relation(fields: [createdById], references: [id])
+  createdAt        DateTime      @default(now())
+  updatedAt        DateTime      @updatedAt
+
+  lines ProcurementDeliveryLine[]
+
+  @@unique([tenantId, number])
+  @@index([tenantId, status, expectedAt])
+}
+
+model ProcurementDeliveryLine {
+  id                  String              @id @default(cuid())
+  tenantId            String
+  tenant              Tenant              @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  deliveryId          String
+  delivery            ProcurementDelivery @relation(fields: [deliveryId], references: [id], onDelete: Cascade)
+  purchaseOrderLineId String
+  purchaseOrderLine   PurchaseOrderLine   @relation(fields: [purchaseOrderLineId], references: [id])
+  scheduledQuantity   Float
+  arrivedQuantity     Float               @default(0)
+  acceptedQuantity    Float               @default(0)
+  rejectedQuantity    Float               @default(0)
+  notes               String?
+
+  @@index([tenantId, deliveryId])
+}
+
+model ProcurementActivity {
+  id             String       @id @default(cuid())
+  tenantId       String
+  tenant         Tenant       @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  entityType     String
+  entityId       String
+  eventType      String
+  summary        String
+  previousStatus String?
+  nextStatus     String?
+  metadata       String?
+  correlationId  String
+  actorId        String
+  actor          UserIdentity @relation(fields: [actorId], references: [id])
+  createdAt      DateTime     @default(now())
+
+  @@index([tenantId, entityType, entityId, createdAt])
+}
+
+// ---------------------------------------------------------------------------
+// PRD_Work_Progress - physical construction execution and site operations
+// ---------------------------------------------------------------------------
+
+model WorkPackage {
+  id                 String                 @id @default(cuid())
+  tenantId           String
+  tenant             Tenant                 @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  companyId          String
+  company            Company                @relation(fields: [companyId], references: [id], onDelete: Cascade)
+  projectId          String
+  project            Project                @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  parentId           String?
+  parent             WorkPackage?           @relation("WorkPackageTree", fields: [parentId], references: [id])
+  children           WorkPackage[]          @relation("WorkPackageTree")
+  code               String
+  name               String
+  description        String?
+  discipline         String
+  location           String?
+  contractorName     String?
+  accountableOwnerId String
+  measurementMethod  String                 @default("INSTALLED_QUANTITY")
+  unit               String                 @default("item")
+  approvedQuantity   Float                  @default(0)
+  acceptedQuantity   Float                  @default(0)
+  weight             Float                  @default(0)
+  plannedStart       DateTime?
+  plannedFinish      DateTime?
+  forecastFinish     DateTime?
+  status             String                 @default("DRAFT")
+  readinessStatus    String                 @default("NOT_ASSESSED")
+  qualityGateStatus  String                 @default("NOT_REQUIRED")
+  hseGateStatus      String                 @default("NOT_REQUIRED")
+  recordVersion      Int                    @default(1)
+  createdById        String
+  createdAt          DateTime               @default(now())
+  updatedAt          DateTime               @updatedAt
+  archivedAt         DateTime?
+  activities         WorkScheduleActivity[]
+  updates            WorkProgressUpdate[]
+  constraints        WorkConstraint[]
+  delays             WorkDelayEvent[]
+  evidence           WorkProgressEvidence[]
+  measurementLines   WorkMeasurementLine[]
+
+  @@unique([tenantId, projectId, code])
+  @@index([tenantId, projectId, status])
+}
+
+model WorkScheduleVersion {
+  id              String                 @id @default(cuid())
+  tenantId        String
+  tenant          Tenant                 @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  companyId       String
+  company         Company                @relation(fields: [companyId], references: [id], onDelete: Cascade)
+  projectId       String
+  project         Project                @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  name            String
+  version         Int                    @default(1)
+  type            String                 @default("WORKING")
+  status          String                 @default("DRAFT")
+  dataDate        DateTime
+  baselineAt      DateTime?
+  checksum        String?
+  createdById     String
+  createdAt       DateTime               @default(now())
+  activities      WorkScheduleActivity[]
+  progressUpdates WorkProgressUpdate[]
+
+  @@unique([projectId, version])
+  @@index([tenantId, status])
+}
+
+model WorkScheduleActivity {
+  id                String              @id @default(cuid())
+  tenantId          String
+  tenant            Tenant              @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  projectId         String
+  project           Project             @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  scheduleVersionId String
+  scheduleVersion   WorkScheduleVersion @relation(fields: [scheduleVersionId], references: [id], onDelete: Cascade)
+  workPackageId     String?
+  workPackage       WorkPackage?        @relation(fields: [workPackageId], references: [id])
+  code              String
+  name              String
+  plannedStart      DateTime
+  plannedFinish     DateTime
+  forecastFinish    DateTime?
+  durationDays      Int                 @default(1)
+  progressPct       Float               @default(0)
+  dependencyType    String?
+  predecessorCode   String?
+  lagDays           Int                 @default(0)
+  totalFloatDays    Int?
+  isMilestone       Boolean             @default(false)
+  isCritical        Boolean             @default(false)
+  status            String              @default("NOT_STARTED")
+  createdAt         DateTime            @default(now())
+
+  @@unique([scheduleVersionId, code])
+  @@index([tenantId, projectId, status])
+}
+
+model WorkProgressUpdate {
+  id             String                 @id @default(cuid())
+  tenantId       String
+  tenant         Tenant                 @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  projectId      String
+  project        Project                @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  workPackageId  String
+  workPackage    WorkPackage            @relation(fields: [workPackageId], references: [id], onDelete: Cascade)
+  baselineId     String?
+  baseline       WorkScheduleVersion?   @relation(fields: [baselineId], references: [id])
+  idempotencyKey String
+  updateNumber   String
+  method         String
+  periodQuantity Float                  @default(0)
+  unit           String
+  effectiveAt    DateTime
+  location       String?
+  notes          String?
+  status         String                 @default("DRAFT")
+  submittedAt    DateTime?
+  verifiedAt     DateTime?
+  acceptedAt     DateTime?
+  createdById    String
+  verifiedById   String?
+  reversalOfId   String?
+  recordVersion  Int                    @default(1)
+  createdAt      DateTime               @default(now())
+  evidence       WorkProgressEvidence[]
+
+  @@unique([tenantId, idempotencyKey])
+  @@unique([tenantId, updateNumber])
+  @@index([tenantId, projectId, status])
+}
+
+model DailySiteReport {
+  id                 String    @id @default(cuid())
+  tenantId           String
+  tenant             Tenant    @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  companyId          String
+  company            Company   @relation(fields: [companyId], references: [id], onDelete: Cascade)
+  projectId          String
+  project            Project   @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  reportNumber       String
+  reportDate         DateTime
+  shift              String    @default("DAY")
+  revision           Int       @default(1)
+  supersedesId       String?
+  weather            String?
+  siteConditions     String?
+  workforceJson      String?
+  equipmentJson      String?
+  workCompleted      String?
+  deliveriesJson     String?
+  materialsJson      String?
+  issues             String?
+  qualityNotes       String?
+  hseNotes           String?
+  visitors           String?
+  nextShiftPlan      String?
+  accountableOwnerId String
+  status             String    @default("DRAFT")
+  submittedAt        DateTime?
+  verifiedAt         DateTime?
+  lockedAt           DateTime?
+  createdById        String
+  createdAt          DateTime  @default(now())
+  updatedAt          DateTime  @updatedAt
+
+  @@unique([projectId, reportDate, shift, revision])
+  @@unique([tenantId, reportNumber])
+  @@index([tenantId, status, reportDate])
+}
+
+model WorkConstraint {
+  id              String       @id @default(cuid())
+  tenantId        String
+  tenant          Tenant       @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  companyId       String
+  company         Company      @relation(fields: [companyId], references: [id], onDelete: Cascade)
+  projectId       String
+  project         Project      @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  workPackageId   String?
+  workPackage     WorkPackage? @relation(fields: [workPackageId], references: [id])
+  number          String
+  title           String
+  category        String
+  description     String?
+  impact          String
+  ownerId         String
+  requiredBy      DateTime?
+  status          String       @default("OPEN")
+  releasedAt      DateTime?
+  releaseEvidence String?
+  createdById     String
+  createdAt       DateTime     @default(now())
+  updatedAt       DateTime     @updatedAt
+
+  @@unique([tenantId, number])
+  @@index([tenantId, projectId, status])
+}
+
+model WorkDelayEvent {
+  id                    String       @id @default(cuid())
+  tenantId              String
+  tenant                Tenant       @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  companyId             String
+  company               Company      @relation(fields: [companyId], references: [id], onDelete: Cascade)
+  projectId             String
+  project               Project      @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  workPackageId         String?
+  workPackage           WorkPackage? @relation(fields: [workPackageId], references: [id])
+  number                String
+  title                 String
+  category              String
+  observedFact          String
+  allegedResponsibility String?
+  startAt               DateTime
+  endAt                 DateTime?
+  impactDays            Float        @default(0)
+  status                String       @default("OPEN")
+  mitigation            String?
+  ownerId               String
+  createdById           String
+  createdAt             DateTime     @default(now())
+
+  @@unique([tenantId, number])
+  @@index([tenantId, projectId, status])
+}
+
+model WorkProgressEvidence {
+  id                 String              @id @default(cuid())
+  tenantId           String
+  tenant             Tenant              @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  projectId          String
+  project            Project             @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  workPackageId      String?
+  workPackage        WorkPackage?        @relation(fields: [workPackageId], references: [id])
+  progressUpdateId   String?
+  progressUpdate     WorkProgressUpdate? @relation(fields: [progressUpdateId], references: [id])
+  type               String              @default("PHOTO")
+  title              String
+  documentId         String?
+  documentRevisionId String?
+  url                String?
+  location           String?
+  capturedAt         DateTime
+  checksum           String?
+  annotationJson     String?
+  confidentiality    String              @default("PROJECT")
+  createdById        String
+  createdAt          DateTime            @default(now())
+
+  @@index([tenantId, projectId, capturedAt])
+}
+
+model WorkMeasurementSheet {
+  id               String                @id @default(cuid())
+  tenantId         String
+  tenant           Tenant                @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  companyId        String
+  company          Company               @relation(fields: [companyId], references: [id], onDelete: Cascade)
+  projectId        String
+  project          Project               @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  number           String
+  periodStart      DateTime
+  periodEnd        DateTime
+  contractorName   String
+  status           String                @default("DRAFT")
+  currency         String                @default("EUR")
+  claimedValue     Float                 @default(0)
+  measuredValue    Float                 @default(0)
+  acceptedValue    Float                 @default(0)
+  certifiedValue   Float                 @default(0)
+  differenceReason String?
+  createdById      String
+  createdAt        DateTime              @default(now())
+  lines            WorkMeasurementLine[]
+
+  @@unique([tenantId, number])
+  @@index([tenantId, projectId, status])
+}
+
+model WorkMeasurementLine {
+  id                String               @id @default(cuid())
+  sheetId           String
+  sheet             WorkMeasurementSheet @relation(fields: [sheetId], references: [id], onDelete: Cascade)
+  workPackageId     String
+  workPackage       WorkPackage          @relation(fields: [workPackageId], references: [id])
+  description       String
+  unit              String
+  claimedQuantity   Float                @default(0)
+  measuredQuantity  Float                @default(0)
+  acceptedQuantity  Float                @default(0)
+  certifiedQuantity Float                @default(0)
+  rate              Float                @default(0)
+  reason            String?
+}
+
+model WorkProgressActivity {
+  id             String   @id @default(cuid())
+  tenantId       String
+  tenant         Tenant   @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  projectId      String?
+  entityType     String
+  entityId       String
+  eventType      String
+  summary        String
+  actorId        String
+  previousStatus String?
+  nextStatus     String?
+  correlationId  String
+  createdAt      DateTime @default(now())
+
+  @@index([tenantId, entityType, entityId])
+  @@index([tenantId, createdAt])
 }
 
 // ---------------------------------------------------------------------------
@@ -2352,16 +3184,350 @@ model Meeting {
 }
 
 model Asset {
-  id            String   @id @default(cuid())
-  tenantId      String
-  tenant        Tenant   @relation(fields: [tenantId], references: [id], onDelete: Cascade)
-  projectId     String?
-  project       Project? @relation(fields: [projectId], references: [id])
-  name          String
-  type          String // EQUIPMENT | VEHICLE | TOOL | OTHER
-  status        String   @default("AVAILABLE") // AVAILABLE | IN_USE | MAINTENANCE | RETIRED
-  purchaseValue Float?
-  createdAt     DateTime @default(now())
+  id                   String         @id @default(cuid())
+  tenantId             String
+  tenant               Tenant         @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  projectId            String?
+  project              Project?       @relation(fields: [projectId], references: [id])
+  categoryId           String?
+  category             AssetCategory? @relation(fields: [categoryId], references: [id])
+  code                 String?
+  name                 String
+  type                 String // EQUIPMENT | VEHICLE | TOOL | IT | FACILITY | OTHER
+  status               String         @default("DRAFT") // DRAFT | ACTIVE | ASSIGNED | RESERVED | MAINTENANCE | OUT_OF_SERVICE | RETIRED | DISPOSED | ARCHIVED
+  ownershipCompanyId   String?
+  ownershipCompanyName String?
+  department           String?
+  manufacturer         String?
+  model                String?
+  serialNumber         String?
+  registrationNumber   String?
+  qrCode               String?
+  barcode              String?
+  rfidTag              String?
+  specificationJson    String?
+  purchaseDate         DateTime?
+  purchaseValue        Float?
+  currency             String         @default("EUR")
+  depreciationMethod   String?
+  usefulLifeMonths     Int?
+  salvageValue         Float?
+  bookValue            Float?
+  disposalValue        Float?
+  supplierId           String?
+  purchaseOrderId      String?
+  currentLocation      String?
+  custodianId          String?
+  condition            String         @default("GOOD")
+  riskLevel            String         @default("LOW")
+  notes                String?
+  recordVersion        Int            @default(1)
+  createdById          String?
+  createdAt            DateTime       @default(now())
+  updatedAt            DateTime       @updatedAt
+  archivedAt           DateTime?
+
+  assignments       AssetAssignment[]
+  locations         AssetLocation[]
+  maintenances      AssetMaintenance[]
+  workOrders        AssetWorkOrder[]
+  inspections       AssetInspection[]
+  calibrations      AssetCalibration[]
+  warranties        AssetWarranty[]
+  insurancePolicies AssetInsurancePolicy[]
+  reservations      AssetReservation[]
+  transfers         AssetTransfer[]
+  documents         AssetDocumentLink[]
+  activities        AssetActivity[]
+
+  @@unique([tenantId, code])
+  @@unique([tenantId, qrCode])
+  @@unique([tenantId, barcode])
+  @@unique([tenantId, rfidTag])
+  @@index([tenantId, status, type])
+  @@index([tenantId, projectId])
+}
+
+model AssetCategory {
+  id                      String          @id @default(cuid())
+  tenantId                String
+  tenant                  Tenant          @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  parentId                String?
+  parent                  AssetCategory?  @relation("AssetCategoryTree", fields: [parentId], references: [id])
+  children                AssetCategory[] @relation("AssetCategoryTree")
+  code                    String
+  name                    String
+  description             String?
+  depreciationMethod      String?
+  usefulLifeMonths        Int?
+  inspectionIntervalDays  Int?
+  maintenanceIntervalDays Int?
+  createdAt               DateTime        @default(now())
+  assets                  Asset[]
+
+  @@unique([tenantId, code])
+}
+
+model AssetAssignment {
+  id           String    @id @default(cuid())
+  tenantId     String
+  tenant       Tenant    @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  assetId      String
+  asset        Asset     @relation(fields: [assetId], references: [id], onDelete: Cascade)
+  assigneeType String
+  assigneeId   String?
+  assigneeName String
+  projectId    String?
+  location     String?
+  assignedAt   DateTime
+  returnedAt   DateTime?
+  conditionOut String?
+  conditionIn  String?
+  notes        String?
+  createdById  String
+  createdAt    DateTime  @default(now())
+
+  @@index([tenantId, assetId, assignedAt])
+}
+
+model AssetLocation {
+  id           String    @id @default(cuid())
+  tenantId     String
+  tenant       Tenant    @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  assetId      String
+  asset        Asset     @relation(fields: [assetId], references: [id], onDelete: Cascade)
+  locationType String
+  locationId   String?
+  locationName String
+  effectiveAt  DateTime
+  endedAt      DateTime?
+  source       String    @default("MANUAL")
+  createdById  String
+  createdAt    DateTime  @default(now())
+
+  @@index([tenantId, assetId, effectiveAt])
+}
+
+model AssetMaintenance {
+  id                   String           @id @default(cuid())
+  tenantId             String
+  tenant               Tenant           @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  assetId              String
+  asset                Asset            @relation(fields: [assetId], references: [id], onDelete: Cascade)
+  type                 String
+  title                String
+  description          String?
+  recurrenceRule       String?
+  meterInterval        Float?
+  lastPerformedAt      DateTime?
+  nextDueAt            DateTime?
+  nextDueMeter         Float?
+  assignedTechnicianId String?
+  estimatedCost        Float?
+  status               String           @default("ACTIVE")
+  createdById          String
+  createdAt            DateTime         @default(now())
+  workOrders           AssetWorkOrder[]
+
+  @@index([tenantId, nextDueAt, status])
+}
+
+model AssetWorkOrder {
+  id              String            @id @default(cuid())
+  tenantId        String
+  tenant          Tenant            @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  assetId         String
+  asset           Asset             @relation(fields: [assetId], references: [id], onDelete: Cascade)
+  maintenanceId   String?
+  maintenance     AssetMaintenance? @relation(fields: [maintenanceId], references: [id])
+  number          String
+  title           String
+  description     String?
+  priority        String            @default("NORMAL")
+  status          String            @default("DRAFT")
+  slaDueAt        DateTime?
+  scheduledStart  DateTime?
+  scheduledEnd    DateTime?
+  startedAt       DateTime?
+  completedAt     DateTime?
+  closedAt        DateTime?
+  technicianId    String?
+  technicianName  String?
+  laborHours      Float             @default(0)
+  laborCost       Float             @default(0)
+  materialCost    Float             @default(0)
+  downtimeHours   Float             @default(0)
+  checklistJson   String?
+  completionNotes String?
+  signatureName   String?
+  createdById     String
+  createdAt       DateTime          @default(now())
+  updatedAt       DateTime          @updatedAt
+
+  @@unique([tenantId, number])
+  @@index([tenantId, status, priority])
+}
+
+model AssetInspection {
+  id                    String    @id @default(cuid())
+  tenantId              String
+  tenant                Tenant    @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  assetId               String
+  asset                 Asset     @relation(fields: [assetId], references: [id], onDelete: Cascade)
+  templateName          String
+  inspectionType        String
+  scheduledAt           DateTime?
+  inspectedAt           DateTime?
+  inspectorId           String?
+  inspectorName         String?
+  result                String    @default("PENDING")
+  checklistJson         String?
+  findings              String?
+  certificateDocumentId String?
+  nextDueAt             DateTime?
+  createdById           String
+  createdAt             DateTime  @default(now())
+
+  @@index([tenantId, result, nextDueAt])
+}
+
+model AssetCalibration {
+  id                    String    @id @default(cuid())
+  tenantId              String
+  tenant                Tenant    @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  assetId               String
+  asset                 Asset     @relation(fields: [assetId], references: [id], onDelete: Cascade)
+  parameter             String
+  unit                  String
+  toleranceMin          Float?
+  toleranceMax          Float?
+  measuredValue         Float?
+  calibratedAt          DateTime?
+  nextDueAt             DateTime
+  provider              String?
+  result                String    @default("PENDING")
+  certificateDocumentId String?
+  createdById           String
+  createdAt             DateTime  @default(now())
+
+  @@index([tenantId, nextDueAt, result])
+}
+
+model AssetWarranty {
+  id           String   @id @default(cuid())
+  tenantId     String
+  tenant       Tenant   @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  assetId      String
+  asset        Asset    @relation(fields: [assetId], references: [id], onDelete: Cascade)
+  provider     String
+  policyNumber String?
+  coverage     String
+  startsAt     DateTime
+  expiresAt    DateTime
+  status       String   @default("ACTIVE")
+  documentId   String?
+  createdAt    DateTime @default(now())
+
+  @@index([tenantId, expiresAt, status])
+}
+
+model AssetInsurancePolicy {
+  id           String   @id @default(cuid())
+  tenantId     String
+  tenant       Tenant   @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  assetId      String
+  asset        Asset    @relation(fields: [assetId], references: [id], onDelete: Cascade)
+  provider     String
+  policyNumber String
+  coverage     String
+  insuredValue Float?
+  currency     String   @default("EUR")
+  startsAt     DateTime
+  expiresAt    DateTime
+  status       String   @default("ACTIVE")
+  claimCount   Int      @default(0)
+  documentId   String?
+  createdAt    DateTime @default(now())
+
+  @@unique([tenantId, policyNumber])
+  @@index([tenantId, expiresAt, status])
+}
+
+model AssetReservation {
+  id              String   @id @default(cuid())
+  tenantId        String
+  tenant          Tenant   @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  assetId         String
+  asset           Asset    @relation(fields: [assetId], references: [id], onDelete: Cascade)
+  projectId       String?
+  reservedForId   String?
+  reservedForName String
+  startsAt        DateTime
+  endsAt          DateTime
+  purpose         String?
+  status          String   @default("ACTIVE")
+  createdById     String
+  createdAt       DateTime @default(now())
+
+  @@index([tenantId, assetId, startsAt, endsAt])
+}
+
+model AssetTransfer {
+  id             String   @id @default(cuid())
+  tenantId       String
+  tenant         Tenant   @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  assetId        String
+  asset          Asset    @relation(fields: [assetId], references: [id], onDelete: Cascade)
+  number         String
+  fromType       String
+  fromId         String?
+  fromName       String
+  toType         String
+  toId           String?
+  toName         String
+  transferredAt  DateTime
+  condition      String?
+  reason         String
+  receivedByName String?
+  createdById    String
+  createdAt      DateTime @default(now())
+
+  @@unique([tenantId, number])
+  @@index([tenantId, assetId, transferredAt])
+}
+
+model AssetDocumentLink {
+  id                 String   @id @default(cuid())
+  tenantId           String
+  tenant             Tenant   @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  assetId            String
+  asset              Asset    @relation(fields: [assetId], references: [id], onDelete: Cascade)
+  documentId         String
+  documentRevisionId String?
+  category           String
+  title              String
+  createdById        String
+  createdAt          DateTime @default(now())
+
+  @@unique([assetId, documentId, documentRevisionId])
+}
+
+model AssetActivity {
+  id             String   @id @default(cuid())
+  tenantId       String
+  tenant         Tenant   @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  assetId        String
+  asset          Asset    @relation(fields: [assetId], references: [id], onDelete: Cascade)
+  eventType      String
+  summary        String
+  actorId        String
+  previousStatus String?
+  nextStatus     String?
+  correlationId  String
+  metadata       String?
+  createdAt      DateTime @default(now())
+
+  @@index([tenantId, assetId, createdAt])
 }
 
 model TenantSettings {

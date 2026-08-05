@@ -29,13 +29,7 @@ export function CreateSupplierDialog() {
               <X size={18} />
             </Dialog.Close>
           </div>
-          <form
-            action={async (formData) => {
-              await formAction(formData);
-              setOpen(false);
-            }}
-            className="space-y-3.5"
-          >
+          <form action={formAction} className="space-y-3.5">
             <div className="space-y-1.5">
               <Label htmlFor="name">{t("common.name")}</Label>
               <Input id="name" name="name" required />
@@ -43,6 +37,10 @@ export function CreateSupplierDialog() {
             <div className="space-y-1.5">
               <Label htmlFor="category">{t("procurement_sub.category")}</Label>
               <Input id="category" name="category" placeholder="Steel, Concrete, Electrical…" required />
+            </div>
+            <div className="grid grid-cols-2 gap-3">
+              <div className="space-y-1.5"><Label htmlFor="supplierType">Supplier type</Label><select id="supplierType" name="supplierType" defaultValue="MATERIALS" className="h-10 w-full rounded-lg border border-border bg-surface px-3 text-sm"><option>MATERIALS</option><option>SERVICE</option><option>SUBCONTRACTOR</option><option>RENTAL</option><option>CONSULTANT</option></select></div>
+              <div className="space-y-1.5"><Label htmlFor="countryCode">Country</Label><Input id="countryCode" name="countryCode" defaultValue="AL" maxLength={2} /></div>
             </div>
             <div className="space-y-1.5">
               <Label htmlFor="email">{t("common.email")}</Label>
@@ -52,6 +50,7 @@ export function CreateSupplierDialog() {
               <Label htmlFor="phone">{t("contractors.contact")}</Label>
               <Input id="phone" name="phone" />
             </div>
+            <div className="space-y-1.5"><Label htmlFor="taxId">Tax / registration ID</Label><Input id="taxId" name="taxId" /></div>
             {state?.error && (
               <p role="alert" className="rounded-lg bg-danger-soft px-3 py-2 text-xs text-danger">
                 {state.error}

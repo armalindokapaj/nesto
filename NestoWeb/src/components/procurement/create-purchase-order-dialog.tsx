@@ -34,13 +34,7 @@ export function CreatePurchaseOrderDialog({ suppliers, projects }: Props) {
               <X size={18} />
             </Dialog.Close>
           </div>
-          <form
-            action={async (formData) => {
-              await formAction(formData);
-              setOpen(false);
-            }}
-            className="space-y-3.5"
-          >
+          <form action={formAction} className="space-y-3.5">
             <div className="space-y-1.5">
               <Label htmlFor="supplierId">{t("procurement_sub.supplier")}</Label>
               <select
@@ -84,6 +78,9 @@ export function CreatePurchaseOrderDialog({ suppliers, projects }: Props) {
               <Label htmlFor="amount">{t("common.amount")}</Label>
               <Input id="amount" name="amount" type="number" min="0" step="0.01" required />
             </div>
+            <input type="hidden" name="quantity" value="1" />
+            <input type="hidden" name="unit" value="item" />
+            <div className="space-y-1.5"><Label htmlFor="requestedDeliveryDate">Requested delivery</Label><Input id="requestedDeliveryDate" name="requestedDeliveryDate" type="date" /></div>
             {state?.error && (
               <p role="alert" className="rounded-lg bg-danger-soft px-3 py-2 text-xs text-danger">
                 {state.error}

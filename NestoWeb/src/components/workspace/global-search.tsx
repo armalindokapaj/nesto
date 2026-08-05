@@ -2,7 +2,7 @@
 
 import { useEffect, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
-import { Search, Lock, FolderKanban, CheckSquare, FileText, Contact, Handshake, UserCog, ScrollText, Truck, ShieldAlert, BookText } from "lucide-react";
+import { Search, Lock, FolderKanban, CheckSquare, FileText, Contact, Handshake, UserCog, ScrollText, Truck, ShieldAlert, BookText, ClipboardList, MessagesSquare } from "lucide-react";
 import type { SearchResult } from "@/server/search";
 import { cn } from "@/lib/utils";
 import { useI18n } from "@/lib/i18n/locale-provider";
@@ -16,6 +16,8 @@ const ICON = {
   contractor: UserCog,
   contract: ScrollText,
   supplier: Truck,
+  purchaseRequest: ClipboardList,
+  rfq: MessagesSquare,
   purchaseOrder: Truck,
   hseReport: ShieldAlert,
   document: BookText,

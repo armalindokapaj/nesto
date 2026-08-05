@@ -14,7 +14,12 @@ const SEED_SERIES_CONFIG: Record<string, { prefix: string; seqLength: number; in
   CONTRACT: { prefix: "CON", seqLength: 5, includeYear: true },
   CONTRACTOR: { prefix: "CTR", seqLength: 6, includeYear: false },
   SUPPLIER: { prefix: "SUP", seqLength: 6, includeYear: false },
+  PURCHASE_REQUEST: { prefix: "PR", seqLength: 6, includeYear: true },
+  PROCUREMENT_PACKAGE: { prefix: "PKG", seqLength: 5, includeYear: true },
+  PROCUREMENT_RFQ: { prefix: "RFQ", seqLength: 5, includeYear: true },
+  SUPPLIER_QUOTATION: { prefix: "QUO", seqLength: 5, includeYear: true },
   PURCHASE_ORDER: { prefix: "PO", seqLength: 5, includeYear: true },
+  PROCUREMENT_DELIVERY: { prefix: "DEL", seqLength: 5, includeYear: true },
 };
 
 async function allocateSeedNumber(tenantId: string, entityType: keyof typeof SEED_SERIES_CONFIG): Promise<string> {
@@ -470,13 +475,19 @@ async function main() {
   });
 
   // --- Assets --------------------------------------------------------------
-  await db.asset.createMany({
-    data: [
-      { tenantId: tenant.id, projectId: riverside.id, name: "Tower Crane TC-4810", type: "EQUIPMENT", status: "IN_USE", purchaseValue: 180_000 },
-      { tenantId: tenant.id, projectId: metroMall.id, name: "Concrete Mixer Truck", type: "VEHICLE", status: "IN_USE", purchaseValue: 95_000 },
-      { tenantId: tenant.id, name: "Total Station Surveying Kit", type: "TOOL", status: "AVAILABLE", purchaseValue: 12_000 },
-    ],
-  });
+  const heavyEquipment = await db.assetCategory.create({ data: { tenantId: tenant.id, code: "HEAVY-EQUIPMENT", name: "Heavy Equipment", description: "Cranes, excavators and heavy site machinery.", depreciationMethod: "STRAIGHT_LINE", usefulLifeMonths: 120, inspectionIntervalDays: 30, maintenanceIntervalDays: 90 } });
+  const surveyTools = await db.assetCategory.create({ data: { tenantId: tenant.id, code: "SURVEY", name: "Survey Instruments", description: "Precision measurement and setting-out equipment.", depreciationMethod: "STRAIGHT_LINE", usefulLifeMonths: 60, inspectionIntervalDays: 180, maintenanceIntervalDays: 180 } });
+  const towerCrane = await db.asset.create({ data: { tenantId: tenant.id, projectId: riverside.id, categoryId: heavyEquipment.id, code: "AST-00001", name: "Tower Crane TC-4810", type: "EQUIPMENT", status: "ASSIGNED", ownershipCompanyId: company.id, ownershipCompanyName: company.name, manufacturer: "Liebherr", model: "4810", serialNumber: "TC4810-BC-01", qrCode: "AST-00001", barcode: "AST-00001", purchaseDate: new Date("2023-03-15"), purchaseValue: 180_000, bookValue: 124_500, usefulLifeMonths: 120, salvageValue: 18_000, currentLocation: "Riverside Towers · Tower A", condition: "GOOD", riskLevel: "HIGH", createdById: arben.id } });
+  await db.asset.createMany({ data: [
+    { tenantId: tenant.id, projectId: metroMall.id, categoryId: heavyEquipment.id, code: "AST-00002", name: "Concrete Mixer Truck", type: "VEHICLE", status: "ASSIGNED", ownershipCompanyId: company.id, ownershipCompanyName: company.name, manufacturer: "Mercedes-Benz", purchaseValue: 95_000, bookValue: 61_750, currentLocation: "Metro Mall Site", qrCode: "AST-00002", condition: "GOOD", createdById: arben.id },
+    { tenantId: tenant.id, categoryId: surveyTools.id, code: "AST-00003", name: "Total Station Surveying Kit", type: "TOOL", status: "ACTIVE", ownershipCompanyId: company.id, ownershipCompanyName: company.name, manufacturer: "Leica", model: "TS16", purchaseValue: 12_000, bookValue: 8_400, currentLocation: "Tirana HQ Equipment Store", qrCode: "AST-00003", condition: "EXCELLENT", createdById: arben.id },
+  ] });
+  const cranePlan = await db.assetMaintenance.create({ data: { tenantId: tenant.id, assetId: towerCrane.id, type: "PREVENTIVE", title: "Quarterly crane preventive maintenance", recurrenceRule: "FREQ=MONTHLY;INTERVAL=3", nextDueAt: daysFromNow(12), estimatedCost: 2_400, createdById: besnik.id } });
+  await db.assetWorkOrder.create({ data: { tenantId: tenant.id, assetId: towerCrane.id, maintenanceId: cranePlan.id, number: "AWO-2026-000001", title: "Quarterly slewing and hoist inspection", priority: "HIGH", status: "ASSIGNED", slaDueAt: daysFromNow(12), scheduledStart: daysFromNow(10), technicianName: "Ardit Mechanical Services", createdById: besnik.id } });
+  await db.assetAssignment.create({ data: { tenantId: tenant.id, assetId: towerCrane.id, assigneeType: "PROJECT", assigneeId: riverside.id, assigneeName: riverside.name, projectId: riverside.id, location: "Tower A crane base", assignedAt: new Date("2026-04-01"), conditionOut: "GOOD", createdById: gentian.id } });
+  await db.assetInspection.create({ data: { tenantId: tenant.id, assetId: towerCrane.id, templateName: "Monthly lifting equipment inspection", inspectionType: "SAFETY", inspectedAt: daysAgo(18), inspectorName: "Site HSE Team", result: "PASSED", findings: "No critical findings.", nextDueAt: daysFromNow(12), createdById: besnik.id } });
+  await db.assetInsurancePolicy.create({ data: { tenantId: tenant.id, assetId: towerCrane.id, provider: "SIGAL", policyNumber: "PL-CPE-2026-4810", coverage: "Plant, machinery and third-party liability", insuredValue: 180_000, startsAt: new Date("2026-01-01"), expiresAt: new Date("2026-12-31"), createdAt: new Date() } });
+  await db.assetActivity.createMany({ data: [{ tenantId: tenant.id, assetId: towerCrane.id, eventType: "asset.created", summary: "AST-00001 Tower Crane TC-4810 created.", actorId: arben.id, correlationId: "seed-asset-created" }, { tenantId: tenant.id, assetId: towerCrane.id, eventType: "asset.assigned", summary: "Tower crane assigned to Riverside Towers.", actorId: gentian.id, previousStatus: "ACTIVE", nextStatus: "ASSIGNED", correlationId: "seed-asset-assigned" }] });
 
   // --- Tenant settings -------------------------------------------------------
   await db.tenantSettings.create({
@@ -501,7 +512,7 @@ async function main() {
   const suppliers = [];
   for (const s of supplierSeeds) {
     const number = await allocateSeedNumber(tenant.id, "SUPPLIER");
-    suppliers.push(await db.supplier.create({ data: { tenantId: tenant.id, number, status: "ACTIVE", ...s } }));
+    suppliers.push(await db.supplier.create({ data: { tenantId: tenant.id, companyId: company.id, number, status: "QUALIFIED", qualificationStatus: "QUALIFIED", overallScore: 82, ...s } }));
   }
   const [steelworks, betonElite, electroSupply] = suppliers;
 
@@ -512,7 +523,7 @@ async function main() {
   ];
   for (const po of purchaseOrderSeeds) {
     const number = await allocateSeedNumber(tenant.id, "PURCHASE_ORDER");
-    await db.purchaseOrder.create({ data: { tenantId: tenant.id, number, currency: "EUR", requestedById: gentian.id, ...po } });
+    await db.purchaseOrder.create({ data: { tenantId: tenant.id, companyId: company.id, number, currency: "EUR", requestedById: gentian.id, subtotal: po.amount, ...po } });
   }
 
   // --- Suggestions -----------------------------------------------------------
@@ -599,6 +610,16 @@ async function main() {
   await db.companyMembership.create({
     data: { tenantId: tenant.id, userId: superUser.id, role: "OWNER", department: "Testing", position: "Super User Test Account" },
   });
+
+  // --- Work Progress and Site Operations ----------------------------------
+  const workPackage = await db.workPackage.create({ data: { tenantId: tenant.id, companyId: company.id, projectId: riverside.id, code: "WP-000001", name: "Tower A concrete frame", description: "Columns, cores, beams and suspended slabs for Tower A levels 12-16.", discipline: "Structural", location: "Tower A · Levels 12-16", contractorName: "BuildCore Structures", accountableOwnerId: gentian.id, measurementMethod: "INSTALLED_QUANTITY", unit: "m3", approvedQuantity: 1250, acceptedQuantity: 510, weight: 1, plannedStart: new Date("2026-06-01"), plannedFinish: new Date("2026-09-30"), forecastFinish: new Date("2026-10-08"), status: "IN_PROGRESS", readinessStatus: "READY", qualityGateStatus: "CLEAR", hseGateStatus: "CLEAR", createdById: gentian.id } });
+  const baseline = await db.workScheduleVersion.create({ data: { tenantId: tenant.id, companyId: company.id, projectId: riverside.id, name: "Contract Baseline", version: 1, type: "ORIGINAL_BASELINE", status: "ACTIVE_BASELINE", dataDate: new Date("2026-08-05"), baselineAt: new Date("2026-05-20"), checksum: "seed-baseline-v1", createdById: gentian.id } });
+  await db.workScheduleActivity.create({ data: { tenantId: tenant.id, projectId: riverside.id, scheduleVersionId: baseline.id, workPackageId: workPackage.id, code: "STR-A-120", name: "Tower A frame levels 12-16", plannedStart: new Date("2026-06-01"), plannedFinish: new Date("2026-09-30"), forecastFinish: new Date("2026-10-08"), durationDays: 86, progressPct: 40.8, totalFloatDays: -6, isCritical: true, status: "IN_PROGRESS" } });
+  const progressUpdate = await db.workProgressUpdate.create({ data: { tenantId: tenant.id, projectId: riverside.id, workPackageId: workPackage.id, baselineId: baseline.id, idempotencyKey: "seed-work-progress-001", updateNumber: "WPU-2026-000001", method: "INSTALLED_QUANTITY", periodQuantity: 510, unit: "m3", effectiveAt: new Date("2026-08-04"), location: "Tower A · Level 12", notes: "Accepted concrete quantities through level 12 slab.", status: "ACCEPTED", submittedAt: new Date("2026-08-04T16:00:00Z"), verifiedAt: new Date("2026-08-05T07:00:00Z"), acceptedAt: new Date("2026-08-05T07:10:00Z"), createdById: besnik.id, verifiedById: gentian.id } });
+  await db.dailySiteReport.create({ data: { tenantId: tenant.id, companyId: company.id, projectId: riverside.id, reportNumber: "DSR-2026-00001", reportDate: new Date("2026-08-04"), shift: "DAY", weather: "Clear, 31°C, light wind", siteConditions: "Dry access and working platforms.", workforceJson: "Structural crew: 34 people, 278 logged hours, 242 productive hours", equipmentJson: "Tower crane 9.5h; concrete pump 6.2h; no unplanned downtime", workCompleted: "Level 12 slab pour and core wall preparation.", deliveriesJson: "Concrete 112 m3 received against PO; all accepted.", issues: "Late reinforcement inspection compressed the pour window.", qualityNotes: "Slump and cube tests accepted; inspection reference retained externally.", hseNotes: "Toolbox talk completed; no incidents or stop-work events.", nextShiftPlan: "Strip slab edges and begin Level 13 columns.", accountableOwnerId: gentian.id, status: "VERIFIED", submittedAt: new Date("2026-08-04T18:00:00Z"), verifiedAt: new Date("2026-08-05T07:00:00Z"), createdById: besnik.id } });
+  await db.workConstraint.create({ data: { tenantId: tenant.id, companyId: company.id, projectId: riverside.id, workPackageId: workPackage.id, number: "CNS-2026-00001", title: "Level 13 reinforcement drawing release", category: "DRAWING", description: "Construction issue revision is required before reinforcement cutting continues.", impact: "Blocks Level 13 column reinforcement and threatens the critical frame cycle.", ownerId: elira.id, requiredBy: new Date("2026-08-07"), status: "ASSIGNED", createdById: gentian.id } });
+  await db.workProgressEvidence.create({ data: { tenantId: tenant.id, projectId: riverside.id, workPackageId: workPackage.id, progressUpdateId: progressUpdate.id, type: "PHOTO", title: "Tower A Level 12 completed slab", location: "Tower A · Level 12 · Grid A-D", capturedAt: new Date("2026-08-04T15:40:00Z"), checksum: "seed-evidence-sha256", annotationJson: JSON.stringify({ caption: "Completed pour extent", orientation: "NE" }), confidentiality: "PROJECT", createdById: besnik.id } });
+  await db.workProgressActivity.createMany({ data: [{ tenantId: tenant.id, projectId: riverside.id, entityType: "WORK_PACKAGE", entityId: workPackage.id, eventType: "work_package.created", summary: "WP-000001 Tower A concrete frame created.", actorId: gentian.id, correlationId: "seed-wp-create" }, { tenantId: tenant.id, projectId: riverside.id, entityType: "PROGRESS_UPDATE", entityId: progressUpdate.id, eventType: "progress_update.accepted", summary: "510 m3 accepted for WP-000001.", actorId: gentian.id, previousStatus: "UNDER_VERIFICATION", nextStatus: "ACCEPTED", correlationId: "seed-wp-accept" }] });
 
   // --- Audit / notifications ----------------------------------------------
   await db.auditEvent.createMany({

@@ -76,6 +76,8 @@ export const NAV_SECTIONS: Record<string, NavSection[]> = {
       titleKey: "nav.operations",
       items: [
         { labelKey: "nav.projects", href: "/projects", icon: FolderKanban },
+        { labelKey: "nav.workProgress", href: "/dashboard/work-progress", icon: ClipboardCheck, resource: "PROJECTS", moduleKey: "PROJECTS" },
+        { labelKey: "nav.assets", href: "/dashboard/assets", icon: Boxes, resource: "PROJECTS", moduleKey: "ASSETS" },
         { labelKey: "nav.tasks", href: "/tasks", icon: CheckSquare, resource: "TASKS", moduleKey: "TASKS" },
         { labelKey: "nav.taskOrchestration", href: "/tasks/orchestration", icon: Workflow, resource: "TASKS", moduleKey: "TASKS" },
         { labelKey: "nav.contracts", href: "/contracts", icon: FileText, resource: "CONTRACTS", moduleKey: "CONTRACTS" },
@@ -88,7 +90,7 @@ export const NAV_SECTIONS: Record<string, NavSection[]> = {
     {
       titleKey: "nav.business",
       items: [
-        { labelKey: "nav.clients", href: "/clients", icon: Handshake, resource: "CLIENTS", moduleKey: "CLIENTS" },
+        { labelKey: "nav.crm", href: "/clients", icon: Handshake, resource: "CLIENTS", moduleKey: "CLIENTS" },
         { labelKey: "nav.finance", href: "/dashboard/finance", icon: Wallet, resource: "FINANCE", moduleKey: "FINANCE" },
         { labelKey: "nav.hr", href: "/dashboard/hr", icon: Users, resource: "HR", moduleKey: "HR" },
         { labelKey: "nav.payroll", href: "/dashboard/hr/payroll", icon: Wallet, resource: "HR", moduleKey: "HR" },
@@ -165,7 +167,7 @@ export const NAV_SECTIONS: Record<string, NavSection[]> = {
         { labelKey: "nav.budgetVsActual", href: "/dashboard/finance/budget", icon: PieChart, resource: "FINANCE", moduleKey: "FINANCE" },
         { labelKey: "nav.cashFlow", href: "/dashboard/finance/cash-flow", icon: TrendingUp, resource: "FINANCE", moduleKey: "FINANCE" },
         { labelKey: "nav.projects", href: "/projects", icon: FolderKanban },
-        { labelKey: "nav.assets", href: "/dashboard/finance/assets", icon: Boxes, resource: "FINANCE", moduleKey: "FINANCE" },
+        { labelKey: "nav.assets", href: "/dashboard/assets", icon: Boxes, resource: "PROJECTS", moduleKey: "ASSETS" },
         { labelKey: "nav.clients", href: "/clients", icon: Handshake, resource: "CLIENTS", moduleKey: "CLIENTS" },
         { labelKey: "nav.contractors", href: "/contractors", icon: UserCog, resource: "COMPANY_NETWORK", moduleKey: "COMPANY_NETWORK" },
         { labelKey: "nav.procurement", href: "/dashboard/procurement", icon: Truck, resource: "PROCUREMENT", moduleKey: "PROCUREMENT" },
@@ -272,8 +274,13 @@ export const NAV_SECTIONS: Record<string, NavSection[]> = {
     {
       titleKey: "nav.purchasing",
       items: [
+        { labelKey: "nav.procurementWorkspace", href: "/dashboard/procurement/workspace", icon: Workflow, resource: "PROCUREMENT", moduleKey: "PROCUREMENT" },
+        { labelKey: "nav.purchaseRequests", href: "/dashboard/procurement/requests", icon: ClipboardList, resource: "PROCUREMENT", moduleKey: "PROCUREMENT" },
+        { labelKey: "nav.procurementPackages", href: "/dashboard/procurement/packages", icon: Boxes, resource: "PROCUREMENT", moduleKey: "PROCUREMENT" },
+        { labelKey: "nav.sourcing", href: "/dashboard/procurement/sourcing", icon: FilePenLine, resource: "PROCUREMENT", moduleKey: "PROCUREMENT" },
         { labelKey: "nav.suppliers", href: "/dashboard/procurement/suppliers", icon: Truck, resource: "PROCUREMENT", moduleKey: "PROCUREMENT" },
         { labelKey: "nav.purchaseOrders", href: "/dashboard/procurement/orders", icon: PackageOpen, resource: "PROCUREMENT", moduleKey: "PROCUREMENT" },
+        { labelKey: "nav.deliveries", href: "/dashboard/procurement/deliveries", icon: CalendarClock, resource: "PROCUREMENT", moduleKey: "PROCUREMENT" },
         { labelKey: "nav.contractors", href: "/contractors", icon: UserCog, resource: "COMPANY_NETWORK", moduleKey: "COMPANY_NETWORK" },
         { labelKey: "nav.projects", href: "/projects", icon: FolderKanban },
       ],
