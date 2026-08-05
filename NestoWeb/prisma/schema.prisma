@@ -120,6 +120,17 @@ model Tenant {
   journalLines    JournalLine[]
   financeActivity FinanceActivity[]
 
+  // --- PRD_Inventory_Module (additive) ------------------------------------
+  productCategories  ProductCategory[]
+  unitsOfMeasure     UnitOfMeasure[]
+  products           Product[]
+  warehouses         Warehouse[]
+  inventoryLocations InventoryLocation[]
+  inventoryMovements InventoryMovement[]
+  movementLines      MovementLine[]
+  stockBalances      StockBalance[]
+  inventoryActivity  InventoryActivity[]
+
   // --- PRD_6 Public Sign-Up / Platform Approval -------------------------
   profileInvitations ProfileInvitation[]
 
@@ -258,6 +269,12 @@ model UserIdentity {
   journalEntriesCreated JournalEntry[]    @relation("JournalEntryCreatedBy")
   journalEntriesPosted  JournalEntry[]    @relation("JournalEntryPostedBy")
   financeActivityActed  FinanceActivity[] @relation("FinanceActivityActor")
+
+  // --- PRD_Inventory_Module (additive) ------------------------------------
+  warehousesManaged         Warehouse[]         @relation("WarehouseManager")
+  inventoryMovementsPosted  InventoryMovement[] @relation("InventoryMovementPostedBy")
+  inventoryMovementsCreated InventoryMovement[] @relation("InventoryMovementCreatedBy")
+  inventoryActivityActed    InventoryActivity[] @relation("InventoryActivityActor")
 
   // --- PRD_6 Public Sign-Up / Platform Approval -------------------------
   // A single flag on the existing company-scoped identity, not a separate
@@ -3057,4 +3074,224 @@ model PlatformConfigSetting {
 
   @@unique([tenantId, scope, nodeKey])
   @@index([tenantId, companyId])
+}
+
+// ---------------------------------------------------------------------------
+// PRD_Inventory_Module — additive. §65 Data Ownership Rules: Inventory owns
+// stock identity, quantity, location and movements; Procurement owns
+// purchasing (Supplier/PurchaseOrder/ProcurementDelivery already exist,
+// built separately — a Receipt movement here references a delivery by bare
+// sourceModule/sourceId, no Prisma relation, same pattern used everywhere
+// else this session); Finance owns valuation postings (deferred, no
+// InventoryCostLayer yet); Assets owns long-lived assets *after* conversion
+// from inventory (not built here). §21 "Stock balances are derived from
+// immutable movement records ... must always be reproducible" — mirrors the
+// Finance JournalEntry/JournalLine "posted is immutable, only reversible"
+// pattern from the same schema section above.
+//
+// Phase-1 scope: Product master, Categories, a plain Unit of Measure list,
+// Warehouses with an optional bin hierarchy, and the append-only Movement
+// ledger with derived StockBalance. Deferred: UOM conversions, Batch/Lot and
+// Serial tracking, Reservations, Cycle Counts, Reorder Rules, BOM/Kits,
+// costing layers — all specialized extensions on top of this core.
+// ---------------------------------------------------------------------------
+
+// §15 — configurable hierarchy, not an enum.
+model ProductCategory {
+  id        String            @id @default(cuid())
+  tenantId  String
+  tenant    Tenant            @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  code      String
+  name      String
+  parentId  String?
+  parent    ProductCategory?  @relation("ProductCategoryHierarchy", fields: [parentId], references: [id])
+  children  ProductCategory[] @relation("ProductCategoryHierarchy")
+  status    String            @default("ACTIVE")
+  createdAt DateTime          @default(now())
+
+  products Product[]
+
+  @@unique([tenantId, code])
+}
+
+// §14 — kept as a flat lookup for Phase-1; ProductUOM's per-product
+// conversion factors are deferred, so every product's stock is counted in
+// its own baseUom directly.
+model UnitOfMeasure {
+  id        String   @id @default(cuid())
+  tenantId  String
+  tenant    Tenant   @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  name      String
+  symbol    String
+  precision Int      @default(0)
+  createdAt DateTime @default(now())
+
+  products      Product[]
+  movementLines MovementLine[]
+
+  @@unique([tenantId, symbol])
+}
+
+// §13 Product Identity and Master Data.
+model Product {
+  id           String           @id @default(cuid())
+  tenantId     String
+  tenant       Tenant           @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  sku          String
+  name         String
+  description  String?
+  categoryId   String?
+  category     ProductCategory? @relation(fields: [categoryId], references: [id])
+  baseUomId    String?
+  baseUom      UnitOfMeasure?   @relation(fields: [baseUomId], references: [id])
+  // NONE | BATCH | SERIAL — governs which tracking fields a later phase's
+  // movement lines would require; Phase-1 records the intent without
+  // enforcing it (no BatchLot/SerialNumber models yet).
+  trackingType String           @default("NONE")
+  barcode      String?
+  brand        String?
+  status       String           @default("ACTIVE") // ACTIVE | INACTIVE | DISCONTINUED
+  createdAt    DateTime         @default(now())
+
+  movementLines MovementLine[]
+  stockBalances StockBalance[]
+
+  @@unique([tenantId, sku])
+  @@index([tenantId, status])
+}
+
+// §18 Warehouse Model.
+model Warehouse {
+  id        String        @id @default(cuid())
+  tenantId  String
+  tenant    Tenant        @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  code      String
+  name      String
+  address   String?
+  managerId String?
+  manager   UserIdentity? @relation("WarehouseManager", fields: [managerId], references: [id])
+  status    String        @default("ACTIVE")
+  createdAt DateTime      @default(now())
+
+  locations         InventoryLocation[]
+  stockBalances     StockBalance[]
+  movementLinesFrom MovementLine[]      @relation("MovementLineFromWarehouse")
+  movementLinesTo   MovementLine[]      @relation("MovementLineToWarehouse")
+
+  @@unique([tenantId, code])
+}
+
+// §20 — an optional bin/location hierarchy within a warehouse; Phase-1's
+// StockBalance/MovementLine operate at warehouse granularity, this exists
+// so a later phase can drill into locations without a schema change.
+model InventoryLocation {
+  id          String              @id @default(cuid())
+  tenantId    String
+  tenant      Tenant              @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  warehouseId String
+  warehouse   Warehouse           @relation(fields: [warehouseId], references: [id], onDelete: Cascade)
+  parentId    String?
+  parent      InventoryLocation?  @relation("InventoryLocationHierarchy", fields: [parentId], references: [id])
+  children    InventoryLocation[] @relation("InventoryLocationHierarchy")
+  code        String
+  type        String              @default("BIN")
+  status      String              @default("ACTIVE")
+
+  @@unique([warehouseId, code])
+}
+
+// §24/§25/INV-MOV-002 — the movement document header. "Posted stock
+// movements are immutable. Corrections use reversing movements" — the exact
+// same guarantee src/server/finance-module.ts's JournalEntry enforces;
+// postStockMovement()/reverseStockMovement() in src/server/inventory-module.ts
+// mirror postJournalEntry()/reverseJournalEntry() deliberately.
+model InventoryMovement {
+  id                 String             @id @default(cuid())
+  tenantId           String
+  tenant             Tenant             @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  number             String
+  // RECEIPT | ISSUE | TRANSFER | ADJUSTMENT_INCREASE | ADJUSTMENT_DECREASE |
+  // RETURN_IN | RETURN_OUT
+  type               String
+  date               DateTime           @default(now())
+  reason             String?
+  // Where this came from if not entered directly (e.g. "ProcurementDelivery"
+  // + a ProcurementDelivery id) — bare reference, no Prisma relation, same
+  // pattern as every cross-module link this session.
+  sourceModule       String?
+  sourceId           String?
+  status             String             @default("DRAFT") // DRAFT | POSTED | CANCELLED | REVERSED
+  postedAt           DateTime?
+  postedById         String?
+  postedBy           UserIdentity?      @relation("InventoryMovementPostedBy", fields: [postedById], references: [id])
+  reversesMovementId String?            @unique
+  reversesMovement   InventoryMovement? @relation("InventoryMovementReversal", fields: [reversesMovementId], references: [id])
+  reversedBy         InventoryMovement? @relation("InventoryMovementReversal")
+  createdById        String
+  createdBy          UserIdentity       @relation("InventoryMovementCreatedBy", fields: [createdById], references: [id])
+  createdAt          DateTime           @default(now())
+
+  lines MovementLine[]
+
+  @@unique([tenantId, number])
+  @@index([tenantId, status])
+}
+
+// §24 MovementLine — one product quantity moving between warehouses (or
+// receiving into / issuing out of one, when the other side is null).
+model MovementLine {
+  id              String            @id @default(cuid())
+  tenantId        String
+  tenant          Tenant            @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  movementId      String
+  movement        InventoryMovement @relation(fields: [movementId], references: [id], onDelete: Cascade)
+  productId       String
+  product         Product           @relation(fields: [productId], references: [id])
+  qty             Float
+  uomId           String?
+  uom             UnitOfMeasure?    @relation(fields: [uomId], references: [id])
+  unitCost        Float?
+  fromWarehouseId String?
+  fromWarehouse   Warehouse?        @relation("MovementLineFromWarehouse", fields: [fromWarehouseId], references: [id])
+  toWarehouseId   String?
+  toWarehouse     Warehouse?        @relation("MovementLineToWarehouse", fields: [toWarehouseId], references: [id])
+
+  @@index([tenantId, movementId])
+  @@index([tenantId, productId])
+}
+
+// §21/§22 — the cached, derived balance. Always reproducible by replaying
+// posted movements (see recomputeStockBalance() in inventory-module.ts);
+// never the source of truth, only a read-optimized projection of it.
+model StockBalance {
+  id          String    @id @default(cuid())
+  tenantId    String
+  tenant      Tenant    @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  productId   String
+  product     Product   @relation(fields: [productId], references: [id], onDelete: Cascade)
+  warehouseId String
+  warehouse   Warehouse @relation(fields: [warehouseId], references: [id], onDelete: Cascade)
+  onHand      Float     @default(0)
+  reserved    Float     @default(0)
+  blocked     Float     @default(0)
+  updatedAt   DateTime  @updatedAt
+
+  @@unique([productId, warehouseId])
+  @@index([tenantId, warehouseId])
+}
+
+// Audit timeline — same pattern as Contract/Document/Task/Finance.
+model InventoryActivity {
+  id         String        @id @default(cuid())
+  tenantId   String
+  tenant     Tenant        @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  entityType String // "InventoryMovement" | "Product" | "Warehouse"
+  entityId   String
+  actorId    String?
+  actor      UserIdentity? @relation("InventoryActivityActor", fields: [actorId], references: [id])
+  eventType  String
+  summary    String
+  createdAt  DateTime      @default(now())
+
+  @@index([tenantId, entityType, entityId])
 }

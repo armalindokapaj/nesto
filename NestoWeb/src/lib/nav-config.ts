@@ -42,6 +42,7 @@ import {
   Landmark,
   CalendarRange,
   NotebookPen,
+  Package,
 } from "lucide-react";
 import { can, DASHBOARD_BY_ROLE, type Resource, type Level } from "@/lib/permissions";
 import type { Role } from "@/lib/constants";
@@ -164,6 +165,7 @@ export const NAV_SECTIONS: Record<string, NavSection[]> = {
         { labelKey: "nav.clients", href: "/clients", icon: Handshake, resource: "CLIENTS", moduleKey: "CLIENTS" },
         { labelKey: "nav.contractors", href: "/contractors", icon: UserCog, resource: "COMPANY_NETWORK", moduleKey: "COMPANY_NETWORK" },
         { labelKey: "nav.procurement", href: "/dashboard/procurement", icon: Truck, resource: "PROCUREMENT", moduleKey: "PROCUREMENT" },
+        { labelKey: "nav.inventory", href: "/dashboard/inventory/products", icon: Package, resource: "PROCUREMENT", moduleKey: "PROCUREMENT" },
       ],
     },
     {
