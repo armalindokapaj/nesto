@@ -242,14 +242,18 @@ export async function createCustomFolder(
  * its Passport metadata backfilled and a folder reference generated, so the
  * Documents Module shows the tenant's real corpus rather than an empty list.
  *
- * Idempotent and additive: rows already carrying a `documentId` are skipped,
- * and the DocumentFile rows themselves are never rewritten beyond gaining the
- * back-reference — the frozen Projects code keeps reading them unchanged.
+ * Also doubles as the ongoing sync for uploads/revisions that still go
+ * through the legacy `src/server/documents.ts` actions (which know nothing
+ * of Document Passports): safe to call on every page load, not just once.
+ * Walking a revision's `supersedesId` chain stops the moment it reaches a
+ * revision that already has a `documentId` — that lineage already has a
+ * Passport, so the new revision(s) are attached to *that* Document instead
+ * of minting a duplicate one.
  */
 export async function backfillDocumentRecords(tenantId: string) {
   const orphans = await db.documentFile.findMany({
-    // Only heads of a revision chain become Documents; earlier revisions are
-    // attached to the same Document below by walking `supersedesId`.
+    // Only heads of a revision chain are considered; earlier revisions are
+    // picked up below by walking `supersedesId`.
     where: { tenantId, documentId: null, supersededBy: null },
     include: { project: { select: { id: true, name: true } } },
     orderBy: { createdAt: "asc" },
@@ -265,6 +269,51 @@ export async function backfillDocumentRecords(tenantId: string) {
 
   let adopted = 0;
   for (const file of orphans) {
+    // Walk backwards through supersedesId, collecting revisions that have no
+    // Passport yet. Stop as soon as an already-adopted ancestor is found —
+    // its documentId is the Document this new revision belongs to.
+    const newRevisionIds: string[] = [file.id];
+    let existingDocumentId: string | null = null;
+    let cursor: { id: string; supersedesId: string | null } | null = file;
+    while (cursor?.supersedesId) {
+      const prev: { id: string; supersedesId: string | null; documentId: string | null } | null =
+        await db.documentFile.findUnique({
+          where: { id: cursor.supersedesId },
+          select: { id: true, supersedesId: true, documentId: true },
+        });
+      if (!prev) break;
+      if (prev.documentId) {
+        existingDocumentId = prev.documentId;
+        break;
+      }
+      newRevisionIds.unshift(prev.id);
+      cursor = { id: prev.id, supersedesId: prev.supersedesId };
+    }
+
+    if (existingDocumentId) {
+      // A later revision on an already-adopted lineage — extend it.
+      const existing = await db.document.findUnique({
+        where: { id: existingDocumentId },
+        select: { id: true, _count: { select: { revisions: true } } },
+      });
+      if (!existing) continue;
+      let nextIndex = existing._count.revisions;
+      for (const revisionId of newRevisionIds) {
+        await db.documentFile.update({
+          where: { id: revisionId },
+          data: { documentId: existing.id, revisionCode: `R${String(nextIndex).padStart(2, "0")}` },
+        });
+        nextIndex += 1;
+      }
+      // §14 — a new revision never inherits Approved/Issued status.
+      await db.document.update({
+        where: { id: existing.id },
+        data: { currentRevisionId: file.id, status: STATUS_AFTER_NEW_REVISION },
+      });
+      adopted += 1;
+      continue;
+    }
+
     // Route each legacy attachment to the root matching the record it hangs
     // off, mirroring §9's default structure.
     const folderId =
@@ -313,20 +362,10 @@ export async function backfillDocumentRecords(tenantId: string) {
       revisionFileId: file.id,
     });
 
-    // Walk the existing supersedes chain backwards so historical revisions
-    // join the same Document, numbered oldest-first.
-    const chain: string[] = [file.id];
-    let cursor: { id: string; supersedesId: string | null } | null = file;
-    while (cursor?.supersedesId) {
-      const prev: { id: string; supersedesId: string | null } | null = await db.documentFile.findUnique({
-        where: { id: cursor.supersedesId },
-        select: { id: true, supersedesId: true },
-      });
-      if (!prev) break;
-      chain.unshift(prev.id);
-      cursor = prev;
-    }
-    for (const [index, revisionId] of chain.entries()) {
+    // Number the newly-adopted chain oldest-first (createDocumentRecord
+    // already stamped `file` itself as R00; this corrects it if it wasn't
+    // actually the oldest revision).
+    for (const [index, revisionId] of newRevisionIds.entries()) {
       await db.documentFile.update({
         where: { id: revisionId },
         data: { documentId: document.id, revisionCode: `R${String(index).padStart(2, "0")}` },
@@ -400,9 +439,14 @@ export async function listModuleDocuments(
     status?: string;
     docType?: string;
     take?: number;
+    // Back-compat with the pre-module task filter (`/documents?taskId=`,
+    // still linked from the frozen Projects task badge) and any other
+    // link-based filter a future module page wants to reuse.
+    linkEntityType?: string;
+    linkEntityId?: string;
   } = {}
 ) {
-  const { folderId, scope = "ALL", search, status, docType, take = 100 } = opts;
+  const { folderId, scope = "ALL", search, status, docType, take = 100, linkEntityType, linkEntityId } = opts;
 
   const where: Record<string, unknown> = { tenantId };
 
@@ -412,6 +456,7 @@ export async function listModuleDocuments(
   if (folderId) where.folderRefs = { some: { folderId } };
   if (status) where.status = status;
   if (docType) where.docType = docType;
+  if (linkEntityType && linkEntityId) where.links = { some: { entityType: linkEntityType, entityId: linkEntityId } };
 
   switch (scope) {
     case "STARRED":
@@ -763,4 +808,34 @@ export async function attachRevision(
     include: { document: { select: { id: true, title: true } } },
   });
   return { impacted: dependents.map((d) => d.document) };
+}
+
+/** A comment on the Passport itself — distinct from a revision's approval decision. */
+export async function addDocumentComment(
+  tenantId: string,
+  input: { documentId: string; authorId: string; body: string }
+) {
+  const body = input.body.trim();
+  if (!body) throw new Error("Comment cannot be empty.");
+  assertTenant(await db.document.findUnique({ where: { id: input.documentId } }), tenantId, "Document");
+
+  const comment = await db.documentComment.create({
+    data: { tenantId, documentId: input.documentId, authorId: input.authorId, body },
+  });
+  await logActivity({
+    tenantId,
+    documentId: input.documentId,
+    actorId: input.authorId,
+    eventType: "COMMENTED",
+    summary: "Comment added",
+  });
+  return comment;
+}
+
+/** Flattens the folder tree into an ordered, depth-labelled list for `<select>` pickers. */
+export function flattenFolders<T extends { id: string; name: string; children: T[] }>(
+  roots: T[],
+  depth = 0
+): { id: string; name: string; depth: number }[] {
+  return roots.flatMap((f) => [{ id: f.id, name: f.name, depth }, ...flattenFolders(f.children, depth + 1)]);
 }

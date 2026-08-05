@@ -230,6 +230,13 @@ export const STATUS_TONE: Record<string, "success" | "warning" | "danger" | "inf
   COMMENT_ONLY: "neutral",
   REDIRECTED: "neutral",
 
+  // --- PRD_Documents_Module (§14 lifecycle) ------------------------------
+  TRANZIT: "neutral",
+  INTERNAL_REVIEW: "info",
+  AWAITING_APPROVAL: "warning",
+  ISSUED: "success",
+  VOID: "danger",
+
   // --- PRD_6 Public Sign-Up / Platform Approval --------------------------
   EMAIL_VERIFICATION_REQUIRED: "warning",
   PROFILE_INCOMPLETE: "warning",

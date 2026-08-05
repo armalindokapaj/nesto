@@ -233,6 +233,9 @@ export async function requestDocumentApproval(
 
   const eventId = await db.$transaction(async (tx) => {
     await tx.documentFile.update({ where: { id: documentFileId }, data: { status: "SUBMITTED" } });
+    if (doc.documentId) {
+      await tx.document.update({ where: { id: doc.documentId }, data: { status: "AWAITING_APPROVAL" } });
+    }
 
     await tx.notification.create({
       data: {
@@ -311,6 +314,18 @@ export async function decideDocumentApproval(
         ...(decision === "APPROVE" ? { approvedAt: new Date(), approvedById: approverId } : {}),
       },
     });
+
+    // Keep the Document Passport's §14 lifecycle status (a distinct
+    // vocabulary from this revision's own status) in sync when this
+    // revision has been adopted into one — see documents-module.ts.
+    if (doc.documentId) {
+      await tx.document.update({
+        where: { id: doc.documentId },
+        data: {
+          status: decision === "APPROVE" ? "APPROVED" : decision === "REQUEST_CHANGES" ? "NEEDS_REVISION" : "REJECTED",
+        },
+      });
+    }
 
     await tx.timelineEvent.create({
       data: {

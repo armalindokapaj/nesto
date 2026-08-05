@@ -12,6 +12,7 @@ import {
   promoteFromTranzit,
   archiveDocument,
   restoreDocument,
+  addDocumentComment,
 } from "@/server/documents-module";
 
 // PRD_Documents_Module — module-level actions (folders, shortcuts, Star,
@@ -152,4 +153,29 @@ export async function restoreDocumentAction(documentId: string) {
   await restoreDocument(tenantId, documentId, user.id);
   revalidatePath("/documents");
   revalidatePath(`/documents/${documentId}`);
+}
+
+const CommentSchema = z.object({
+  documentId: z.string().min(1),
+  body: z.string().min(1, "Write a comment first"),
+});
+
+export async function addDocumentCommentAction(_prev: ActionState, formData: FormData): Promise<ActionState> {
+  const { tenantId, role, user } = await getCurrentUser();
+  const parsed = CommentSchema.safeParse({
+    documentId: formData.get("documentId"),
+    body: formData.get("body"),
+  });
+  if (!parsed.success) return { error: parsed.error.issues[0]?.message ?? "Invalid input" };
+
+  try {
+    // A comment is discussion, not a controlled change — READ access is enough.
+    if (!can(role, "DOCUMENTS", "READ")) throw new Error("Not authorized");
+    await addDocumentComment(tenantId, { documentId: parsed.data.documentId, authorId: user.id, body: parsed.data.body });
+  } catch (error) {
+    return { error: error instanceof Error ? error.message : "Could not add comment" };
+  }
+
+  revalidatePath(`/documents/${parsed.data.documentId}`);
+  return { ok: true };
 }
