@@ -5,6 +5,7 @@ import {
   CONFIG_NODES,
   buildConfigResolver,
   disabledRoutes,
+  getAncestorKeys,
   type ConfigOverrides,
   type ConfigResolver,
 } from "@/lib/platform-config";
@@ -63,14 +64,26 @@ export async function getDisabledRoutes(tenantId: string, companyId?: string | n
 export async function getConfigCatalogState(tenantId: string, companyId?: string | null) {
   const overrides = await loadConfigOverrides(tenantId, companyId);
   const resolve = buildConfigResolver(overrides);
-  return CONFIG_NODES.map((node) => ({
-    ...node,
-    enabled: resolve(node.key),
-    // Distinguishes "off because someone switched this off" from "off because
-    // an ancestor is off", so the settings UI can explain why.
-    explicitlySet:
-      (overrides.company && node.key in overrides.company) || node.key in overrides.tenant,
-  }));
+
+  const ownState = (key: string): boolean => {
+    if (overrides.company && key in overrides.company) return overrides.company[key]!;
+    if (key in overrides.tenant) return overrides.tenant[key]!;
+    return true;
+  };
+
+  return CONFIG_NODES.map((node) => {
+    const enabled = resolve(node.key);
+    return {
+      ...node,
+      enabled,
+      // Distinguishes "off because someone switched this off" from "off because
+      // an ancestor is off", so the settings UI can explain why rather than
+      // offering a toggle that would appear to do nothing.
+      explicitlySet: (overrides.company && node.key in overrides.company) || node.key in overrides.tenant,
+      inheritedOff: !enabled && ownState(node.key),
+      depth: getAncestorKeys(node.key).length,
+    };
+  });
 }
 
 export async function setConfigNodeEnabled(input: {

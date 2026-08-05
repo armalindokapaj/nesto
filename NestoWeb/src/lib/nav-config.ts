@@ -38,6 +38,7 @@ import {
   PackageOpen,
   Workflow,
   Contact,
+  SlidersHorizontal,
 } from "lucide-react";
 import { can, DASHBOARD_BY_ROLE, type Resource, type Level } from "@/lib/permissions";
 import type { Role } from "@/lib/constants";
@@ -118,6 +119,9 @@ export const NAV_SECTIONS: Record<string, NavSection[]> = {
       items: [
         { labelKey: "nav.companyProfile", href: "/company", icon: Building2, resource: "COMPANY_SETTINGS" },
         { labelKey: "nav.subscription", href: "/dashboard/admin/subscription", icon: CreditCard, resource: "USER_MANAGEMENT" },
+        // Platform Configuration — deliberately gated on COMPANY_SETTINGS, the
+        // same gate the page and the toggle action enforce.
+        { labelKey: "nav.platformConfiguration", href: "/dashboard/admin/configuration", icon: SlidersHorizontal, resource: "COMPANY_SETTINGS", level: "FULL" },
         { labelKey: "nav.integrations", href: "/dashboard/admin/integrations", icon: Plug, resource: "USER_MANAGEMENT" },
         { labelKey: "nav.security", href: "/dashboard/admin/security", icon: Lock, resource: "USER_MANAGEMENT" },
         { labelKey: "nav.auditLogs", href: "/dashboard/admin/audit", icon: ScrollText, resource: "AUDIT_LOGS" },
