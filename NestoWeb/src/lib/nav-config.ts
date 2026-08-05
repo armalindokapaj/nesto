@@ -39,6 +39,9 @@ import {
   Workflow,
   Contact,
   SlidersHorizontal,
+  Landmark,
+  CalendarRange,
+  NotebookPen,
 } from "lucide-react";
 import { can, DASHBOARD_BY_ROLE, type Resource, type Level } from "@/lib/permissions";
 import type { Role } from "@/lib/constants";
@@ -141,6 +144,14 @@ export const NAV_SECTIONS: Record<string, NavSection[]> = {
         { labelKey: "nav.invoices", href: "/dashboard/finance/invoices", icon: FileText, resource: "FINANCE", moduleKey: "FINANCE" },
         { labelKey: "nav.bills", href: "/dashboard/finance/bills", icon: Receipt, resource: "FINANCE", moduleKey: "FINANCE" },
         { labelKey: "nav.payments", href: "/dashboard/finance/payments", icon: ArrowRightLeft, resource: "FINANCE", moduleKey: "FINANCE" },
+      ],
+    },
+    {
+      titleKey: "nav.accountingCore",
+      items: [
+        { labelKey: "nav.chartOfAccounts", href: "/dashboard/finance/accounts", icon: Landmark, resource: "FINANCE", moduleKey: "FINANCE" },
+        { labelKey: "nav.fiscalPeriods", href: "/dashboard/finance/periods", icon: CalendarRange, resource: "FINANCE", moduleKey: "FINANCE" },
+        { labelKey: "nav.journalEntries", href: "/dashboard/finance/journal", icon: NotebookPen, resource: "FINANCE", moduleKey: "FINANCE" },
       ],
     },
     {

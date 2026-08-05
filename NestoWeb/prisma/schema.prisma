@@ -112,6 +112,14 @@ model Tenant {
   contractActivity    ContractActivity[]
   contractStars       ContractStar[]
 
+  // --- PRD_Finance_Module (additive: Accounting Core) --------------------
+  accounts        Account[]
+  costCenters     CostCenter[]
+  fiscalPeriods   FiscalPeriod[]
+  journalEntries  JournalEntry[]
+  journalLines    JournalLine[]
+  financeActivity FinanceActivity[]
+
   // --- PRD_6 Public Sign-Up / Platform Approval -------------------------
   profileInvitations ProfileInvitation[]
 
@@ -245,6 +253,11 @@ model UserIdentity {
   contractObligationsOwned ContractObligation[] @relation("ContractObligationOwner")
   contractActivityActed    ContractActivity[]   @relation("ContractActivityActor")
   contractStars            ContractStar[]       @relation("ContractStarUser")
+
+  // --- PRD_Finance_Module (additive: Accounting Core) --------------------
+  journalEntriesCreated JournalEntry[]    @relation("JournalEntryCreatedBy")
+  journalEntriesPosted  JournalEntry[]    @relation("JournalEntryPostedBy")
+  financeActivityActed  FinanceActivity[] @relation("FinanceActivityActor")
 
   // --- PRD_6 Public Sign-Up / Platform Approval -------------------------
   // A single flag on the existing company-scoped identity, not a separate
@@ -1264,6 +1277,162 @@ model FinanceAccount {
   type     String // OPERATING | PAYROLL | SAVINGS | TAX | PETTY_CASH
   balance  Float
   currency String @default("EUR")
+}
+
+// ---------------------------------------------------------------------------
+// PRD_Finance_Module — additive "Accounting Core" layer (§6-9): Chart of
+// Accounts, Cost Centers, Fiscal Periods and double-entry Journal Entries.
+// FinanceAccount above (bank/cash accounts with a running balance) and
+// Invoice/FinancialLedgerEntry (the Contract-reaction posting pipeline, the
+// tested Audit 2 reference workflow) are both untouched — this is a
+// parallel general ledger for direct entries, not a replacement. §44 Data
+// Ownership Rules: posted entries are never edited directly, only reversed.
+//
+// Deferred: BankAccount/BankTransaction reconciliation (FinanceAccount is
+// today's stand-in), Invoice/InvoiceLine/Payment/PaymentAllocation (the
+// existing Invoice model already covers this differently), Budget/
+// BudgetLine/Forecast/TaxCode/AssetLedger/Loan — all lower priority for a
+// first usable slice.
+// ---------------------------------------------------------------------------
+
+// §7 Chart of Accounts.
+model Account {
+  id                 String    @id @default(cuid())
+  tenantId           String
+  tenant             Tenant    @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  code               String
+  name               String
+  type               String // ASSET | LIABILITY | EQUITY | REVENUE | EXPENSE
+  parentId           String?
+  parent             Account?  @relation("AccountHierarchy", fields: [parentId], references: [id])
+  children           Account[] @relation("AccountHierarchy")
+  normalBalance      String    @default("DEBIT") // DEBIT | CREDIT
+  currency           String    @default("EUR")
+  postingAllowed     Boolean   @default(true)
+  status             String    @default("ACTIVE") // ACTIVE | INACTIVE
+  costCenterRequired Boolean   @default(false)
+  projectRequired    Boolean   @default(false)
+  createdAt          DateTime  @default(now())
+
+  journalLines JournalLine[]
+
+  @@unique([tenantId, code])
+  @@index([tenantId, type])
+}
+
+// A financial dimension (§7 "Cost center requirement"), kept as its own
+// hierarchy rather than overloading Department/Team.
+model CostCenter {
+  id        String       @id @default(cuid())
+  tenantId  String
+  tenant    Tenant       @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  code      String
+  name      String
+  parentId  String?
+  parent    CostCenter?  @relation("CostCenterHierarchy", fields: [parentId], references: [id])
+  children  CostCenter[] @relation("CostCenterHierarchy")
+  status    String       @default("ACTIVE")
+  createdAt DateTime     @default(now())
+
+  journalLines JournalLine[]
+
+  @@unique([tenantId, code])
+}
+
+// §9 Fiscal Years and Periods — journals may only post into OPEN periods.
+model FiscalPeriod {
+  id        String   @id @default(cuid())
+  tenantId  String
+  tenant    Tenant   @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  name      String // e.g. "2026-08"
+  startAt   DateTime
+  endAt     DateTime
+  status    String   @default("OPEN") // OPEN | SOFT_CLOSED | CLOSED | LOCKED
+  createdAt DateTime @default(now())
+
+  journalEntries JournalEntry[]
+
+  @@unique([tenantId, name])
+  @@index([tenantId, status])
+}
+
+// §8 Journal Entries — the accounting document; JournalLine below carries
+// the actual debit/credit postings. "Posted journals are immutable": once
+// status=POSTED, src/server/finance-module.ts refuses further edits to the
+// entry or its lines; only reverseJournalEntry() (a new offsetting entry)
+// is allowed.
+model JournalEntry {
+  id              String        @id @default(cuid())
+  tenantId        String
+  tenant          Tenant        @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  number          String
+  date            DateTime      @default(now())
+  periodId        String
+  period          FiscalPeriod  @relation(fields: [periodId], references: [id])
+  description     String
+  // Where this entry came from, if not entered directly (e.g. "Contract" +
+  // a ContractObligation id) — bare reference, no Prisma relation, same
+  // "source-linked not owned" pattern used across every module this session.
+  sourceModule    String?
+  sourceId        String?
+  status          String        @default("DRAFT") // DRAFT | APPROVED | POSTED | REVERSED
+  postedAt        DateTime?
+  postedById      String?
+  postedBy        UserIdentity? @relation("JournalEntryPostedBy", fields: [postedById], references: [id])
+  reversesEntryId String?       @unique
+  reversesEntry   JournalEntry? @relation("JournalReversal", fields: [reversesEntryId], references: [id])
+  reversedBy      JournalEntry? @relation("JournalReversal")
+  createdById     String
+  createdBy       UserIdentity  @relation("JournalEntryCreatedBy", fields: [createdById], references: [id])
+  createdAt       DateTime      @default(now())
+
+  lines JournalLine[]
+
+  @@unique([tenantId, number])
+  @@index([tenantId, status])
+  @@index([tenantId, periodId])
+}
+
+// §8 Debit/credit line. "Every posted journal must balance: total debits
+// equal total credits" — enforced in src/server/finance-module.ts before a
+// journal is allowed to post, not at the schema level (SQLite has no
+// CHECK-across-rows constraint).
+model JournalLine {
+  id             String       @id @default(cuid())
+  tenantId       String
+  tenant         Tenant       @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  journalEntryId String
+  journalEntry   JournalEntry @relation(fields: [journalEntryId], references: [id], onDelete: Cascade)
+  accountId      String
+  account        Account      @relation(fields: [accountId], references: [id])
+  debit          Float        @default(0)
+  credit         Float        @default(0)
+  currency       String       @default("EUR")
+  costCenterId   String?
+  costCenter     CostCenter?  @relation(fields: [costCenterId], references: [id])
+  // Project dimension — bare id, no relation (Projects is frozen).
+  projectId      String?
+  description    String?
+
+  @@index([tenantId, journalEntryId])
+  @@index([tenantId, accountId])
+}
+
+// §37 Audit — a generic timeline, reused across Finance entities the same
+// way Contract/Task/Document each have their own.
+model FinanceActivity {
+  id         String        @id @default(cuid())
+  tenantId   String
+  tenant     Tenant        @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  entityType String // "JournalEntry" | "Account" | "FiscalPeriod"
+  entityId   String
+  actorId    String?
+  actor      UserIdentity? @relation("FinanceActivityActor", fields: [actorId], references: [id])
+  eventType  String
+  summary    String
+  createdAt  DateTime      @default(now())
+
+  @@index([tenantId, entityType, entityId])
 }
 
 model Invoice {
