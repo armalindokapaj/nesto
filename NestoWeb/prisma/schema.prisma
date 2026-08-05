@@ -147,6 +147,25 @@ model Tenant {
   folders   Folder[]
   documents Document[]
 
+  // --- PRD_HR_Payroll_Workforce (additive: EmploymentRelationship) --------
+  employmentRelationships EmploymentRelationship[]
+  hrActivities            HrActivity[]
+
+  // --- PRD_Government_Legal_Compliance (additive) -------------------------
+  legalAuthorities       LegalAuthority[]
+  permits                Permit[]
+  permitConditions       PermitCondition[]
+  permitAmendments       PermitAmendment[]
+  legalReadinessStatuses LegalReadinessStatus[]
+  legalActivities        LegalActivity[]
+
+  // --- PRD_HSE_Module (additive) -------------------------------------------
+  hazards         Hazard[]
+  riskAssessments RiskAssessment[]
+  permitsToWork   PermitToWork[]
+  stopWorkOrders  StopWorkOrder[]
+  hseActivities   HseActivity[]
+
   // --- Platform Configuration ----------------------------------------------
   platformConfigSettings PlatformConfigSetting[]
 }
@@ -170,6 +189,9 @@ model Company {
   branches Branch[]
   projects Project[]
   units    Unit[]
+
+  // --- PRD_HR_Payroll_Workforce (additive) ---------------------------------
+  employmentRelationships EmploymentRelationship[]
 
   // --- Platform Configuration ----------------------------------------------
   platformConfigSettings PlatformConfigSetting[]
@@ -320,6 +342,26 @@ model UserIdentity {
   documentFavorites    DocumentFavorite[]    @relation("DocumentFavoriteUser")
   documentReadReceipts DocumentReadReceipt[] @relation("DocumentReadReceiptUser")
   documentActivities   DocumentActivity[]    @relation("DocumentActivityActor")
+
+  // --- PRD_HR_Payroll_Workforce (additive) ---------------------------------
+  employmentRelationshipsCreated EmploymentRelationship[] @relation("EmploymentRelationshipCreatedBy")
+  hrActivityActed                HrActivity[]             @relation("HrActivityActor")
+
+  // --- PRD_Government_Legal_Compliance (additive) --------------------------
+  permitsCreated            Permit[]               @relation("PermitCreatedBy")
+  permitAmendmentsCreated   PermitAmendment[]      @relation("PermitAmendmentCreatedBy")
+  legalReadinessStatusesSet LegalReadinessStatus[] @relation("LegalReadinessSetBy")
+  legalActivityActed        LegalActivity[]        @relation("LegalActivityActor")
+
+  // --- PRD_HSE_Module (additive) --------------------------------------------
+  hazardsIdentified       Hazard[]         @relation("HazardIdentifiedBy")
+  riskAssessmentsApproved RiskAssessment[] @relation("RiskAssessmentApprovedBy")
+  riskAssessmentsCreated  RiskAssessment[] @relation("RiskAssessmentCreatedBy")
+  permitsToWorkRequested  PermitToWork[]   @relation("PermitToWorkRequestedBy")
+  permitsToWorkIssued     PermitToWork[]   @relation("PermitToWorkIssuedBy")
+  stopWorkOrdersIssued    StopWorkOrder[]  @relation("StopWorkIssuedBy")
+  stopWorkOrdersReleased  StopWorkOrder[]  @relation("StopWorkReleasedBy")
+  hseActivityActed        HseActivity[]    @relation("HseActivityActor")
 }
 
 // Links an identity to a tenant workspace with a role, department and access mode.
@@ -1518,6 +1560,10 @@ model Employee {
   // even the employee themselves sees this (unlike Work Contract/CV).
   salaryRecords SalaryRecord[]
   trainings     EmployeeTraining[]
+
+  // --- PRD_HR_Payroll_Workforce (additive: EmploymentRelationship) --------
+  employmentRelationships EmploymentRelationship[]
+  reportsToRelationships  EmploymentRelationship[] @relation("EmploymentReportsTo")
 
   @@index([tenantId, department])
 }
@@ -3289,6 +3335,302 @@ model InventoryActivity {
   entityId   String
   actorId    String?
   actor      UserIdentity? @relation("InventoryActivityActor", fields: [actorId], references: [id])
+  eventType  String
+  summary    String
+  createdAt  DateTime      @default(now())
+
+  @@index([tenantId, entityType, entityId])
+}
+
+// ---------------------------------------------------------------------------
+// PRD_HR_Payroll_Workforce — Phase 1 (HR foundation). Additive alongside the
+// existing Employee/SalaryRecord/LeaveRequest/EmployeeTraining rows — those
+// keep working unchanged. This adds the PRD's effective-dated employment
+// core: "HR governs employment" as a permanently separate concern from
+// Payroll (calculates compensation — not built here, Phase 3 in the PRD's own
+// sequencing) and from the public professional profile (ProfessionalProfile
+// — "who this person is"). Confidentiality is permission-ready
+// (confidentialityZone) but only coarse HR/FULL gating is enforced in Phase 1
+// (module_prd_conventions rule 2).
+// ---------------------------------------------------------------------------
+
+model EmploymentRelationship {
+  id         String   @id @default(cuid())
+  tenantId   String
+  tenant     Tenant   @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  employeeId String
+  employee   Employee @relation(fields: [employeeId], references: [id], onDelete: Cascade)
+  companyId  String?
+  company    Company? @relation(fields: [companyId], references: [id])
+
+  employmentType String @default("EMPLOYEE") // EMPLOYEE | CONTRACTOR | EXTERNAL
+  contractType   String @default("FULL_TIME") // FULL_TIME | PART_TIME | FIXED_TERM | SEASONAL
+  jobTitle       String
+  department     String
+  reportsToId    String?
+  reportsTo      Employee? @relation("EmploymentReportsTo", fields: [reportsToId], references: [id])
+
+  effectiveStartDate DateTime
+  effectiveEndDate   DateTime?
+  status             String    @default("ACTIVE") // ACTIVE | SUSPENDED | TRANSFERRED | TERMINATED
+
+  // Intercompany transfer creates a NEW relationship, never mutates the old
+  // one — this link preserves the chain for history/reporting.
+  transferredFromId String?                 @unique
+  transferredFrom   EmploymentRelationship? @relation("EmploymentTransfer", fields: [transferredFromId], references: [id])
+  transferredTo     EmploymentRelationship? @relation("EmploymentTransfer")
+
+  confidentialityZone String  @default("INTERNAL_PROFESSIONAL") // PUBLIC_PROFESSIONAL | INTERNAL_PROFESSIONAL | HR_CONFIDENTIAL
+  notes                String?
+
+  createdById String
+  createdBy   UserIdentity @relation("EmploymentRelationshipCreatedBy", fields: [createdById], references: [id])
+  createdAt   DateTime     @default(now())
+  updatedAt   DateTime     @updatedAt
+
+  @@index([tenantId, employeeId])
+  @@index([tenantId, status])
+}
+
+model HrActivity {
+  id         String        @id @default(cuid())
+  tenantId   String
+  tenant     Tenant        @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  entityType String // "EmploymentRelationship" | "Employee"
+  entityId   String
+  actorId    String?
+  actor      UserIdentity? @relation("HrActivityActor", fields: [actorId], references: [id])
+  eventType  String
+  summary    String
+  createdAt  DateTime      @default(now())
+
+  @@index([tenantId, entityType, entityId])
+}
+
+// ---------------------------------------------------------------------------
+// PRD_Government_Legal_Compliance — Phase 1 (regulatory/permits foundation).
+// New domain, no prior code. Projects module is FROZEN (projects_module_frozen)
+// — every projectId below is a plain scalar reference, never a Prisma
+// relation, so nothing here touches the Project model. "Files are evidence,
+// not the business object": structured permit/authority data lives here; any
+// scanned document stays a linked DocumentFile.
+// ---------------------------------------------------------------------------
+
+model LegalAuthority {
+  id          String   @id @default(cuid())
+  tenantId    String
+  tenant      Tenant   @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  name        String
+  category    String   @default("MUNICIPAL") // MUNICIPAL | NATIONAL | UTILITY | FIRE | ENVIRONMENTAL | OTHER
+  contactInfo String?
+  createdAt   DateTime @default(now())
+
+  permits Permit[]
+
+  @@index([tenantId])
+}
+
+// Immutable once ISSUED — corrections happen via a new PermitAmendment row,
+// never by editing these fields in place ("no silent overwrites").
+model Permit {
+  id          String         @id @default(cuid())
+  tenantId    String
+  tenant      Tenant         @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  projectId   String // scalar reference only — Projects module is frozen
+  authorityId String
+  authority   LegalAuthority @relation(fields: [authorityId], references: [id])
+
+  permitType           String // BUILDING | ENVIRONMENTAL | OCCUPANCY | DEMOLITION | UTILITY_CONNECTION | OTHER
+  referenceNumber      String?
+  status               String    @default("DRAFT") // DRAFT | SUBMITTED | ISSUED | REJECTED | EXPIRED | REVOKED
+  issuedDate           DateTime?
+  expiryDate           DateTime?
+  confidentialityLevel String    @default("STANDARD") // STANDARD | RESTRICTED | CONFIDENTIAL
+
+  createdById String
+  createdBy   UserIdentity @relation("PermitCreatedBy", fields: [createdById], references: [id])
+  createdAt   DateTime     @default(now())
+  updatedAt   DateTime     @updatedAt
+
+  conditions PermitCondition[]
+  amendments PermitAmendment[]
+
+  @@index([tenantId, projectId])
+  @@index([tenantId, status])
+}
+
+model PermitCondition {
+  id          String    @id @default(cuid())
+  tenantId    String
+  tenant      Tenant    @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  permitId    String
+  permit      Permit    @relation(fields: [permitId], references: [id], onDelete: Cascade)
+  description String
+  dueDate     DateTime?
+  status      String    @default("OPEN") // OPEN | SATISFIED | OVERDUE
+  createdAt   DateTime  @default(now())
+
+  @@index([tenantId, permitId])
+}
+
+model PermitAmendment {
+  id            String       @id @default(cuid())
+  tenantId      String
+  tenant        Tenant       @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  permitId      String
+  permit        Permit       @relation(fields: [permitId], references: [id], onDelete: Cascade)
+  description   String
+  newExpiryDate DateTime?
+  createdById   String
+  createdBy     UserIdentity @relation("PermitAmendmentCreatedBy", fields: [createdById], references: [id])
+  createdAt     DateTime     @default(now())
+
+  @@index([tenantId, permitId])
+}
+
+// One row per project — the cached Legal Readiness Gate that Work Progress /
+// Projects are meant to check before allowing work. Phase 1: settable by a
+// Legal-permissioned user (manual) — the PRD's full automatic engine is later
+// work. READY | READY_WITH_CONDITIONS | RESTRICTED | BLOCKED | UNKNOWN.
+model LegalReadinessStatus {
+  id        String        @id @default(cuid())
+  tenantId  String
+  tenant    Tenant        @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  projectId String        @unique // scalar reference only — Projects module is frozen
+  status    String        @default("UNKNOWN")
+  reason    String?
+  setById   String?
+  setBy     UserIdentity? @relation("LegalReadinessSetBy", fields: [setById], references: [id])
+  updatedAt DateTime      @updatedAt
+
+  @@index([tenantId])
+}
+
+model LegalActivity {
+  id         String        @id @default(cuid())
+  tenantId   String
+  tenant     Tenant        @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  entityType String // "Permit" | "LegalAuthority" | "LegalReadinessStatus"
+  entityId   String
+  actorId    String?
+  actor      UserIdentity? @relation("LegalActivityActor", fields: [actorId], references: [id])
+  eventType  String
+  summary    String
+  createdAt  DateTime      @default(now())
+
+  @@index([tenantId, entityType, entityId])
+}
+
+// ---------------------------------------------------------------------------
+// PRD_HSE_Module — Phase 1 (hazards, risk assessments, permits-to-work,
+// stop-work). Additive alongside the existing HseReport (incident reports,
+// kept as-is). projectId below is a plain scalar reference — Projects is
+// frozen. Reuses the existing HSE_REPORTS resource for gating (the whole HSE
+// domain now, not just reports — see permissions.ts).
+// ---------------------------------------------------------------------------
+
+model Hazard {
+  id             String       @id @default(cuid())
+  tenantId       String
+  tenant         Tenant       @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  projectId      String
+  title          String
+  description    String
+  category       String       @default("GENERAL") // GENERAL | ELECTRICAL | HEIGHT | CONFINED_SPACE | CHEMICAL | MECHANICAL | ENVIRONMENTAL
+  likelihood     String       @default("POSSIBLE") // RARE | UNLIKELY | POSSIBLE | LIKELY | ALMOST_CERTAIN
+  severity       String       @default("MODERATE") // MINOR | MODERATE | MAJOR | CATASTROPHIC
+  // Hierarchy of Controls — critical rule: must not default to PPE when a
+  // stronger control is available. Highest control actually applied.
+  controlLevel   String       @default("ADMINISTRATIVE") // ELIMINATE | SUBSTITUTE | ENGINEERING | ADMINISTRATIVE | PPE
+  controlNotes   String?
+  status         String       @default("OPEN") // OPEN | CONTROLLED | CLOSED
+  identifiedById String
+  identifiedBy   UserIdentity @relation("HazardIdentifiedBy", fields: [identifiedById], references: [id])
+  createdAt      DateTime     @default(now())
+  updatedAt      DateTime     @updatedAt
+
+  riskAssessments RiskAssessment[]
+
+  @@index([tenantId, projectId])
+  @@index([tenantId, status])
+}
+
+model RiskAssessment {
+  id           String        @id @default(cuid())
+  tenantId     String
+  tenant       Tenant        @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  projectId    String
+  hazardId     String?
+  hazard       Hazard?       @relation(fields: [hazardId], references: [id])
+  title        String
+  status       String        @default("DRAFT") // DRAFT | APPROVED | EXPIRED
+  validFrom    DateTime?
+  validTo      DateTime?
+  approvedById String?
+  approvedBy   UserIdentity? @relation("RiskAssessmentApprovedBy", fields: [approvedById], references: [id])
+  createdById  String
+  createdBy    UserIdentity  @relation("RiskAssessmentCreatedBy", fields: [createdById], references: [id])
+  createdAt    DateTime      @default(now())
+  updatedAt    DateTime      @updatedAt
+
+  @@index([tenantId, projectId])
+  @@index([tenantId, status])
+}
+
+model PermitToWork {
+  id            String        @id @default(cuid())
+  tenantId      String
+  tenant        Tenant        @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  projectId     String
+  permitType    String // HOT_WORK | CONFINED_SPACE_ENTRY | WORKING_AT_HEIGHT | EXCAVATION | ELECTRICAL_ISOLATION | LIFTING | RADIOGRAPHY | DEMOLITION | OTHER
+  status        String        @default("DRAFT") // DRAFT | ACTIVE | SUSPENDED | CLOSED | EXPIRED
+  description   String?
+  validFrom     DateTime?
+  validTo       DateTime?
+  requestedById String
+  requestedBy   UserIdentity  @relation("PermitToWorkRequestedBy", fields: [requestedById], references: [id])
+  issuedById    String?
+  issuedBy      UserIdentity? @relation("PermitToWorkIssuedBy", fields: [issuedById], references: [id])
+  createdAt     DateTime      @default(now())
+  updatedAt     DateTime      @updatedAt
+
+  @@index([tenantId, projectId])
+  @@index([tenantId, status])
+}
+
+// Can block scope at project / zone / work-package / contractor / asset /
+// permit / activity / material granularity — scopeRef is a free-text pointer
+// (no hard FK; the referenced record may live in any module) for Phase 1.
+// Cannot be silently released: release requires releasedById + releasedAt.
+model StopWorkOrder {
+  id           String        @id @default(cuid())
+  tenantId     String
+  tenant       Tenant        @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  projectId    String
+  scopeType    String        @default("PROJECT") // PROJECT | ZONE | WORK_PACKAGE | CONTRACTOR | ASSET | PERMIT | ACTIVITY | MATERIAL
+  scopeRef     String?
+  reason       String
+  status       String        @default("ACTIVE") // ACTIVE | RELEASED
+  issuedById   String
+  issuedBy     UserIdentity  @relation("StopWorkIssuedBy", fields: [issuedById], references: [id])
+  issuedAt     DateTime      @default(now())
+  releasedById String?
+  releasedBy   UserIdentity? @relation("StopWorkReleasedBy", fields: [releasedById], references: [id])
+  releasedAt   DateTime?
+  releaseNotes String?
+
+  @@index([tenantId, projectId])
+  @@index([tenantId, status])
+}
+
+model HseActivity {
+  id         String        @id @default(cuid())
+  tenantId   String
+  tenant     Tenant        @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  entityType String // "Hazard" | "RiskAssessment" | "PermitToWork" | "StopWorkOrder" | "HseReport"
+  entityId   String
+  actorId    String?
+  actor      UserIdentity? @relation("HseActivityActor", fields: [actorId], references: [id])
   eventType  String
   summary    String
   createdAt  DateTime      @default(now())
