@@ -1,4 +1,6 @@
 import { db } from "@/lib/db";
+import { can } from "@/lib/permissions";
+import type { Role } from "@/lib/constants";
 
 export async function getHrDashboardData(tenantId: string) {
   const [employees, leaveRequests] = await Promise.all([
@@ -92,6 +94,136 @@ export async function cancelApprovedLeave(tenantId: string, decidedById: string,
   if (!leave || leave.tenantId !== tenantId) throw new Error("Leave request not found.");
   if (leave.status !== "APPROVED") throw new Error("Only an approved leave entry can be cancelled.");
   return db.leaveRequest.update({ where: { id: leaveRequestId }, data: { status: "CANCELLED", decidedById } });
+}
+
+// ---------------------------------------------------------------------------
+// PRD_HR_Payroll_Workforce — Phase 1 (EmploymentRelationship). "HR governs
+// employment" as an effective-dated timeline, separate from the Employee
+// row's plain position/department strings and from Payroll (not built —
+// Phase 3 in the PRD's own sequencing). See prd_hr_payroll_workforce_module
+// memory for the full spec; this is deliberately just the foundation.
+// ---------------------------------------------------------------------------
+
+export async function getEmploymentRelationships(tenantId: string, employeeId: string) {
+  return db.employmentRelationship.findMany({
+    where: { tenantId, employeeId },
+    include: { reportsTo: true, company: true, createdBy: true, transferredFrom: true },
+    orderBy: { effectiveStartDate: "desc" },
+  });
+}
+
+// Employment changes never edit a live row — they close the current ACTIVE
+// one (if any) and open a new one, linked via transferredFromId when the
+// PRD's "intercompany transfer" flag is set ("creates a NEW employment
+// relationship rather than mutating the old one"). This is the PRD's
+// "changes create new dated records, never overwrite" rule for employment.
+export async function recordEmploymentChange(
+  tenantId: string,
+  employeeId: string,
+  createdById: string,
+  input: {
+    employmentType: string;
+    contractType: string;
+    jobTitle: string;
+    department: string;
+    reportsToId?: string;
+    companyId?: string;
+    effectiveStartDate: Date;
+    confidentialityZone?: string;
+    notes?: string;
+    isTransfer?: boolean;
+  }
+) {
+  const employee = await db.employee.findUnique({ where: { id: employeeId } });
+  if (!employee || employee.tenantId !== tenantId) throw new Error("Employee not found.");
+
+  return db.$transaction(async (tx) => {
+    const current = await tx.employmentRelationship.findFirst({
+      where: { tenantId, employeeId, status: "ACTIVE" },
+      orderBy: { effectiveStartDate: "desc" },
+    });
+
+    let transferredFromId: string | undefined;
+    if (current) {
+      await tx.employmentRelationship.update({
+        where: { id: current.id },
+        data: {
+          status: input.isTransfer ? "TRANSFERRED" : "SUSPENDED",
+          effectiveEndDate: input.effectiveStartDate,
+        },
+      });
+      if (input.isTransfer) transferredFromId = current.id;
+    }
+
+    const created = await tx.employmentRelationship.create({
+      data: {
+        tenantId,
+        employeeId,
+        companyId: input.companyId,
+        employmentType: input.employmentType,
+        contractType: input.contractType,
+        jobTitle: input.jobTitle,
+        department: input.department,
+        reportsToId: input.reportsToId,
+        effectiveStartDate: input.effectiveStartDate,
+        confidentialityZone: input.confidentialityZone ?? "INTERNAL_PROFESSIONAL",
+        notes: input.notes,
+        transferredFromId,
+        createdById,
+      },
+    });
+
+    await tx.hrActivity.create({
+      data: {
+        tenantId,
+        entityType: "EmploymentRelationship",
+        entityId: created.id,
+        actorId: createdById,
+        eventType: input.isTransfer ? "TRANSFERRED" : current ? "UPDATED" : "HIRED",
+        summary: `${employee.fullName} — ${input.jobTitle} (${input.department})${input.isTransfer ? ", transferred" : ""}`,
+      },
+    });
+
+    return created;
+  });
+}
+
+// Salary reuses the existing HR/FULL-or-FINANCE/FULL gate from
+// employee-profile.ts (canViewSalary) — Payroll confidentiality zones are
+// permission-ready (EmploymentRelationship.confidentialityZone) but this is
+// the only gate actually enforced in Phase 1.
+export async function getEmployeeHrDetail(tenantId: string, employeeId: string) {
+  const employee = await db.employee.findUnique({
+    where: { id: employeeId },
+    include: {
+      manager: true,
+      trainings: { orderBy: { createdAt: "desc" } },
+      leaveRequests: { orderBy: { createdAt: "desc" }, take: 5 },
+      salaryRecords: { orderBy: { effectiveStartDate: "desc" } },
+    },
+  });
+  if (!employee || employee.tenantId !== tenantId) return null;
+
+  const employmentRelationships = await getEmploymentRelationships(tenantId, employeeId);
+
+  const activity = employmentRelationships.length
+    ? await db.hrActivity.findMany({
+        where: { tenantId, entityId: { in: employmentRelationships.map((r) => r.id) } },
+        include: { actor: true },
+        orderBy: { createdAt: "desc" },
+        take: 20,
+      })
+    : [];
+
+  return { employee, employmentRelationships, activity };
+}
+
+export async function listReportableEmployees(tenantId: string) {
+  return db.employee.findMany({ where: { tenantId }, orderBy: { fullName: "asc" }, select: { id: true, fullName: true, position: true } });
+}
+
+export function canManageEmployment(role: Role) {
+  return can(role, "HR", "FULL");
 }
 
 export async function updateApprovedLeave(

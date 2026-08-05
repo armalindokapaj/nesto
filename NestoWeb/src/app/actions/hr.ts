@@ -5,7 +5,7 @@ import { revalidatePath } from "next/cache";
 import { db } from "@/lib/db";
 import { getCurrentUser } from "@/lib/dal";
 import { can } from "@/lib/permissions";
-import { createLeaveRequest, decideLeaveRequest, cancelApprovedLeave, updateApprovedLeave } from "@/server/hr";
+import { createLeaveRequest, decideLeaveRequest, cancelApprovedLeave, updateApprovedLeave, recordEmploymentChange } from "@/server/hr";
 
 const CreateEmployeeSchema = z.object({
   fullName: z.string().min(2),
@@ -97,6 +97,51 @@ export async function createEmployeeAction(_prev: CreateEmployeeState, formData:
   revalidatePath("/dashboard/hr/employees");
   revalidatePath("/dashboard/hr");
   revalidatePath("/employees");
+  return undefined;
+}
+
+const RecordEmploymentSchema = z.object({
+  employeeId: z.string().min(1),
+  employmentType: z.enum(["EMPLOYEE", "CONTRACTOR", "EXTERNAL"]),
+  contractType: z.enum(["FULL_TIME", "PART_TIME", "FIXED_TERM", "SEASONAL"]),
+  jobTitle: z.string().min(1),
+  department: z.string().min(1),
+  reportsToId: z.string().optional(),
+  effectiveStartDate: z.coerce.date(),
+  notes: z.string().optional(),
+  isTransfer: z.coerce.boolean().optional(),
+});
+
+export type RecordEmploymentState = { error: string } | undefined;
+
+// PRD_HR_Payroll_Workforce Phase 1 — records a new effective-dated
+// EmploymentRelationship (closing the current ACTIVE one, if any). Gated on
+// HR/FULL, same as every other HR-management action in this file.
+export async function recordEmploymentChangeAction(_prev: RecordEmploymentState, formData: FormData): Promise<RecordEmploymentState> {
+  const { tenantId, role, user } = await getCurrentUser();
+  if (!can(role, "HR", "FULL")) {
+    return { error: "You do not have permission to record employment changes." };
+  }
+
+  const parsed = RecordEmploymentSchema.safeParse({
+    employeeId: formData.get("employeeId"),
+    employmentType: formData.get("employmentType"),
+    contractType: formData.get("contractType"),
+    jobTitle: formData.get("jobTitle"),
+    department: formData.get("department"),
+    reportsToId: formData.get("reportsToId") || undefined,
+    effectiveStartDate: formData.get("effectiveStartDate"),
+    notes: formData.get("notes") || undefined,
+    isTransfer: formData.get("isTransfer") || undefined,
+  });
+  if (!parsed.success) {
+    return { error: parsed.error.issues[0]?.message ?? "Invalid input" };
+  }
+
+  const { employeeId, ...input } = parsed.data;
+  await recordEmploymentChange(tenantId, employeeId, user.id, input);
+  revalidatePath(`/dashboard/hr/employees/${employeeId}`);
+  revalidatePath("/dashboard/hr/employees");
   return undefined;
 }
 

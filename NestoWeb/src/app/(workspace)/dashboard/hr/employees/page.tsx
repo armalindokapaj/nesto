@@ -1,5 +1,6 @@
 import { redirect } from "next/navigation";
 import Link from "next/link";
+import { UserCog } from "lucide-react";
 import { getCurrentUser } from "@/lib/dal";
 import { can } from "@/lib/permissions";
 import { listEmployees } from "@/server/hr";
@@ -39,6 +40,7 @@ export default async function EmployeesPage() {
                 <TH>{t("common.department")}</TH>
                 <TH>{t("common.status")}</TH>
                 <TH>{t("dashboards.admin.joined")}</TH>
+                <TH></TH>
               </TRow>
             </THead>
             <TBody>
@@ -56,11 +58,20 @@ export default async function EmployeesPage() {
                     <Badge status={e.status}>{e.status.replace("_", " ")}</Badge>
                   </TD>
                   <TD className="text-ink-muted">{formatDate(e.hireDate)}</TD>
+                  <TD>
+                    <Link
+                      href={`/dashboard/hr/employees/${e.id}`}
+                      className="inline-flex items-center gap-1 text-xs text-ink-muted hover:text-gold"
+                      title={t("hr_sub.manageEmployment")}
+                    >
+                      <UserCog size={14} /> {t("hr_sub.manageEmployment")}
+                    </Link>
+                  </TD>
                 </TRow>
               ))}
               {employees.length === 0 && (
                 <TRow>
-                  <TD colSpan={5} className="text-center text-ink-faint py-8">
+                  <TD colSpan={6} className="text-center text-ink-faint py-8">
                     {t("dashboards.hr.noEmployees")}
                   </TD>
                 </TRow>
