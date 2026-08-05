@@ -2,9 +2,11 @@ import { db } from "@/lib/db";
 import { assertTenant, requireTenantProject } from "@/lib/tenant";
 
 export async function listClients(tenantId: string) {
+  // PRD_CRM_Module — archived clients stay in the database but drop out of
+  // the default working list, same pattern as Teams/Documents archiving.
   return db.client.findMany({
-    where: { tenantId },
-    include: { _count: { select: { projects: true } }, createdBy: true },
+    where: { tenantId, archivedAt: null },
+    include: { _count: { select: { projects: true } }, createdBy: true, owner: { select: { id: true, displayName: true } } },
     orderBy: { createdAt: "desc" },
   });
 }

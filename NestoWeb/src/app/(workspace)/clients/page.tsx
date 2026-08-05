@@ -20,6 +20,21 @@ export default async function ClientsPage() {
 
   return (
     <div className="space-y-6">
+      <div className="flex flex-wrap items-center gap-1.5">
+        <Link
+          href="/clients/leads"
+          className="inline-flex items-center gap-1.5 rounded-full border border-border px-3 py-1 text-xs font-medium text-ink-muted transition-colors hover:bg-surface-sunken hover:text-ink"
+        >
+          {t("crm.leadsTitle")}
+        </Link>
+        <Link
+          href="/clients/pipeline"
+          className="inline-flex items-center gap-1.5 rounded-full border border-border px-3 py-1 text-xs font-medium text-ink-muted transition-colors hover:bg-surface-sunken hover:text-ink"
+        >
+          {t("crm.pipelineTitle")}
+        </Link>
+      </div>
+
       <Card>
         <CardHeader>
           <div>
@@ -33,10 +48,11 @@ export default async function ClientsPage() {
             <THead>
               <TRow>
                 <TH>{t("clients.name")}</TH>
+                <TH>{t("crm.clientType")}</TH>
                 <TH>{t("common.email")}</TH>
                 <TH>{t("nav.projects")}</TH>
                 <TH>{t("common.status")}</TH>
-                <TH>{t("clients.addedBy")}</TH>
+                <TH>{t("crm.owner")}</TH>
               </TRow>
             </THead>
             <TBody>
@@ -47,17 +63,18 @@ export default async function ClientsPage() {
                       {client.name}
                     </Link>
                   </TD>
+                  <TD className="text-ink-muted">{client.clientType ?? "—"}</TD>
                   <TD className="text-ink-muted">{client.email ?? "—"}</TD>
                   <TD className="text-ink-muted">{client._count.projects}</TD>
                   <TD>
                     <Badge status={client.status}>{t(`clients.${client.status.toLowerCase()}`)}</Badge>
                   </TD>
-                  <TD className="text-ink-muted">{client.createdBy.displayName}</TD>
+                  <TD className="text-ink-muted">{client.owner?.displayName ?? "—"}</TD>
                 </TRow>
               ))}
               {clients.length === 0 && (
                 <TRow>
-                  <TD colSpan={5} className="text-center text-ink-faint py-8">
+                  <TD colSpan={6} className="text-center text-ink-faint py-8">
                     {t("clients.noClients")}
                   </TD>
                 </TRow>

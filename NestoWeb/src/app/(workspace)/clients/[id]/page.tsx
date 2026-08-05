@@ -6,6 +6,7 @@ import { can } from "@/lib/permissions";
 import { getClient } from "@/server/clients";
 import { listComments } from "@/server/comments";
 import { listAllMembers } from "@/server/admin";
+import { getClientCrmDetail } from "@/server/crm-module";
 import { Card, CardHeader, CardTitle, CardDescription, CardContent } from "@/components/ui/card";
 import { Table, THead, TBody, TRow, TH, TD } from "@/components/ui/table";
 import { Badge } from "@/components/ui/badge";
@@ -15,6 +16,11 @@ import { TaskStatusSelect } from "@/components/projects/task-status-select";
 import { DeleteTaskButton } from "@/components/projects/delete-task-button";
 import { CreateDocumentDialog } from "@/components/documents/create-document-dialog";
 import { ClientComments } from "@/components/clients/client-comments";
+import { ClientStarButton } from "@/components/clients/client-star-button";
+import { ContactManager } from "@/components/clients/contact-manager";
+import { ClientNotes } from "@/components/clients/client-notes";
+import { CreateOpportunityDialog } from "@/components/clients/create-opportunity-dialog";
+import { ClientCrmSettingsForm } from "@/components/clients/client-crm-settings-form";
 import { TASK_STATUS_KEY } from "@/lib/constants";
 import type { TaskStatus } from "@/lib/constants";
 import { formatDate } from "@/lib/utils";
@@ -27,10 +33,11 @@ export default async function ClientProfilePage({ params }: { params: Promise<{ 
   const canWrite = can(role, "CLIENTS", "WRITE");
   const canCreateTask = canWrite && can(role, "TASKS", "WRITE");
 
-  const client = await getClient(tenantId, id);
-  const [comments, members] = await Promise.all([
+  const [client, crm, comments, members] = await Promise.all([
+    getClient(tenantId, id),
+    getClientCrmDetail(tenantId, id, user.id),
     listComments(tenantId, "Client", id),
-    canWrite ? listAllMembers(tenantId) : Promise.resolve([]),
+    listAllMembers(tenantId),
   ]);
   const { t } = await getT();
 
@@ -42,12 +49,16 @@ export default async function ClientProfilePage({ params }: { params: Promise<{ 
 
       <Card>
         <CardHeader>
-          <div>
-            <div className="flex items-center gap-2 flex-wrap">
-              <CardTitle>{client.name}</CardTitle>
-              <Badge status={client.status}>{t(`clients.${client.status.toLowerCase()}`)}</Badge>
+          <div className="flex min-w-0 items-start gap-2">
+            <ClientStarButton clientId={client.id} starred={crm.isStarred} size={17} />
+            <div>
+              <div className="flex items-center gap-2 flex-wrap">
+                <CardTitle>{client.name}</CardTitle>
+                <Badge status={client.status}>{t(`clients.${client.status.toLowerCase()}`)}</Badge>
+                {crm.clientType && <Badge tone="neutral">{crm.clientType}</Badge>}
+              </div>
+              <CardDescription>{client.contactName ?? t("clients.noContactName")}</CardDescription>
             </div>
-            <CardDescription>{client.contactName ?? t("clients.noContactName")}</CardDescription>
           </div>
         </CardHeader>
         <CardContent>
@@ -87,6 +98,94 @@ export default async function ClientProfilePage({ params }: { params: Promise<{ 
           </div>
         </CardContent>
       </Card>
+
+      <div className="grid grid-cols-1 gap-6 lg:grid-cols-[1fr_300px]">
+        <div className="space-y-6">
+          <Card>
+            <CardHeader>
+              <div>
+                <CardTitle>{t("crm.opportunitiesTitle")}</CardTitle>
+                <CardDescription>{t("crm.opportunitiesSubtitle")}</CardDescription>
+              </div>
+              {canWrite && <CreateOpportunityDialog clientId={client.id} />}
+            </CardHeader>
+            <CardContent className="p-0">
+              <Table>
+                <THead>
+                  <TRow>
+                    <TH>{t("crm.opportunityTitle")}</TH>
+                    <TH>{t("crm.stage")}</TH>
+                    <TH>{t("crm.estimatedValue")}</TH>
+                    <TH>{t("common.status")}</TH>
+                  </TRow>
+                </THead>
+                <TBody>
+                  {crm.opportunities.map((opp) => (
+                    <TRow key={opp.id}>
+                      <TD className="font-medium text-ink">{opp.title}</TD>
+                      <TD className="text-ink-muted">{opp.stage.name}</TD>
+                      <TD className="text-ink-muted">{opp.estimatedValue != null ? `€${opp.estimatedValue.toLocaleString()}` : "—"}</TD>
+                      <TD>
+                        <Badge tone={opp.status === "WON" ? "success" : opp.status === "LOST" ? "danger" : "info"}>
+                          {t(`crm.opportunityStatus_${opp.status}`)}
+                        </Badge>
+                      </TD>
+                    </TRow>
+                  ))}
+                  {crm.opportunities.length === 0 && (
+                    <TRow>
+                      <TD colSpan={4} className="py-6 text-center text-ink-faint">
+                        {t("crm.noOpportunities")}
+                      </TD>
+                    </TRow>
+                  )}
+                </TBody>
+              </Table>
+            </CardContent>
+          </Card>
+
+          <Card>
+            <CardHeader>
+              <CardTitle>{t("crm.contactsTitle")}</CardTitle>
+            </CardHeader>
+            <CardContent>
+              <ContactManager clientId={client.id} contacts={crm.contacts} canWrite={canWrite} />
+            </CardContent>
+          </Card>
+
+          <Card>
+            <CardHeader>
+              <CardTitle>{t("crm.notesTitle")}</CardTitle>
+            </CardHeader>
+            <CardContent>
+              <ClientNotes
+                clientId={client.id}
+                notes={crm.notes.map((n) => ({ ...n, author: { displayName: n.author.displayName, avatarColor: n.author.avatarColor } }))}
+                canWrite={canWrite}
+              />
+            </CardContent>
+          </Card>
+        </div>
+
+        {canWrite && (
+          <Card className="h-fit">
+            <CardHeader>
+              <CardTitle className="text-sm">{t("crm.crmDetails")}</CardTitle>
+            </CardHeader>
+            <CardContent>
+              <ClientCrmSettingsForm
+                key={`${crm.clientType}-${crm.ownerId}-${crm.source}-${crm.country}`}
+                clientId={client.id}
+                clientType={crm.clientType}
+                ownerId={crm.ownerId}
+                source={crm.source}
+                country={crm.country}
+                members={members.map((m) => ({ id: m.user.id, displayName: m.user.displayName }))}
+              />
+            </CardContent>
+          </Card>
+        )}
+      </div>
 
       <Card>
         <CardHeader>

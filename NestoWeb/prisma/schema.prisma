@@ -96,6 +96,15 @@ model Tenant {
   taskStars          TaskStar[]
   taskChecklistItems TaskChecklistItem[]
 
+  // --- PRD_CRM_Module (additive) -----------------------------------------
+  contacts       Contact[]
+  clientNotes    ClientNote[]
+  pipelines      Pipeline[]
+  pipelineStages PipelineStage[]
+  opportunities  Opportunity[]
+  leads          Lead[]
+  clientStars    ClientStar[]
+
   // --- PRD_6 Public Sign-Up / Platform Approval -------------------------
   profileInvitations ProfileInvitation[]
 
@@ -215,6 +224,14 @@ model UserIdentity {
 
   // --- PRD_Teams_Module (additive: type, lead, member role) --------------
   teamsLed Team[] @relation("TeamLead")
+
+  // --- PRD_CRM_Module (additive) -----------------------------------------
+  clientsOwned        Client[]      @relation("ClientOwner")
+  contactsOwned       Contact[]     @relation("ContactOwner")
+  clientNotesAuthored ClientNote[]  @relation("ClientNoteAuthor")
+  opportunitiesOwned  Opportunity[] @relation("OpportunityOwner")
+  leadsOwned          Lead[]        @relation("LeadOwner")
+  clientStars         ClientStar[]  @relation("ClientStarUser")
 
   // --- PRD_6 Public Sign-Up / Platform Approval -------------------------
   // A single flag on the existing company-scoped identity, not a separate
@@ -1558,7 +1575,199 @@ model Client {
   documents DocumentFile[]
   tasks     Task[]
 
+  // --- PRD_CRM_Module (additive) ------------------------------------------
+  // §7 — configurable, not an enum, same pattern as Team Type.
+  clientType             String?
+  // §11 Client Page Header "Assigned salesperson" / §14 "account owner".
+  ownerId                String?
+  owner                  UserIdentity? @relation("ClientOwner", fields: [ownerId], references: [id])
+  // §18 — how this client first reached the company; configurable string.
+  source                 String?
+  country                String?
+  preferredContactMethod String?
+  archivedAt             DateTime?
+
+  contacts      Contact[]
+  notes         ClientNote[]
+  opportunities Opportunity[]
+  leads         Lead[]
+  stars         ClientStar[]
+
   @@index([tenantId, status])
+}
+
+// ---------------------------------------------------------------------------
+// PRD_CRM_Module — additive layer. §46 Data Ownership Rules: CRM owns
+// clients, contacts, leads, opportunities, pipelines and notes; it never
+// owns units/contracts/finance/documents/tasks, all of which stay
+// source-linked (projectId/contractId-style FKs) rather than duplicated.
+// Phase-1 scope: Contacts, Notes, Leads and a configurable Sales Pipeline —
+// Reservation/ClientPurchase/Communication/SupportCase/Referral/CRMActivity
+// are deferred (they read from Units/Contracts/Finance, which aren't wired
+// for that yet).
+// ---------------------------------------------------------------------------
+
+// §15/§16 — a person tied to a client (an individual client may itself act
+// as its own primary contact; a company client typically has several).
+model Contact {
+  id                     String        @id @default(cuid())
+  tenantId               String
+  tenant                 Tenant        @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  clientId               String
+  client                 Client        @relation(fields: [clientId], references: [id], onDelete: Cascade)
+  name                   String
+  title                  String?
+  department             String?
+  email                  String?
+  phone                  String?
+  preferredContactMethod String?
+  // §16 — configurable, not an enum (Decision Maker | Legal Representative |
+  // Finance Contact | Technical Contact | Sales Contact | Executive Sponsor |
+  // Assistant | Family Member | Advisor | custom).
+  role                   String?
+  decisionInfluence      String?
+  status                 String        @default("ACTIVE")
+  notes                  String?
+  relationshipOwnerId    String?
+  relationshipOwner      UserIdentity? @relation("ContactOwner", fields: [relationshipOwnerId], references: [id])
+  createdAt              DateTime      @default(now())
+
+  opportunities Opportunity[]
+
+  @@index([tenantId, clientId])
+}
+
+// §32 — an internal note, distinct from a Communication log (deferred).
+model ClientNote {
+  id        String       @id @default(cuid())
+  tenantId  String
+  tenant    Tenant       @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  clientId  String
+  client    Client       @relation(fields: [clientId], references: [id], onDelete: Cascade)
+  authorId  String
+  author    UserIdentity @relation("ClientNoteAuthor", fields: [authorId], references: [id])
+  body      String
+  pinned    Boolean      @default(false)
+  createdAt DateTime     @default(now())
+
+  @@index([tenantId, clientId])
+}
+
+// §21 — "Pipeline stages are managed through Platform Configuration" in the
+// full PRD; Phase-1 keeps them as tenant-editable rows rather than wiring
+// the Platform Configuration node tree for per-stage config.
+model Pipeline {
+  id        String   @id @default(cuid())
+  tenantId  String
+  tenant    Tenant   @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  name      String
+  isDefault Boolean  @default(false)
+  status    String   @default("ACTIVE")
+  createdAt DateTime @default(now())
+
+  stages        PipelineStage[]
+  opportunities Opportunity[]
+}
+
+// §22 — the default example (Lead, Contacted, Qualified, Meeting, Site
+// Visit, Negotiation, Reservation, Contract, Deposit Paid, Completed, After
+// Sales) is seeded by ensureDefaultPipeline(), not hard-coded here.
+model PipelineStage {
+  id          String   @id @default(cuid())
+  tenantId    String
+  tenant      Tenant   @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  pipelineId  String
+  pipeline    Pipeline @relation(fields: [pipelineId], references: [id], onDelete: Cascade)
+  name        String
+  orderNo     Int
+  probability Int      @default(0)
+  status      String   @default("ACTIVE")
+
+  opportunities Opportunity[]
+
+  @@unique([pipelineId, orderNo])
+}
+
+// §20 — a qualified deal in progress, tied to a Client (and optionally a
+// Project/Unit of interest via a source-linked id, no duplication of Units
+// module data).
+model Opportunity {
+  id              String        @id @default(cuid())
+  tenantId        String
+  tenant          Tenant        @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  clientId        String
+  client          Client        @relation(fields: [clientId], references: [id], onDelete: Cascade)
+  contactId       String?
+  contact         Contact?      @relation(fields: [contactId], references: [id])
+  // Deliberately a bare id, no Prisma relation() — Projects is frozen and
+  // must not gain a back-relation field. Same "source-linked, not owned"
+  // pattern as DocumentLink/TaskLink's generic entityId references.
+  projectId       String?
+  title           String
+  estimatedValue  Float?
+  expectedCloseAt DateTime?
+  ownerId         String?
+  owner           UserIdentity? @relation("OpportunityOwner", fields: [ownerId], references: [id])
+  pipelineId      String
+  pipeline        Pipeline      @relation(fields: [pipelineId], references: [id])
+  stageId         String
+  stage           PipelineStage @relation(fields: [stageId], references: [id])
+  // §21 — separate from pipeline stage: a deal can only be OPEN, WON or LOST.
+  status          String        @default("OPEN") // OPEN | WON | LOST
+  lostReason      String?
+  stageEnteredAt  DateTime      @default(now())
+  createdAt       DateTime      @default(now())
+
+  @@index([tenantId, pipelineId, stageId])
+  @@index([tenantId, clientId])
+}
+
+// §17/§18/§19 — pre-qualification: may exist before a full Client record
+// does. "Convert" creates/links a Client and an Opportunity (teams-module.ts
+// style additive service, see convertLead()).
+model Lead {
+  id                     String        @id @default(cuid())
+  tenantId               String
+  tenant                 Tenant        @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  title                  String
+  clientId               String?
+  client                 Client?       @relation(fields: [clientId], references: [id])
+  personName             String?
+  personEmail            String?
+  personPhone            String?
+  // §18 — configurable, not an enum.
+  source                 String?
+  campaign               String?
+  ownerId                String?
+  owner                  UserIdentity? @relation("LeadOwner", fields: [ownerId], references: [id])
+  interest               String?
+  estimatedValue         Float?
+  // NEW | CONTACTED | QUALIFIED | DISQUALIFIED | CONVERTED | LOST
+  status                 String        @default("NEW")
+  priority               String        @default("NORMAL") // LOW | NORMAL | HIGH
+  nextActionAt           DateTime?
+  qualificationScore     Int?
+  qualificationNotes     String?
+  lostReason             String?
+  convertedOpportunityId String?       @unique
+  createdAt              DateTime      @default(now())
+
+  @@index([tenantId, status])
+}
+
+// §9 — Personal Star, same private/per-user pattern as Documents/Tasks.
+model ClientStar {
+  id        String       @id @default(cuid())
+  tenantId  String
+  tenant    Tenant       @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  clientId  String
+  client    Client       @relation(fields: [clientId], references: [id], onDelete: Cascade)
+  userId    String
+  user      UserIdentity @relation("ClientStarUser", fields: [userId], references: [id], onDelete: Cascade)
+  createdAt DateTime     @default(now())
+
+  @@unique([clientId, userId])
+  @@index([tenantId, userId])
 }
 
 model Contractor {
