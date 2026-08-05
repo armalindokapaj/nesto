@@ -1,8 +1,10 @@
 import { redirect } from "next/navigation";
+import Link from "next/link";
 import { getCurrentUser } from "@/lib/dal";
 import { can } from "@/lib/permissions";
 import { listTeams } from "@/server/admin";
 import { Card, CardHeader, CardTitle, CardDescription, CardContent } from "@/components/ui/card";
+import { Badge } from "@/components/ui/badge";
 import { Avatar } from "@/components/ui/avatar";
 import { CreateTeamDialog } from "@/components/admin/create-team-dialog";
 import { getT } from "@/lib/i18n/server";
@@ -34,10 +36,17 @@ export default async function AdminTeamsPage() {
           {teams.map((team) => (
             <Card key={team.id}>
               <CardHeader>
-                <div>
-                  <CardTitle>{team.name}</CardTitle>
+                <div className="min-w-0">
+                  <Link href={`/dashboard/admin/teams/${team.id}`} className="hover:text-gold">
+                    <CardTitle className="truncate">{team.name}</CardTitle>
+                  </Link>
                   {team.description && <CardDescription>{team.description}</CardDescription>}
                 </div>
+                {team.teamType && (
+                  <Badge tone="neutral" className="shrink-0">
+                    {team.teamType}
+                  </Badge>
+                )}
               </CardHeader>
               <CardContent>
                 {team.members.length === 0 ? (

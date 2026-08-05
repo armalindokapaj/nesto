@@ -1496,5 +1496,29 @@
     "garden": "Kopsht",
     "storage": "Depo",
     "custom": "E Personalizuar"
+  },
+  "teamsModule": {
+    "backToTeams": "Kthehu te Ekipet",
+    "noDescription": "Ende pa përshkrim.",
+    "lead": "Udhëheqësi i Ekipit",
+    "leadMustBeMember": "Udhëheqësi duhet të jetë tashmë anëtar i ekipit.",
+    "archived": "Arkivuar",
+    "archive": "Arkivo",
+    "restore": "Rikthe",
+    "members": "Anëtarët",
+    "membershipNote": "Anëtarësimi në ekip është vetëm organizativ — nuk ndryshon punësimin dhe nuk jep qasje në detyra, dokumente apo projekte.",
+    "settings": "Cilësimet e Ekipit",
+    "teamType": "Lloji i Ekipit",
+    "noMembers": "Ende pa anëtarë.",
+    "addMember": "Shto anëtar",
+    "role_LEADER": "Udhëheqës Ekipi",
+    "role_DEPUTY_LEADER": "Zëvendës-udhëheqës",
+    "role_COORDINATOR": "Koordinator",
+    "role_REVIEWER": "Rishikues",
+    "role_CONTRIBUTOR": "Kontribues",
+    "role_SPECIALIST": "Specialist",
+    "role_EXTERNAL_MEMBER": "Anëtar i Jashtëm",
+    "role_OBSERVER": "Vëzhgues",
+    "role_MEMBER": "Anëtar"
   }
 }

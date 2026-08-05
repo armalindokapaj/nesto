@@ -213,6 +213,9 @@ model UserIdentity {
   taskChecklistCompleted TaskChecklistItem[] @relation("TaskChecklistCompletedBy")
   taskChecklistCreated   TaskChecklistItem[] @relation("TaskChecklistCreatedBy")
 
+  // --- PRD_Teams_Module (additive: type, lead, member role) --------------
+  teamsLed Team[] @relation("TeamLead")
+
   // --- PRD_6 Public Sign-Up / Platform Approval -------------------------
   // A single flag on the existing company-scoped identity, not a separate
   // tenant-independent Platform Admin account model (that's PRD_7's fuller
@@ -1506,6 +1509,15 @@ model Team {
   description String?
   createdAt   DateTime @default(now())
 
+  // --- PRD_Teams_Module (additive) ---------------------------------------
+  // §5 — a free string, not an enum: "Team types are configurable and must
+  // not be hard-coded." TEAM_TYPE_SUGGESTIONS in teams-module.ts seeds the
+  // picker with the PRD's starter list; admins may enter any custom value.
+  teamType   String?
+  leadId     String?
+  lead       UserIdentity? @relation("TeamLead", fields: [leadId], references: [id])
+  archivedAt DateTime?
+
   members TeamMember[]
 }
 
@@ -1516,6 +1528,10 @@ model TeamMember {
   userId    String
   user      UserIdentity @relation(fields: [userId], references: [id], onDelete: Cascade)
   createdAt DateTime     @default(now())
+
+  // §6 — describes responsibility *within the team*; explicitly does not
+  // replace or alter the user's employment position (Team Roles ≠ job title).
+  role String @default("MEMBER") // LEADER | DEPUTY_LEADER | COORDINATOR | REVIEWER | CONTRIBUTOR | SPECIALIST | EXTERNAL_MEMBER | OBSERVER | MEMBER | <custom>
 
   @@unique([teamId, userId])
 }

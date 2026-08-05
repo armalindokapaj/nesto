@@ -6,6 +6,7 @@ import { Plus, X } from "lucide-react";
 import { createTeamAction, type CreateTeamState } from "@/app/actions/admin";
 import { Button } from "@/components/ui/button";
 import { Input, Label } from "@/components/ui/input";
+import { TEAM_TYPE_SUGGESTIONS } from "@/lib/team-constants";
 import { useI18n } from "@/lib/i18n/locale-provider";
 
 export function CreateTeamDialog() {
@@ -44,6 +45,15 @@ export function CreateTeamDialog() {
             <div className="space-y-1.5">
               <Label htmlFor="description">{t("common.description")}</Label>
               <Input id="description" name="description" />
+            </div>
+            <div className="space-y-1.5">
+              <Label htmlFor="teamType">{t("teamsModule.teamType")}</Label>
+              <Input id="teamType" name="teamType" list="create-team-type-suggestions" />
+              <datalist id="create-team-type-suggestions">
+                {TEAM_TYPE_SUGGESTIONS.map((tt) => (
+                  <option key={tt} value={tt} />
+                ))}
+              </datalist>
             </div>
 
             {state?.error && (

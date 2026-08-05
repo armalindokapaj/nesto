@@ -1496,5 +1496,29 @@
     "garden": "Garden",
     "storage": "Storage",
     "custom": "Custom"
+  },
+  "teamsModule": {
+    "backToTeams": "Back to Teams",
+    "noDescription": "No description yet.",
+    "lead": "Team Lead",
+    "leadMustBeMember": "The lead must already be a member of the team.",
+    "archived": "Archived",
+    "archive": "Archive",
+    "restore": "Restore",
+    "members": "Members",
+    "membershipNote": "Team membership is organisational only — it never changes employment, and never grants task, document or project access on its own.",
+    "settings": "Team Settings",
+    "teamType": "Team Type",
+    "noMembers": "No members yet.",
+    "addMember": "Add member",
+    "role_LEADER": "Team Leader",
+    "role_DEPUTY_LEADER": "Deputy Leader",
+    "role_COORDINATOR": "Coordinator",
+    "role_REVIEWER": "Reviewer",
+    "role_CONTRIBUTOR": "Contributor",
+    "role_SPECIALIST": "Specialist",
+    "role_EXTERNAL_MEMBER": "External Member",
+    "role_OBSERVER": "Observer",
+    "role_MEMBER": "Member"
   }
 }

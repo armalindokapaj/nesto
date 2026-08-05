@@ -58,9 +58,11 @@ export async function listAllInvitations(tenantId: string) {
 }
 
 export async function listTeams(tenantId: string) {
+  // PRD_Teams_Module — archived teams stay in the database (history is
+  // never destroyed) but drop out of the default working list.
   return db.team.findMany({
-    where: { tenantId },
-    include: { members: { include: { user: true } } },
+    where: { tenantId, archivedAt: null },
+    include: { members: { include: { user: true } }, lead: { select: { id: true, displayName: true } } },
     orderBy: { createdAt: "desc" },
   });
 }

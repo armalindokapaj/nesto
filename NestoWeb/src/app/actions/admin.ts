@@ -9,6 +9,7 @@ import { can } from "@/lib/permissions";
 const CreateTeamSchema = z.object({
   name: z.string().min(2),
   description: z.string().optional(),
+  teamType: z.string().optional(),
 });
 
 export type CreateTeamState = { error: string } | undefined;
@@ -22,6 +23,7 @@ export async function createTeamAction(_prev: CreateTeamState, formData: FormDat
   const parsed = CreateTeamSchema.safeParse({
     name: formData.get("name"),
     description: formData.get("description") || undefined,
+    teamType: formData.get("teamType") || undefined,
   });
   if (!parsed.success) {
     return { error: parsed.error.issues[0]?.message ?? "Invalid input" };
