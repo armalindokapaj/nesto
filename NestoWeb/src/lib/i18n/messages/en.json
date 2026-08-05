@@ -759,7 +759,16 @@
     "visibilityDesc_COMPANY_PUBLIC": "Any active company member can see this task.",
     "visibilityDesc_DEPARTMENT_PUBLIC": "Only the selected department, plus anyone directly involved, can see this task.",
     "visibilityDesc_PRIVATE": "Only the creator, assignee, contributors and reviewers can see this task.",
-    "department": "Department"
+    "department": "Department",
+    "star": "Star",
+    "unstar": "Unstar",
+    "checklist": "Checklist",
+    "checklistEmpty": "No checklist items yet.",
+    "addChecklistItem": "Add a checklist item…",
+    "markComplete": "Mark complete",
+    "markIncomplete": "Mark incomplete",
+    "completedBy": "Completed by",
+    "starredTasks": "Starred"
   },
   "tasksPage": {
     "subtitle": "Every task across your company workspace, in one place.",

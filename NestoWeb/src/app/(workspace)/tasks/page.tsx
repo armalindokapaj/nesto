@@ -4,6 +4,7 @@ import { can } from "@/lib/permissions";
 import { canViewTask } from "@/lib/project-access";
 import type { Role } from "@/lib/constants";
 import { listTasks, listProjects } from "@/server/projects";
+import { listStarredTaskIds } from "@/server/tasks-module";
 import { Card, CardContent } from "@/components/ui/card";
 import { Table, THead, TBody, TRow, TH, TD } from "@/components/ui/table";
 import { Badge } from "@/components/ui/badge";
@@ -13,6 +14,7 @@ import { TaskStatusSelect } from "@/components/projects/task-status-select";
 import { DeleteTaskButton } from "@/components/projects/delete-task-button";
 import { TaskDocumentsBadge } from "@/components/projects/task-documents-badge";
 import { TaskFilters } from "@/components/tasks/task-filters";
+import { TaskStarButton } from "@/components/tasks/task-star-button";
 import { TASK_STATUS_KEY } from "@/lib/constants";
 import type { TaskStatus } from "@/lib/constants";
 import { formatDate } from "@/lib/utils";
@@ -22,20 +24,25 @@ import Link from "next/link";
 export default async function TasksPage({
   searchParams,
 }: {
-  searchParams: Promise<{ status?: string; projectId?: string }>;
+  searchParams: Promise<{ status?: string; projectId?: string; starred?: string }>;
 }) {
   const { tenantId, role, user } = await getCurrentUser();
   if (!can(role, "TASKS", "READ")) redirect("/dashboard/executive");
   const canWrite = can(role, "TASKS", "WRITE");
 
-  const { status, projectId } = await searchParams;
-  const [allTasks, projects] = await Promise.all([listTasks(tenantId), listProjects(tenantId)]);
+  const { status, projectId, starred } = await searchParams;
+  const [allTasks, projects, starredIds] = await Promise.all([
+    listTasks(tenantId),
+    listProjects(tenantId),
+    listStarredTaskIds(tenantId, user.id),
+  ]);
   const viewer = { userId: user.id, role: role as Role };
   const tasks = allTasks.filter(
     (task) =>
       canViewTask(task, viewer) &&
       (!status || task.status === status) &&
-      (!projectId || task.projectId === projectId)
+      (!projectId || task.projectId === projectId) &&
+      (!starred || starredIds.has(task.id))
   );
   const { t } = await getT();
 
@@ -51,6 +58,15 @@ export default async function TasksPage({
 
       <div className="flex items-center justify-between gap-3 flex-wrap">
         <TaskFilters projects={projects.map((p) => ({ id: p.id, name: p.name }))} />
+        <Link
+          href={starred ? "/tasks" : "/tasks?starred=1"}
+          className={
+            "inline-flex items-center gap-1.5 rounded-full border px-3 py-1 text-xs font-medium transition-colors " +
+            (starred ? "border-gold/40 bg-gold/10 text-gold-deep" : "border-border text-ink-muted hover:text-ink hover:bg-surface-sunken")
+          }
+        >
+          {t("task.starredTasks")}
+        </Link>
       </div>
 
       <Card>
@@ -58,6 +74,7 @@ export default async function TasksPage({
           <Table>
             <THead>
               <TRow>
+                <TH className="w-6" />
                 <TH>{t("task.title")}</TH>
                 <TH>{t("common.project")}</TH>
                 <TH>{t("common.status")}</TH>
@@ -70,6 +87,9 @@ export default async function TasksPage({
             <TBody>
               {tasks.map((task) => (
                 <TRow key={task.id}>
+                  <TD>
+                    <TaskStarButton taskId={task.id} starred={starredIds.has(task.id)} />
+                  </TD>
                   <TD>
                     <div className="flex items-center gap-2">
                       <div>
@@ -118,7 +138,7 @@ export default async function TasksPage({
               ))}
               {tasks.length === 0 && (
                 <TRow>
-                  <TD colSpan={7} className="text-center text-ink-faint py-8">
+                  <TD colSpan={8} className="text-center text-ink-faint py-8">
                     {t("task.noTasks")}
                   </TD>
                 </TRow>

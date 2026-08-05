@@ -737,7 +737,16 @@
     "visibilityDesc_COMPANY_PUBLIC": "Çdo anëtar aktiv i kompanisë mund ta shohë këtë detyrë.",
     "visibilityDesc_DEPARTMENT_PUBLIC": "Vetëm departamenti i zgjedhur, plus kushdo i përfshirë drejtpërdrejt, mund ta shohë këtë detyrë.",
     "visibilityDesc_PRIVATE": "Vetëm krijuesi, i caktuari, kontribuesit dhe shqyrtuesit mund ta shohin këtë detyrë.",
-    "department": "Departamenti"
+    "department": "Departamenti",
+    "star": "Yjëzo",
+    "unstar": "Hiq yllin",
+    "checklist": "Lista e detyrave",
+    "checklistEmpty": "Ende pa artikuj në listë.",
+    "addChecklistItem": "Shto një artikull…",
+    "markComplete": "Shëno si të përfunduar",
+    "markIncomplete": "Shëno si të papërfunduar",
+    "completedBy": "Përfunduar nga",
+    "starredTasks": "Të yjëzuara"
   },
   "tasksPage": {
     "subtitle": "Çdo detyrë në hapësirën e kompanisë suaj, në një vend.",

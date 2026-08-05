@@ -11,9 +11,13 @@ import { listComments } from "@/server/comments";
 import { listAllMembers } from "@/server/admin";
 import { listContractors } from "@/server/contractors";
 import { listContracts } from "@/server/contracts";
+import { listChecklistItems, isTaskStarred } from "@/server/tasks-module";
 import { StartOrchestrationCard } from "@/components/projects/start-orchestration-card";
 import { TaskOrchestrationView } from "@/components/projects/task-orchestration-view";
 import { AccessDenied } from "@/components/ui/access-denied";
+import { Card, CardHeader, CardTitle, CardContent } from "@/components/ui/card";
+import { TaskStarButton } from "@/components/tasks/task-star-button";
+import { TaskChecklist } from "@/components/tasks/task-checklist";
 import { getT } from "@/lib/i18n/server";
 
 export default async function TaskDetailPage({ params }: { params: Promise<{ id: string }> }) {
@@ -35,6 +39,24 @@ export default async function TaskDetailPage({ params }: { params: Promise<{ id:
   }
 
   const backHref = task.projectId ? `/projects/${task.projectId}` : task.clientId ? `/clients/${task.clientId}` : "/tasks";
+  const canWrite = can(role, "TASKS", "WRITE");
+  const [checklistItems, starred] = await Promise.all([
+    listChecklistItems(tenantId, id),
+    isTaskStarred(tenantId, id, user.id),
+  ]);
+
+  // §9/§14 — Checklist and Star apply to every task regardless of whether
+  // PRD_4 orchestration has started; rendered once, below either branch.
+  const checklistCard = (
+    <Card>
+      <CardHeader>
+        <CardTitle>{t("task.checklist")}</CardTitle>
+      </CardHeader>
+      <CardContent>
+        <TaskChecklist taskId={id} items={checklistItems} canWrite={canWrite} />
+      </CardContent>
+    </Card>
+  );
 
   if (!task.currentStageId) {
     const members = await listAllMembers(tenantId);
@@ -43,13 +65,18 @@ export default async function TaskDetailPage({ params }: { params: Promise<{ id:
         <Link href={backHref} className="inline-flex items-center gap-1.5 text-sm text-ink-muted hover:text-ink">
           <ArrowLeft size={14} /> {t("common.back")}
         </Link>
+        <div className="flex items-center gap-2">
+          <TaskStarButton taskId={id} starred={starred} size={17} />
+          <span className="text-sm text-ink-muted">{task.code}</span>
+        </div>
         <StartOrchestrationCard
           taskId={task.id}
           taskCode={task.code}
           taskTitle={task.title}
-          canStart={can(role, "TASKS", "WRITE")}
+          canStart={canWrite}
           members={members.map((m) => ({ id: m.user.id, displayName: m.user.displayName }))}
         />
+        {checklistCard}
       </div>
     );
   }
@@ -67,6 +94,10 @@ export default async function TaskDetailPage({ params }: { params: Promise<{ id:
       <Link href={backHref} className="inline-flex items-center gap-1.5 text-sm text-ink-muted hover:text-ink">
         <ArrowLeft size={14} /> {t("common.back")}
       </Link>
+      <div className="flex items-center gap-2">
+        <TaskStarButton taskId={id} starred={starred} size={17} />
+        <span className="text-sm text-ink-muted">{task.code}</span>
+      </div>
       <TaskOrchestrationView
         task={task}
         comments={comments}
@@ -77,6 +108,7 @@ export default async function TaskDetailPage({ params }: { params: Promise<{ id:
         currentUserId={user.id}
         role={role}
       />
+      {checklistCard}
     </div>
   );
 }
