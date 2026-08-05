@@ -21,6 +21,12 @@ export const RESOURCES = [
   "HSE_REPORTS",
   "PROCUREMENT",
   "DOCUMENTS",
+  // PRD_Government_Legal_Compliance — a Resource, distinct from the existing
+  // LEGAL *role* below (which already owns CONTRACTS). Kept separate from
+  // CONTRACTS because "project access does not automatically grant case or
+  // legal-opinion access" (the PRD's core rule) — folding it into CONTRACTS
+  // would violate that on day one.
+  "LEGAL",
 ] as const;
 export type Resource = (typeof RESOURCES)[number];
 
@@ -44,6 +50,7 @@ const FULL_ADMIN: Record<Resource, Level> = {
   HSE_REPORTS: "FULL",
   PROCUREMENT: "FULL",
   DOCUMENTS: "FULL",
+  LEGAL: "FULL",
 };
 
 export const PERMISSION_MATRIX: Matrix = {
@@ -64,6 +71,7 @@ export const PERMISSION_MATRIX: Matrix = {
     PROCUREMENT: "FULL",
     // CEO carries approval authority (Blue Ticket §13) alongside OWNER/ADMIN.
     DOCUMENTS: "FULL",
+    LEGAL: "FULL",
   },
   PM: {
     COMPANY_SETTINGS: "NONE",
@@ -80,6 +88,8 @@ export const PERMISSION_MATRIX: Matrix = {
     // PMs request materials/POs for their own projects.
     PROCUREMENT: "WRITE",
     DOCUMENTS: "WRITE",
+    // PMs need to see a project's Legal Readiness Gate before scheduling work.
+    LEGAL: "READ",
   },
   ARCHITECT: {
     COMPANY_SETTINGS: "NONE",
@@ -102,6 +112,7 @@ export const PERMISSION_MATRIX: Matrix = {
     PROCUREMENT: "NONE",
     // Architects originate and revise drawings — the primary uploader role.
     DOCUMENTS: "WRITE",
+    LEGAL: "NONE",
   },
   ENGINEER: {
     COMPANY_SETTINGS: "NONE",
@@ -117,6 +128,7 @@ export const PERMISSION_MATRIX: Matrix = {
     HSE_REPORTS: "WRITE",
     PROCUREMENT: "NONE",
     DOCUMENTS: "WRITE",
+    LEGAL: "NONE",
   },
   HR: {
     COMPANY_SETTINGS: "NONE",
@@ -132,6 +144,7 @@ export const PERMISSION_MATRIX: Matrix = {
     HSE_REPORTS: "NONE",
     PROCUREMENT: "NONE",
     DOCUMENTS: "WRITE",
+    LEGAL: "NONE",
   },
   FINANCE: {
     COMPANY_SETTINGS: "NONE",
@@ -152,6 +165,8 @@ export const PERMISSION_MATRIX: Matrix = {
     // being able to create/approve purchase orders themselves.
     PROCUREMENT: "READ",
     DOCUMENTS: "WRITE",
+    // Finance tracks fines/insurance/guarantees that intersect Legal records.
+    LEGAL: "READ",
   },
   LEGAL: {
     COMPANY_SETTINGS: "NONE",
@@ -170,6 +185,8 @@ export const PERMISSION_MATRIX: Matrix = {
     HSE_REPORTS: "NONE",
     PROCUREMENT: "NONE",
     DOCUMENTS: "WRITE",
+    // Legal owns the new Government/Legal/Compliance module outright.
+    LEGAL: "FULL",
   },
   SALES: {
     COMPANY_SETTINGS: "NONE",
@@ -188,6 +205,7 @@ export const PERMISSION_MATRIX: Matrix = {
     HSE_REPORTS: "NONE",
     PROCUREMENT: "NONE",
     DOCUMENTS: "WRITE",
+    LEGAL: "NONE",
   },
   PROCUREMENT: {
     COMPANY_SETTINGS: "NONE",
@@ -208,6 +226,7 @@ export const PERMISSION_MATRIX: Matrix = {
     // grant on their respective resource.
     PROCUREMENT: "FULL",
     DOCUMENTS: "WRITE",
+    LEGAL: "NONE",
   },
   STOCK: {
     COMPANY_SETTINGS: "NONE",
@@ -225,6 +244,7 @@ export const PERMISSION_MATRIX: Matrix = {
     // with Procurement's purchase orders.
     PROCUREMENT: "WRITE",
     DOCUMENTS: "READ",
+    LEGAL: "NONE",
   },
   QAQC: {
     COMPANY_SETTINGS: "NONE",
@@ -241,6 +261,7 @@ export const PERMISSION_MATRIX: Matrix = {
     HSE_REPORTS: "WRITE",
     PROCUREMENT: "NONE",
     DOCUMENTS: "WRITE",
+    LEGAL: "NONE",
   },
   HSE: {
     COMPANY_SETTINGS: "NONE",
@@ -257,6 +278,7 @@ export const PERMISSION_MATRIX: Matrix = {
     HSE_REPORTS: "FULL",
     PROCUREMENT: "NONE",
     DOCUMENTS: "WRITE",
+    LEGAL: "NONE",
   },
   // PRD_4 CTO-100/§14 — a contractor gets task-scoped access to their own
   // TaskContractorAssignment work packages only (see getContractorWorkPackages
@@ -276,6 +298,7 @@ export const PERMISSION_MATRIX: Matrix = {
     HSE_REPORTS: "NONE",
     PROCUREMENT: "NONE",
     DOCUMENTS: "READ",
+    LEGAL: "NONE",
   },
   CLIENT: {
     COMPANY_SETTINGS: "NONE",
@@ -291,6 +314,7 @@ export const PERMISSION_MATRIX: Matrix = {
     HSE_REPORTS: "NONE",
     PROCUREMENT: "NONE",
     DOCUMENTS: "READ",
+    LEGAL: "NONE",
   },
   VIEWER: {
     COMPANY_SETTINGS: "NONE",
@@ -306,6 +330,7 @@ export const PERMISSION_MATRIX: Matrix = {
     HSE_REPORTS: "NONE",
     PROCUREMENT: "NONE",
     DOCUMENTS: "READ",
+    LEGAL: "NONE",
   },
 };
 
@@ -336,12 +361,12 @@ export const DASHBOARD_BY_ROLE: Record<Role, string> = {
   ENGINEER: "/dashboard/architect",
   HR: "/dashboard/hr",
   FINANCE: "/dashboard/finance",
-  LEGAL: "/dashboard/executive",
+  LEGAL: "/dashboard/legal",
   SALES: "/dashboard/executive",
   PROCUREMENT: "/dashboard/procurement",
   STOCK: "/dashboard/executive",
   QAQC: "/dashboard/executive",
-  HSE: "/dashboard/executive",
+  HSE: "/dashboard/hse",
   CONTRACTOR: "/dashboard/contractor",
   CLIENT: "/dashboard/executive",
   VIEWER: "/dashboard/executive",

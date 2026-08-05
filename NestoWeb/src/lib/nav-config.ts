@@ -81,6 +81,7 @@ export const NAV_SECTIONS: Record<string, NavSection[]> = {
         { labelKey: "nav.documents", href: "/documents", icon: BookText, resource: "PROJECTS", moduleKey: "PROJECTS" },
         { labelKey: "nav.meetings", href: "/meetings", icon: CalendarDays, resource: "PROJECTS", moduleKey: "PROJECTS" },
         { labelKey: "nav.hseReports", href: "/hse-reports", icon: ShieldAlert, resource: "HSE_REPORTS", moduleKey: "HSE_REPORTS" },
+        { labelKey: "nav.hse", href: "/dashboard/hse", icon: ShieldAlert, resource: "HSE_REPORTS", moduleKey: "HSE_REPORTS" },
       ],
     },
     {
@@ -89,6 +90,7 @@ export const NAV_SECTIONS: Record<string, NavSection[]> = {
         { labelKey: "nav.clients", href: "/clients", icon: Handshake, resource: "CLIENTS", moduleKey: "CLIENTS" },
         { labelKey: "nav.finance", href: "/dashboard/finance", icon: Wallet, resource: "FINANCE", moduleKey: "FINANCE" },
         { labelKey: "nav.hr", href: "/dashboard/hr", icon: Users, resource: "HR", moduleKey: "HR" },
+        { labelKey: "nav.legal", href: "/dashboard/legal", icon: FileText, resource: "LEGAL", moduleKey: "LEGAL" },
         { labelKey: "nav.procurement", href: "/dashboard/procurement", icon: Truck, resource: "PROCUREMENT", moduleKey: "PROCUREMENT" },
         { labelKey: "nav.contractors", href: "/contractors", icon: UserCog, resource: "COMPANY_NETWORK", moduleKey: "COMPANY_NETWORK" },
         { labelKey: "nav.reports", href: "/reports", icon: BarChart3, resource: "PROJECTS", moduleKey: "PROJECTS" },
@@ -172,6 +174,7 @@ export const NAV_SECTIONS: Record<string, NavSection[]> = {
       titleKey: "nav.compliance",
       items: [
         { labelKey: "nav.taxManagement", href: "/dashboard/finance/tax", icon: Percent, resource: "FINANCE", moduleKey: "FINANCE" },
+        { labelKey: "nav.legal", href: "/dashboard/legal", icon: FileText, resource: "LEGAL", moduleKey: "LEGAL" },
         { labelKey: "nav.auditLogs", href: "/dashboard/admin/audit", icon: ScrollText, resource: "AUDIT_LOGS" },
       ],
     },
@@ -213,6 +216,45 @@ export const NAV_SECTIONS: Record<string, NavSection[]> = {
         { labelKey: "nav.tasks", href: "/tasks", icon: CheckSquare, resource: "TASKS", moduleKey: "TASKS" },
         { labelKey: "nav.clients", href: "/clients", icon: Handshake, resource: "CLIENTS", moduleKey: "CLIENTS" },
         { labelKey: "nav.hseReports", href: "/hse-reports", icon: ShieldAlert, resource: "HSE_REPORTS", moduleKey: "HSE_REPORTS" },
+        { labelKey: "nav.hse", href: "/dashboard/hse", icon: ShieldAlert, resource: "HSE_REPORTS", moduleKey: "HSE_REPORTS" },
+      ],
+    },
+  ],
+  // PRD_Government_Legal_Compliance — the LEGAL role's own console.
+  legal: [
+    {
+      items: [
+        { labelKey: "nav.overview", href: "/dashboard/legal", icon: LayoutDashboard, resource: "LEGAL", moduleKey: "LEGAL" },
+        { labelKey: "nav.employeeDirectory", href: "/employees", icon: Contact },
+      ],
+    },
+    {
+      titleKey: "nav.compliance",
+      items: [
+        { labelKey: "nav.permits", href: "/dashboard/legal/permits", icon: FileText, resource: "LEGAL", moduleKey: "LEGAL" },
+        { labelKey: "nav.contracts", href: "/contracts", icon: FileText, resource: "CONTRACTS", moduleKey: "CONTRACTS" },
+        { labelKey: "nav.contractors", href: "/contractors", icon: UserCog, resource: "COMPANY_NETWORK", moduleKey: "COMPANY_NETWORK" },
+        { labelKey: "nav.projects", href: "/projects", icon: FolderKanban },
+      ],
+    },
+  ],
+  // PRD_HSE_Module — the HSE role's own console. Reuses the HSE_REPORTS
+  // resource/moduleKey for gating, same as every existing HSE nav item.
+  hse: [
+    {
+      items: [
+        { labelKey: "nav.overview", href: "/dashboard/hse", icon: LayoutDashboard, resource: "HSE_REPORTS", moduleKey: "HSE_REPORTS" },
+        { labelKey: "nav.employeeDirectory", href: "/employees", icon: Contact },
+      ],
+    },
+    {
+      titleKey: "nav.safety",
+      items: [
+        { labelKey: "nav.hazards", href: "/dashboard/hse/hazards", icon: ShieldAlert, resource: "HSE_REPORTS", moduleKey: "HSE_REPORTS" },
+        { labelKey: "nav.permitsToWork", href: "/dashboard/hse/permits", icon: FileText, resource: "HSE_REPORTS", moduleKey: "HSE_REPORTS" },
+        { labelKey: "nav.stopWork", href: "/dashboard/hse/stop-work", icon: ShieldAlert, resource: "HSE_REPORTS", moduleKey: "HSE_REPORTS" },
+        { labelKey: "nav.hseReports", href: "/hse-reports", icon: ShieldAlert, resource: "HSE_REPORTS", moduleKey: "HSE_REPORTS" },
+        { labelKey: "nav.projects", href: "/projects", icon: FolderKanban },
       ],
     },
   ],
@@ -255,6 +297,8 @@ const SUBTREE_RESOURCE: Partial<Record<keyof typeof NAV_SECTIONS, Resource>> = {
   finance: "FINANCE",
   hr: "HR",
   procurement: "PROCUREMENT",
+  legal: "LEGAL",
+  hse: "HSE_REPORTS",
 };
 
 // PRD_5 — the dashboard shell is resolved from the authenticated user's own
@@ -272,7 +316,7 @@ const SUBTREE_RESOURCE: Partial<Record<keyof typeof NAV_SECTIONS, Resource>> = {
 // cross-department summary link in their own sidebar — they keep their own
 // shell while the destination page renders inside it.
 export function workspaceKeyFromPath(pathname: string, role?: Role): keyof typeof NAV_SECTIONS {
-  const match = pathname.match(/^\/dashboard\/(executive|admin|finance|hr|architect|procurement|contractor)/);
+  const match = pathname.match(/^\/dashboard\/(executive|admin|finance|hr|architect|procurement|contractor|legal|hse)/);
   if (match) {
     const key = match[1] as keyof typeof NAV_SECTIONS;
     const requiredResource = SUBTREE_RESOURCE[key];

@@ -76,6 +76,49 @@ export const CONFIG_NODES: ConfigNode[] = [
   { key: "finance", label: "Finance", level: "MODULE" },
   { key: "inventory", label: "Inventory", level: "MODULE" },
   { key: "assets", label: "Assets", level: "MODULE" },
+
+  // --- HR, Payroll & Workforce (PRD_HR_Payroll_Workforce v1.0, Phase 1) ----
+  { key: "hr", label: "HR, Payroll & Workforce", level: "MODULE" },
+  { key: "hr.page.overview", label: "HR Overview", level: "PAGE", parent: "hr", route: "/dashboard/hr" },
+  { key: "hr.page.employees", label: "Employees", level: "PAGE", parent: "hr", route: "/dashboard/hr/employees" },
+  { key: "hr.page.employee_detail", label: "Employee Page", level: "PAGE", parent: "hr", route: "/dashboard/hr/employees/[id]" },
+  { key: "hr.page.leave", label: "Leave Requests", level: "PAGE", parent: "hr", route: "/dashboard/hr/leave" },
+  { key: "hr.page.training", label: "Training", level: "PAGE", parent: "hr", route: "/dashboard/hr/training" },
+  { key: "hr.section.employment_history", label: "Employment History", level: "SECTION", parent: "hr.page.employee_detail" },
+  { key: "hr.section.compensation", label: "Compensation (confidential)", level: "SECTION", parent: "hr.page.employee_detail" },
+  { key: "hr.feature.intercompany_transfer", label: "Intercompany Transfer", level: "FEATURE", parent: "hr" },
+  { key: "hr.action.record_employment", label: "Record Employment Change", level: "ACTION", parent: "hr" },
+
+  // --- Government, Legal & Compliance (PRD_Government_Legal_Compliance v1.0, Phase 1) ---
+  { key: "legal", label: "Government, Legal & Compliance", level: "MODULE" },
+  { key: "legal.page.dashboard", label: "Legal Dashboard", level: "PAGE", parent: "legal", route: "/dashboard/legal" },
+  { key: "legal.page.permits", label: "Permits", level: "PAGE", parent: "legal", route: "/dashboard/legal/permits" },
+  { key: "legal.page.permit_detail", label: "Permit Page", level: "PAGE", parent: "legal", route: "/dashboard/legal/permits/[id]" },
+  { key: "legal.page.project_status", label: "Project Legal Status", level: "PAGE", parent: "legal", route: "/dashboard/legal/projects/[projectId]" },
+  { key: "legal.section.readiness_gate", label: "Legal Readiness Gate", level: "SECTION", parent: "legal.page.project_status" },
+  { key: "legal.feature.readiness_gate", label: "Work-Blocking Legal Readiness Gate", level: "FEATURE", parent: "legal" },
+  { key: "legal.action.create_permit", label: "Create Permit", level: "ACTION", parent: "legal" },
+  { key: "legal.action.amend_permit", label: "Amend Permit", level: "ACTION", parent: "legal" },
+  { key: "legal.action.set_readiness", label: "Set Legal Readiness Status", level: "ACTION", parent: "legal" },
+
+  // --- HSE (PRD_HSE_Module v1.0, Phase 1) -----------------------------------
+  // Reuses the existing "HSE_REPORTS" resource/moduleKey (permissions.ts,
+  // modules.ts) for gating — this Platform Config module key stays scoped
+  // to page/section/feature/action toggles for the wider HSE domain.
+  { key: "hse", label: "HSE (Health, Safety & Environment)", level: "MODULE" },
+  { key: "hse.page.dashboard", label: "HSE Dashboard", level: "PAGE", parent: "hse", route: "/dashboard/hse" },
+  { key: "hse.page.hazards", label: "Hazards & Risk Assessments", level: "PAGE", parent: "hse", route: "/dashboard/hse/hazards" },
+  { key: "hse.page.permits", label: "Permits to Work", level: "PAGE", parent: "hse", route: "/dashboard/hse/permits" },
+  { key: "hse.page.permit_detail", label: "Permit to Work Page", level: "PAGE", parent: "hse", route: "/dashboard/hse/permits/[id]" },
+  { key: "hse.page.stop_work", label: "Stop Work Orders", level: "PAGE", parent: "hse", route: "/dashboard/hse/stop-work" },
+  { key: "hse.section.gate", label: "Work-Start Safety Gate", level: "SECTION", parent: "hse.page.dashboard" },
+  { key: "hse.feature.hierarchy_of_controls", label: "Hierarchy of Controls", level: "FEATURE", parent: "hse" },
+  { key: "hse.feature.work_start_gate", label: "Work-Start Safety Gate", level: "FEATURE", parent: "hse" },
+  { key: "hse.action.create_hazard", label: "Log Hazard", level: "ACTION", parent: "hse" },
+  { key: "hse.action.create_risk_assessment", label: "Create Risk Assessment", level: "ACTION", parent: "hse" },
+  { key: "hse.action.issue_permit", label: "Issue Permit to Work", level: "ACTION", parent: "hse" },
+  { key: "hse.action.stop_work", label: "Issue Stop Work Order", level: "ACTION", parent: "hse" },
+  { key: "hse.action.release_stop_work", label: "Release Stop Work Order", level: "ACTION", parent: "hse" },
 ];
 
 const NODE_BY_KEY = new Map(CONFIG_NODES.map((n) => [n.key, n]));

@@ -12,6 +12,7 @@ export const MODULES = [
   "HSE_REPORTS",
   "PROCUREMENT",
   "TRAINING",
+  "LEGAL",
 ] as const;
 
 export type ModuleKey = (typeof MODULES)[number];
@@ -27,4 +28,5 @@ export const MODULE_LABELS: Record<ModuleKey, string> = {
   HSE_REPORTS: "HSE Reports",
   PROCUREMENT: "Procurement",
   TRAINING: "Training",
+  LEGAL: "Legal & Compliance",
 };
