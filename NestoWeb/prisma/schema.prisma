@@ -103,6 +103,13 @@ model Tenant {
   companyModules    CompanyModule[]
   employeeTrainings EmployeeTraining[]
   documentApprovals DocumentApproval[]
+
+  // --- PRD_Documents_Module ------------------------------------------------
+  folders   Folder[]
+  documents Document[]
+
+  // --- Platform Configuration ----------------------------------------------
+  platformConfigSettings PlatformConfigSetting[]
 }
 
 model Company {
@@ -124,6 +131,9 @@ model Company {
   branches Branch[]
   projects Project[]
   units    Unit[]
+
+  // --- Platform Configuration ----------------------------------------------
+  platformConfigSettings PlatformConfigSetting[]
 }
 
 model Branch {
@@ -230,6 +240,13 @@ model UserIdentity {
   // --- PRD_Units / PRD_Unit_Page Real Estate Inventory ----------------------
   uploadedUnitRenders     UnitRender[]
   unitActivityEventsActed UnitActivityEvent[]
+
+  // --- PRD_Documents_Module ------------------------------------------------
+  documentsOwned       Document[]            @relation("DocumentOwner")
+  documentComments     DocumentComment[]     @relation("DocumentCommentAuthor")
+  documentFavorites    DocumentFavorite[]    @relation("DocumentFavoriteUser")
+  documentReadReceipts DocumentReadReceipt[] @relation("DocumentReadReceiptUser")
+  documentActivities   DocumentActivity[]    @relation("DocumentActivityActor")
 }
 
 // Links an identity to a tenant workspace with a role, department and access mode.
@@ -1589,10 +1606,20 @@ model DocumentFile {
 
   approvals DocumentApproval[]
 
+  // PRD_Documents_Module — when set, this row is one immutable revision of a
+  // Document (the Passport record). Optional so every pre-existing call site
+  // that treats DocumentFile as a standalone attachment keeps working.
+  documentId String?
+  document   Document? @relation("DocumentRevisions", fields: [documentId], references: [id], onDelete: Cascade)
+  // §15 — revision code/number, unique within one Document.
+  revisionCode String?
+  currentOf    Document? @relation("DocumentCurrentRevision")
+
   @@index([tenantId, projectId])
   @@index([tenantId, taskId])
   @@index([tenantId, clientId])
   @@index([tenantId, unitId])
+  @@index([tenantId, documentId])
 }
 
 // PRD_18 §13 Blue Approval Ticket — an append-only decision ledger bound to
@@ -2096,4 +2123,326 @@ model ReminderPreference {
   minutesBefore Int          @default(30)
 
   @@unique([userId, itemType])
+}
+
+// =========================================================================
+// PRD_Documents_Module — Documents Module and Document Page
+// =========================================================================
+// Architectural note: the pre-existing DocumentFile model already stores file
+// bytes, a checksum, an uploader snapshot and a `supersedes` revision chain,
+// and is referenced throughout the (frozen) Projects module. Rather than
+// restructure it into the PRD's Document + DocumentRevision pair — which would
+// mean editing frozen Project code — this layer is **additive**: `Document` is
+// the PRD's permanent record (the Passport), and each DocumentFile row becomes
+// one immutable revision of it via the optional `documentId` back-reference.
+// Call sites that never adopt Documents keep working unchanged.
+
+// §8 Hybrid folder architecture. Folders are an organisation layer only —
+// business relationships live in DocumentLink, so one Document can appear in
+// many folders through DocumentFolderRef with no file duplication.
+model Folder {
+  id       String  @id @default(cuid())
+  tenantId String
+  tenant   Tenant  @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  parentId String?
+  parent   Folder? @relation("FolderTree", fields: [parentId], references: [id])
+  children Folder[] @relation("FolderTree")
+
+  // SYSTEM folders are generated from a platform record (§8.1) and cannot be
+  // freely detached; CUSTOM folders are user-created (§8.2).
+  folderType       String  @default("CUSTOM") // SYSTEM | CUSTOM
+  // Which record a SYSTEM folder was generated from: PROJECT | UNIT | CLIENT |
+  // TASK | MEETING | APPROVAL | FINANCE | LEGAL | HR | COMPANY | ASSET | USER.
+  sourceEntityType String?
+  sourceEntityId   String?
+  name             String
+  // Stable key for the platform's default roots (§9) and the per-project
+  // subfolder template (§9.1) — lets seeding and lookup be idempotent.
+  systemKey        String?
+  sortOrder        Int     @default(0)
+  archivedAt       DateTime?
+  createdById      String?
+  createdAt        DateTime @default(now())
+
+  documents    Document[]           @relation("DocumentPrimaryFolder")
+  folderRefs   DocumentFolderRef[]
+  savedViews   DocumentSavedView[]
+
+  @@index([tenantId, parentId])
+  @@index([tenantId, folderType])
+  @@unique([tenantId, systemKey])
+}
+
+// §12 Document Passport — the permanent metadata/business identity of a
+// document, independent of file bytes or current folder. Survives move,
+// shortcut, revision, archive and Tranzit promotion (§12 closing rule).
+model Document {
+  id       String @id @default(cuid())
+  tenantId String
+  tenant   Tenant @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+
+  title    String
+  // §20 — generated or manually entered; unique per tenant when present.
+  code     String?
+  docType  String  @default("GENERAL")
+  category String  @default("General")
+
+  // §14 lifecycle. DRAFT | TRANZIT | INTERNAL_REVIEW | AWAITING_APPROVAL |
+  // APPROVED | ISSUED | NEEDS_REVISION | REJECTED | SUPERSEDED | ARCHIVED | VOID
+  status String @default("DRAFT")
+
+  primaryFolderId String?
+  primaryFolder   Folder? @relation("DocumentPrimaryFolder", fields: [primaryFolderId], references: [id])
+
+  ownerId String?
+  owner   UserIdentity? @relation("DocumentOwner", fields: [ownerId], references: [id])
+
+  // §15 — the revision currently presented as "the document". Kept as an
+  // explicit pointer so a shortcut download resolves without walking the chain.
+  currentRevisionId String?        @unique
+  currentRevision   DocumentFile?  @relation("DocumentCurrentRevision", fields: [currentRevisionId], references: [id])
+  revisions         DocumentFile[] @relation("DocumentRevisions")
+
+  // §12 Controls group.
+  confidentiality String    @default("NORMAL") // NORMAL | CONFIDENTIAL | RESTRICTED
+  requiredReading Boolean   @default(false)
+  expiresAt       DateTime?
+  retentionCategory String?
+  retentionEndAt    DateTime?
+  legalHold         Boolean  @default(false)
+  // §28 — applied to previews/derivatives; the original file is never altered.
+  watermarkState    String?  // DRAFT | TRANZIT | UNDER_REVIEW | APPROVED | ISSUED | CONFIDENTIAL | VOID
+
+  archivedAt DateTime?
+  createdAt  DateTime  @default(now())
+  updatedAt  DateTime  @updatedAt
+
+  folderRefs      DocumentFolderRef[]
+  links           DocumentLink[]
+  comments        DocumentComment[]
+  activities      DocumentActivity[]
+  favorites       DocumentFavorite[]
+  readReceipts    DocumentReadReceipt[]
+  collectionItems DocumentCollectionItem[]
+  dependsOn       DocumentDependency[]     @relation("DependencySource")
+  dependedOnBy    DocumentDependency[]     @relation("DependencyTarget")
+
+  @@unique([tenantId, code])
+  @@index([tenantId, status])
+  @@index([tenantId, primaryFolderId])
+  @@index([tenantId, archivedAt])
+}
+
+// §16 — a document reference in a folder. `isPrimary` marks the folder shown
+// as the document's home; every other row is a shortcut. Removing a shortcut
+// never deletes the document.
+model DocumentFolderRef {
+  id         String   @id @default(cuid())
+  tenantId   String
+  documentId String
+  document   Document @relation(fields: [documentId], references: [id], onDelete: Cascade)
+  folderId   String
+  folder     Folder   @relation(fields: [folderId], references: [id], onDelete: Cascade)
+  isPrimary  Boolean  @default(false)
+  createdById String?
+  createdAt  DateTime @default(now())
+
+  @@unique([documentId, folderId])
+  @@index([tenantId, folderId])
+}
+
+// §13 Linked records — generic business relation, kept separate from folder
+// placement so linking a document to a Unit does not move it in the tree.
+model DocumentLink {
+  id           String   @id @default(cuid())
+  tenantId     String
+  documentId   String
+  document     Document @relation(fields: [documentId], references: [id], onDelete: Cascade)
+  // PROJECT | UNIT | CLIENT | TASK | MEETING | APPROVAL | CONTRACT | FINANCE |
+  // LEGAL | EMPLOYEE | COMPANY | ASSET
+  entityType   String
+  entityId     String
+  relationType String?
+  isPrimary    Boolean  @default(false)
+  createdAt    DateTime @default(now())
+
+  @@unique([documentId, entityType, entityId])
+  @@index([tenantId, entityType, entityId])
+}
+
+// §21 — document-level and revision-specific discussion.
+model DocumentComment {
+  id         String   @id @default(cuid())
+  tenantId   String
+  documentId String
+  document   Document @relation(fields: [documentId], references: [id], onDelete: Cascade)
+  // Null for a document-level comment; set when the comment is pinned to one
+  // exact revision.
+  revisionId String?
+  authorId   String
+  author     UserIdentity @relation("DocumentCommentAuthor", fields: [authorId], references: [id])
+  body       String
+  parentId   String?
+  parent     DocumentComment?  @relation("CommentThread", fields: [parentId], references: [id])
+  replies    DocumentComment[] @relation("CommentThread")
+  resolvedAt DateTime?
+  createdAt  DateTime @default(now())
+
+  @@index([tenantId, documentId])
+}
+
+// §25 — depends-on / affected-by graph driving impact warnings when an
+// upstream approved document receives a new revision.
+model DocumentDependency {
+  id             String   @id @default(cuid())
+  tenantId       String
+  documentId     String
+  document       Document @relation("DependencySource", fields: [documentId], references: [id], onDelete: Cascade)
+  dependsOnId    String
+  dependsOn      Document @relation("DependencyTarget", fields: [dependsOnId], references: [id], onDelete: Cascade)
+  dependencyType String   @default("DEPENDS_ON") // DEPENDS_ON | AFFECTED_BY | COORDINATED_WITH
+  createdAt      DateTime @default(now())
+
+  @@unique([documentId, dependsOnId])
+  @@index([tenantId, dependsOnId])
+}
+
+// §26.2 — a named package of document references (Sales Package, Handover
+// Package, Permit Submission). Never duplicates files.
+model DocumentCollection {
+  id        String   @id @default(cuid())
+  tenantId  String
+  name      String
+  ownerId   String?
+  createdAt DateTime @default(now())
+
+  items DocumentCollectionItem[]
+
+  @@index([tenantId])
+}
+
+model DocumentCollectionItem {
+  id           String             @id @default(cuid())
+  collectionId String
+  collection   DocumentCollection @relation(fields: [collectionId], references: [id], onDelete: Cascade)
+  documentId   String
+  document     Document           @relation(fields: [documentId], references: [id], onDelete: Cascade)
+  // Pins the package to one exact revision where required (tender/handover).
+  revisionId   String?
+  sortOrder    Int                @default(0)
+
+  @@unique([collectionId, documentId])
+}
+
+// §7.4 / DOC-MOD-003 — private per-user Star. Never notifies, never changes
+// document state.
+model DocumentFavorite {
+  id         String       @id @default(cuid())
+  tenantId   String
+  documentId String
+  document   Document     @relation(fields: [documentId], references: [id], onDelete: Cascade)
+  userId     String
+  user       UserIdentity @relation("DocumentFavoriteUser", fields: [userId], references: [id], onDelete: Cascade)
+  createdAt  DateTime     @default(now())
+
+  @@unique([documentId, userId])
+  @@index([tenantId, userId])
+}
+
+// §27 — required reading assignment and open/acknowledge receipts.
+model DocumentReadReceipt {
+  id             String       @id @default(cuid())
+  tenantId       String
+  documentId     String
+  document       Document     @relation(fields: [documentId], references: [id], onDelete: Cascade)
+  revisionId     String?
+  userId         String
+  user           UserIdentity @relation("DocumentReadReceiptUser", fields: [userId], references: [id], onDelete: Cascade)
+  assignedAt     DateTime?
+  openedAt       DateTime?
+  acknowledgedAt DateTime?
+
+  @@unique([documentId, userId])
+  @@index([tenantId, userId])
+}
+
+// §44 — chronological, append-only document timeline.
+model DocumentActivity {
+  id         String       @id @default(cuid())
+  tenantId   String
+  documentId String
+  document   Document     @relation(fields: [documentId], references: [id], onDelete: Cascade)
+  revisionId String?
+  actorId    String?
+  actor      UserIdentity? @relation("DocumentActivityActor", fields: [actorId], references: [id])
+  // CREATED | METADATA_CHANGED | FOLDER_MOVED | SHORTCUT_ADDED | SHORTCUT_REMOVED |
+  // LINK_ADDED | LINK_REMOVED | REVISION_UPLOADED | STATUS_CHANGED | REVIEW_REQUESTED |
+  // APPROVAL_REQUESTED | APPROVAL_RESULT | COMMENT_ADDED | COMMENT_RESOLVED |
+  // DOWNLOADED | OPENED | PROMOTED_FROM_TRANZIT | ARCHIVED | RESTORED |
+  // EXPIRATION_CHANGED | REQUIRED_READING_ASSIGNED | REQUIRED_READING_ACKNOWLEDGED
+  eventType  String
+  summary    String
+  payload    String?  // JSON
+  createdAt  DateTime @default(now())
+
+  @@index([tenantId, documentId, createdAt])
+}
+
+// §19.3 — personal saved view (folder context + filters + layout).
+model DocumentSavedView {
+  id        String   @id @default(cuid())
+  tenantId  String
+  userId    String
+  name      String
+  folderId  String?
+  folder    Folder?  @relation(fields: [folderId], references: [id])
+  layout    String   @default("LIST") // LIST | GRID | TIMELINE | FOLDER
+  filters   String?  // JSON
+  sort      String?  // JSON
+  columns   String?  // JSON
+  createdAt DateTime @default(now())
+
+  @@index([tenantId, userId])
+}
+
+// =========================================================================
+// Platform Configuration — shared infrastructure
+// =========================================================================
+// Mandated by 7 of the 8 module PRDs (Inventory §60, Teams §32, CRM §41,
+// Contracts §44, Finance §39, Assets §19, Documents' config-driven folder
+// templates): every module, page, section, widget, feature, workflow, action
+// and report must be independently enable/disable-able, and disabled items
+// must disappear from navigation, search, APIs and layouts — no dead links,
+// no blank spaces.
+//
+// One row per *explicit* override. Absence means "inherit": from the parent
+// node, then from the catalog default (enabled). That keeps the table small
+// and makes "enable everything" the zero-row state.
+model PlatformConfigSetting {
+  id       String @id @default(cuid())
+  tenantId String
+  tenant   Tenant @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+
+  // Null = tenant-wide default. Set = company-specific override, which wins
+  // over the tenant row (Inventory §60 "company-specific override", Teams
+  // §32, and the group-inheritance requirement).
+  companyId String?
+  company   Company? @relation(fields: [companyId], references: [id], onDelete: Cascade)
+
+  // Non-null mirror of companyId used for the uniqueness constraint: SQL does
+  // not treat two NULLs as equal, so a unique index over a nullable companyId
+  // would silently permit duplicate tenant-wide rows for the same node. The
+  // sentinel "TENANT" keeps one-row-per-scope actually enforced.
+  scope String @default("TENANT")
+
+  // Dotted catalog key from src/lib/platform-config.ts, e.g.
+  // "documents", "documents.feature.tranzit", "inventory.action.post_movement".
+  nodeKey String
+  enabled Boolean @default(true)
+
+  updatedById String?
+  updatedAt   DateTime @updatedAt
+
+  @@unique([tenantId, scope, nodeKey])
+  @@index([tenantId, companyId])
 }
