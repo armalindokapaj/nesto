@@ -19,6 +19,7 @@ export function Sidebar({
   workspaceLabel,
   role,
   disabledModules,
+  disabledRoutes,
 }: {
   collapsed: boolean;
   mobileOpen: boolean;
@@ -27,11 +28,19 @@ export function Sidebar({
   workspaceLabel: string;
   role: Role;
   disabledModules?: ModuleKey[];
+  // Platform Configuration — routes whose page node resolved to disabled.
+  disabledRoutes?: string[];
 }) {
   const pathname = usePathname();
   const { t } = useI18n();
   const disabledSet = new Set(disabledModules ?? []);
-  const sections = visibleNavSections(NAV_SECTIONS[workspaceKeyFromPath(pathname, role)], role, disabledSet);
+  const disabledRouteSet = new Set(disabledRoutes ?? []);
+  const sections = visibleNavSections(
+    NAV_SECTIONS[workspaceKeyFromPath(pathname, role)],
+    role,
+    disabledSet,
+    disabledRouteSet
+  );
 
   return (
     <>

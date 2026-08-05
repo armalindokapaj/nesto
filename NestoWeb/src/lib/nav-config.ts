@@ -275,10 +275,18 @@ export function workspaceKeyFromPath(pathname: string, role?: Role): keyof typeo
 // enforces, so the sidebar never shows a link that would just redirect away.
 // Items whose `moduleKey` has been disabled for the tenant (Module Registry)
 // are filtered out the same way, regardless of role.
+//
+// `disabledRoutes` applies the same treatment for Platform Configuration: a
+// page node switched off (directly or by an ancestor cascading down) has its
+// route stripped here, which is what satisfies the PRDs' "disabled
+// functionality must disappear from navigation ... without dead links or
+// blank spaces". Sections left with no items disappear entirely rather than
+// rendering an empty heading.
 export function visibleNavSections(
   sections: NavSection[],
   role: Role,
-  disabledModules?: ReadonlySet<ModuleKey>
+  disabledModules?: ReadonlySet<ModuleKey>,
+  disabledRoutes?: ReadonlySet<string>
 ): NavSection[] {
   return sections
     .map((section) => ({
@@ -286,7 +294,8 @@ export function visibleNavSections(
       items: section.items.filter(
         (item) =>
           (!item.resource || can(role, item.resource, item.level ?? "READ")) &&
-          !(item.moduleKey && disabledModules?.has(item.moduleKey))
+          !(item.moduleKey && disabledModules?.has(item.moduleKey)) &&
+          !disabledRoutes?.has(item.href)
       ),
     }))
     .filter((section) => section.items.length > 0);

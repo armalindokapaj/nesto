@@ -8,6 +8,8 @@ import {
   CONFIG_NODES,
   type ConfigOverrides,
 } from "@/lib/platform-config";
+import { visibleNavSections, type NavSection } from "@/lib/nav-config";
+import { FileText } from "lucide-react";
 
 // Platform Configuration cascade. This is the logic 7 of the 8 module PRDs
 // lean on for "disabled functionality must disappear from navigation, search,
@@ -98,6 +100,39 @@ describe("navigation filtering", () => {
     expect(routes).toContain("/documents");
     // Other modules' routes stay available.
     expect(routes).not.toContain("/tasks");
+  });
+});
+
+describe("navigation integration", () => {
+  // The end-to-end guarantee the PRDs actually state: switching a module off
+  // must leave no reachable link behind in the sidebar.
+  it("removes the sidebar entry for a disabled module's route", () => {
+    const sections: NavSection[] = [
+      {
+        titleKey: "nav.work",
+        items: [
+          { labelKey: "nav.documents", href: "/documents", icon: FileText, resource: "DOCUMENTS" },
+          { labelKey: "nav.tasks", href: "/tasks", icon: FileText, resource: "TASKS" },
+        ],
+      },
+    ];
+    const blocked = new Set(disabledRoutes({ tenant: { documents: false } }));
+
+    const visible = visibleNavSections(sections, "OWNER", undefined, blocked);
+    const hrefs = visible.flatMap((s) => s.items.map((i) => i.href));
+    expect(hrefs).not.toContain("/documents");
+    expect(hrefs).toContain("/tasks");
+  });
+
+  it("drops a section entirely when its last item is disabled, leaving no empty heading", () => {
+    const sections: NavSection[] = [
+      {
+        titleKey: "nav.work",
+        items: [{ labelKey: "nav.documents", href: "/documents", icon: FileText, resource: "DOCUMENTS" }],
+      },
+    ];
+    const blocked = new Set(disabledRoutes({ tenant: { documents: false } }));
+    expect(visibleNavSections(sections, "OWNER", undefined, blocked)).toEqual([]);
   });
 });
 
