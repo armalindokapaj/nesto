@@ -69,6 +69,7 @@ export const NAV_SECTIONS: Record<string, NavSection[]> = {
       items: [
         { labelKey: "nav.dashboard", href: "/dashboard/executive", icon: LayoutDashboard },
         { labelKey: "nav.employeeDirectory", href: "/employees", icon: Contact },
+        { labelKey: "nav.myPayslips", href: "/dashboard/hr/payroll/my-payslips", icon: Wallet },
       ],
     },
     {
@@ -90,6 +91,7 @@ export const NAV_SECTIONS: Record<string, NavSection[]> = {
         { labelKey: "nav.clients", href: "/clients", icon: Handshake, resource: "CLIENTS", moduleKey: "CLIENTS" },
         { labelKey: "nav.finance", href: "/dashboard/finance", icon: Wallet, resource: "FINANCE", moduleKey: "FINANCE" },
         { labelKey: "nav.hr", href: "/dashboard/hr", icon: Users, resource: "HR", moduleKey: "HR" },
+        { labelKey: "nav.payroll", href: "/dashboard/hr/payroll", icon: Wallet, resource: "HR", moduleKey: "HR" },
         { labelKey: "nav.legal", href: "/dashboard/legal", icon: FileText, resource: "LEGAL", moduleKey: "LEGAL" },
         { labelKey: "nav.procurement", href: "/dashboard/procurement", icon: Truck, resource: "PROCUREMENT", moduleKey: "PROCUREMENT" },
         { labelKey: "nav.contractors", href: "/contractors", icon: UserCog, resource: "COMPANY_NETWORK", moduleKey: "COMPANY_NETWORK" },
@@ -194,6 +196,8 @@ export const NAV_SECTIONS: Record<string, NavSection[]> = {
         { labelKey: "nav.attendance", href: "/dashboard/hr/attendance", icon: ClipboardList, resource: "HR", moduleKey: "HR" },
         { labelKey: "nav.leaveRequests", href: "/dashboard/hr/leave", icon: CalendarClock, resource: "HR", moduleKey: "HR" },
         { labelKey: "nav.training", href: "/dashboard/hr/training", icon: GraduationCap, resource: "HR", moduleKey: "TRAINING" },
+        { labelKey: "nav.payroll", href: "/dashboard/hr/payroll", icon: Wallet, resource: "HR", moduleKey: "HR" },
+        { labelKey: "nav.myPayslips", href: "/dashboard/hr/payroll/my-payslips", icon: Wallet },
       ],
     },
     { titleKey: "nav.reports", items: [{ labelKey: "nav.reports", href: "/dashboard/hr/reports", icon: BarChart3, resource: "HR", moduleKey: "HR" }] },

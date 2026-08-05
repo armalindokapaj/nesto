@@ -89,6 +89,14 @@ export const CONFIG_NODES: ConfigNode[] = [
   { key: "hr.feature.intercompany_transfer", label: "Intercompany Transfer", level: "FEATURE", parent: "hr" },
   { key: "hr.action.record_employment", label: "Record Employment Change", level: "ACTION", parent: "hr" },
 
+  // --- HR Payroll (PRD_HR_Payroll_Workforce v1.0, Phase 2) ------------------
+  { key: "hr.page.payroll", label: "Payroll", level: "PAGE", parent: "hr", route: "/dashboard/hr/payroll" },
+  { key: "hr.page.payroll_run", label: "Payroll Run", level: "PAGE", parent: "hr", route: "/dashboard/hr/payroll/runs/[id]" },
+  { key: "hr.page.my_payslips", label: "My Payslips", level: "PAGE", parent: "hr", route: "/dashboard/hr/payroll/my-payslips" },
+  { key: "hr.feature.payroll_adjustment", label: "Payroll Adjustment Runs", level: "FEATURE", parent: "hr" },
+  { key: "hr.action.calculate_payroll", label: "Calculate Payroll Run", level: "ACTION", parent: "hr" },
+  { key: "hr.action.lock_payroll_run", label: "Lock Payroll Run", level: "ACTION", parent: "hr" },
+
   // --- Government, Legal & Compliance (PRD_Government_Legal_Compliance v1.0, Phase 1) ---
   { key: "legal", label: "Government, Legal & Compliance", level: "MODULE" },
   { key: "legal.page.dashboard", label: "Legal Dashboard", level: "PAGE", parent: "legal", route: "/dashboard/legal" },
