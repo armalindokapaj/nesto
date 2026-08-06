@@ -3,11 +3,12 @@ import { redirect, notFound } from "next/navigation";
 import { ArrowLeft, ImageOff } from "lucide-react";
 import { getCurrentUser } from "@/lib/dal";
 import { can } from "@/lib/permissions";
-import { getBimModel } from "@/server/bim";
+import { getBimModel, getViewableRevisionForBimVersion } from "@/server/bim";
 import { getConfigResolver } from "@/server/platform-config";
 import { Card, CardHeader, CardTitle, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { AddBimVersionDialog, CreateBimLinkDialog, BimModelStatusActions } from "@/components/bim/bim-dialogs";
+import { BimViewer } from "@/components/bim/bim-viewer";
 import { removeBimObjectLinkAction } from "@/app/actions/bim";
 import { formatDate } from "@/lib/utils";
 
@@ -21,6 +22,9 @@ export default async function BimModelDetailPage({ params }: { params: Promise<{
   let model;
   try { model = await getBimModel(tenantId, id); } catch { return notFound(); }
 
+  const latestVersion = model.versions[0];
+  const viewable = latestVersion ? await getViewableRevisionForBimVersion(tenantId, latestVersion.documentId ?? null) : null;
+
   return (
     <div className="space-y-6">
       <Link href="/dashboard/bim" className="inline-flex items-center gap-1.5 text-sm text-ink-muted hover:text-gold"><ArrowLeft size={14} /> BIM Model Registry</Link>
@@ -33,13 +37,25 @@ export default async function BimModelDetailPage({ params }: { params: Promise<{
         {canWrite && <BimModelStatusActions modelId={model.id} status={model.status} />}
       </div>
 
-      <Card>
-        <CardContent className="flex flex-col items-center gap-2 py-12 text-center">
-          <ImageOff className="text-ink-faint" size={28} />
-          <p className="text-sm font-medium text-ink">No live 3D preview in this build</p>
-          <p className="max-w-md text-xs text-ink-faint">The BIM module's Phase-1 scope is registry and cross-module linking only — a browser 3D viewer, geometry conversion pipeline and object-identity matching are a separate engineering track, not attempted here. Download the source file from its Documents module reference to view it in native CAD/BIM software.</p>
-        </CardContent>
-      </Card>
+      {viewable ? (
+        <Card>
+          <CardHeader><CardTitle>3D Preview — {viewable.name}</CardTitle></CardHeader>
+          <CardContent>
+            <BimViewer fileUrl={`/api/documents/${viewable.revisionId}/file`} />
+            <p className="mt-2 text-xs text-ink-faint">glTF/GLB viewer only — full IFC parsing and object-identity matching remain a separate engineering track.</p>
+          </CardContent>
+        </Card>
+      ) : (
+        <Card>
+          <CardContent className="flex flex-col items-center gap-2 py-12 text-center">
+            <ImageOff className="text-ink-faint" size={28} />
+            <p className="text-sm font-medium text-ink">No live 3D preview available</p>
+            <p className="max-w-md text-xs text-ink-faint">
+              A live preview renders glTF/GLB files directly in the browser. This model&apos;s latest version is either not linked to a Documents file yet, or its source format (IFC, RVT, DWG, ...) has no in-browser parser in this build — download it from its Documents module reference to view it in native CAD/BIM software.
+            </p>
+          </CardContent>
+        </Card>
+      )}
 
       <Card>
         <CardHeader className="flex flex-row items-center justify-between">

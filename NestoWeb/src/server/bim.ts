@@ -62,3 +62,21 @@ export async function removeBimObjectLink(tenantId: string, linkId: string) {
 export async function listBimObjectLinksForEntity(tenantId: string, entityType: string, entityId: string) {
   return db.bimObjectLink.findMany({ where: { tenantId, entityType, entityId }, include: { model: { select: { id: true, name: true, discipline: true } } }, orderBy: { createdAt: "desc" } });
 }
+
+const GLTF_EXTENSIONS = [".glb", ".gltf"];
+const GLTF_MIME_TYPES = ["model/gltf-binary", "model/gltf+json"];
+
+/**
+ * Resolves a version's soft `documentId` (a Documents-module Document id) to
+ * its current revision, and reports whether that revision is a glTF/GLB the
+ * browser viewer can actually load. Anything else (IFC, RVT, DWG, ...)
+ * legitimately has no live preview — this app has no CAD/IFC parser.
+ */
+export async function getViewableRevisionForBimVersion(tenantId: string, documentId: string | null) {
+  if (!documentId) return null;
+  const document = await db.document.findUnique({ where: { id: documentId }, select: { tenantId: true, currentRevision: { select: { id: true, name: true, fileMimeType: true } } } });
+  if (!document || document.tenantId !== tenantId || !document.currentRevision) return null;
+  const rev = document.currentRevision;
+  const isGltf = GLTF_MIME_TYPES.includes(rev.fileMimeType ?? "") || GLTF_EXTENSIONS.some((ext) => rev.name.toLowerCase().endsWith(ext));
+  return isGltf ? { revisionId: rev.id, name: rev.name } : null;
+}
