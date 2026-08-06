@@ -913,7 +913,21 @@
     "legalHold": "Legal hold",
     "unstarDocument": "Unstar",
     "revisions": "revisions",
-    "code": "Code"
+    "code": "Code",
+    "collectionsTitle": "Collections",
+    "collectionsSubtitle": "Curated document packages — tender sets, handover packs, and other named bundles.",
+    "newCollection": "New Collection",
+    "collectionName": "Collection Name",
+    "collectionShared": "Shared — visible to anyone who can read Documents",
+    "collectionPrivate": "Private",
+    "collectionSharedBadge": "Shared",
+    "collectionItemsCount": "documents",
+    "noCollections": "No collections yet.",
+    "documentTitle": "Document",
+    "pinnedRevision": "Pinned Revision",
+    "currentRevision": "Current",
+    "emptyCollection": "No documents in this collection yet.",
+    "addToCollection": "Add"
   },
   "contracts": {
     "title": "Contracts",

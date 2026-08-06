@@ -895,3 +895,71 @@ export async function listReadReceipts(tenantId: string, documentId: string) {
     orderBy: { assignedAt: "desc" },
   });
 }
+
+// ---------------------------------------------------------------------------
+// Collections — curated document packages (tender/handover sets, etc).
+// Schema (`DocumentCollection`/`DocumentCollectionItem`) already existed;
+// this wires it up for the first time. `ownerId` set = private to that user;
+// `ownerId` null = shared, visible to anyone with DOCUMENTS/READ — same
+// private-vs-shared shape as Documents' own Star (always private) vs Folder
+// (always shared), just parameterized per collection instead of per type.
+// ---------------------------------------------------------------------------
+
+export async function listCollections(tenantId: string, userId: string) {
+  return db.documentCollection.findMany({
+    where: { tenantId, OR: [{ ownerId: userId }, { ownerId: null }] },
+    include: { _count: { select: { items: true } } },
+    orderBy: { createdAt: "desc" },
+  });
+}
+
+function assertCollectionVisible<T extends { tenantId: string; ownerId: string | null }>(collection: T | null, tenantId: string, userId: string): T {
+  const c = assertTenant(collection, tenantId, "DocumentCollection");
+  if (c.ownerId && c.ownerId !== userId) throw new Error("This collection is private to another user.");
+  return c;
+}
+
+export async function getCollection(tenantId: string, collectionId: string, userId: string) {
+  const collection = assertCollectionVisible(await db.documentCollection.findUnique({ where: { id: collectionId } }), tenantId, userId);
+  const items = await db.documentCollectionItem.findMany({
+    where: { collectionId: collection.id },
+    include: { document: { select: { id: true, title: true, code: true, status: true } } },
+    orderBy: { sortOrder: "asc" },
+  });
+  // revisionId is a soft reference (no formal Prisma relation on this
+  // pre-existing model) — resolved separately rather than via include.
+  const revisionIds = items.map((i) => i.revisionId).filter((id): id is string => !!id);
+  const revisions = revisionIds.length
+    ? await db.documentFile.findMany({ where: { id: { in: revisionIds } }, select: { id: true, revisionCode: true } })
+    : [];
+  const revisionById = new Map(revisions.map((r) => [r.id, r]));
+
+  return { collection, items: items.map((i) => ({ ...i, revision: i.revisionId ? (revisionById.get(i.revisionId) ?? null) : null })) };
+}
+
+export async function createCollection(tenantId: string, userId: string, input: { name: string; shared: boolean }) {
+  return db.documentCollection.create({ data: { tenantId, name: input.name, ownerId: input.shared ? null : userId } });
+}
+
+export async function deleteCollection(tenantId: string, collectionId: string, userId: string) {
+  assertCollectionVisible(await db.documentCollection.findUnique({ where: { id: collectionId } }), tenantId, userId);
+  await db.documentCollection.delete({ where: { id: collectionId } });
+}
+
+export async function addDocumentToCollection(tenantId: string, collectionId: string, userId: string, documentId: string, revisionId?: string) {
+  const collection = assertCollectionVisible(await db.documentCollection.findUnique({ where: { id: collectionId } }), tenantId, userId);
+  assertTenant(await db.document.findUnique({ where: { id: documentId } }), tenantId, "Document");
+  const count = await db.documentCollectionItem.count({ where: { collectionId: collection.id } });
+  return db.documentCollectionItem.upsert({
+    where: { collectionId_documentId: { collectionId: collection.id, documentId } },
+    create: { collectionId: collection.id, documentId, revisionId, sortOrder: count },
+    update: { revisionId },
+  });
+}
+
+export async function removeDocumentFromCollection(tenantId: string, itemId: string, userId: string) {
+  const item = await db.documentCollectionItem.findUnique({ where: { id: itemId }, include: { collection: true } });
+  if (!item) throw new Error("Item not found.");
+  assertCollectionVisible(item.collection, tenantId, userId);
+  await db.documentCollectionItem.delete({ where: { id: itemId } });
+}

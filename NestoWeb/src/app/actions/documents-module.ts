@@ -15,6 +15,10 @@ import {
   addDocumentComment,
   setRequiredReading,
   acknowledgeRequiredReading,
+  createCollection,
+  deleteCollection,
+  addDocumentToCollection,
+  removeDocumentFromCollection,
 } from "@/server/documents-module";
 
 // PRD_Documents_Module — module-level actions (folders, shortcuts, Star,
@@ -211,4 +215,61 @@ export async function acknowledgeRequiredReadingAction(documentId: string) {
   if (!can(role, "DOCUMENTS", "READ")) throw new Error("Not authorized");
   await acknowledgeRequiredReading(tenantId, documentId, user.id);
   revalidatePath(`/documents/${documentId}`);
+}
+
+// ---------------------------------------------------------------------------
+// Collections
+// ---------------------------------------------------------------------------
+
+const CreateCollectionSchema = z.object({
+  name: z.string().min(1, "Enter a collection name"),
+  shared: z.coerce.boolean(),
+});
+
+export async function createCollectionAction(_prev: ActionState, formData: FormData): Promise<ActionState> {
+  const { tenantId, role, user } = await getCurrentUser();
+  if (!can(role, "DOCUMENTS", "READ")) return { error: "Not authorized" };
+  const parsed = CreateCollectionSchema.safeParse({ name: formData.get("name"), shared: formData.get("shared") === "on" });
+  if (!parsed.success) return { error: parsed.error.issues[0]?.message ?? "Invalid input" };
+  await createCollection(tenantId, user.id, parsed.data);
+  revalidatePath("/documents/collections");
+  return { ok: true };
+}
+
+export async function deleteCollectionAction(collectionId: string) {
+  const { tenantId, role, user } = await getCurrentUser();
+  if (!can(role, "DOCUMENTS", "READ")) throw new Error("Not authorized");
+  await deleteCollection(tenantId, collectionId, user.id);
+  revalidatePath("/documents/collections");
+}
+
+const AddToCollectionSchema = z.object({
+  collectionId: z.string().min(1),
+  documentId: z.string().min(1, "Select a document"),
+  revisionId: z.string().optional(),
+});
+
+export async function addDocumentToCollectionAction(_prev: ActionState, formData: FormData): Promise<ActionState> {
+  const { tenantId, role, user } = await getCurrentUser();
+  if (!can(role, "DOCUMENTS", "READ")) return { error: "Not authorized" };
+  const parsed = AddToCollectionSchema.safeParse({
+    collectionId: formData.get("collectionId"),
+    documentId: formData.get("documentId"),
+    revisionId: formData.get("revisionId") || undefined,
+  });
+  if (!parsed.success) return { error: parsed.error.issues[0]?.message ?? "Invalid input" };
+  try {
+    await addDocumentToCollection(tenantId, parsed.data.collectionId, user.id, parsed.data.documentId, parsed.data.revisionId);
+  } catch (error) {
+    return { error: error instanceof Error ? error.message : "Could not add document" };
+  }
+  revalidatePath(`/documents/collections/${parsed.data.collectionId}`);
+  return { ok: true };
+}
+
+export async function removeDocumentFromCollectionAction(itemId: string, collectionId: string) {
+  const { tenantId, role, user } = await getCurrentUser();
+  if (!can(role, "DOCUMENTS", "READ")) throw new Error("Not authorized");
+  await removeDocumentFromCollection(tenantId, itemId, user.id);
+  revalidatePath(`/documents/collections/${collectionId}`);
 }

@@ -98,6 +98,11 @@ export default async function DocumentsPage({
           <CardContent>
             <FolderTree nodes={tree} />
           </CardContent>
+          <CardContent className="pt-0">
+            <Link href="/documents/collections" className="text-sm font-medium text-ink hover:text-gold">
+              {t("documents.collectionsTitle")}
+            </Link>
+          </CardContent>
         </Card>
 
         <div className="space-y-6">

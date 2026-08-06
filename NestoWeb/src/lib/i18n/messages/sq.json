@@ -891,7 +891,21 @@
     "expiresOn": "Skadon",
     "legalHold": "Mbajtje ligjore",
     "revisions": "rishikime",
-    "code": "Kodi"
+    "code": "Kodi",
+    "collectionsTitle": "Koleksionet",
+    "collectionsSubtitle": "Paketa dokumentesh të kuruara — sete tenderimi, paketa dorëzimi dhe grupe të tjera me emër.",
+    "newCollection": "Koleksion i Ri",
+    "collectionName": "Emri i Koleksionit",
+    "collectionShared": "I përbashkët — i dukshëm për këdo që mund të lexojë Dokumentet",
+    "collectionPrivate": "Privat",
+    "collectionSharedBadge": "I Përbashkët",
+    "collectionItemsCount": "dokumente",
+    "noCollections": "Ende pa koleksione.",
+    "documentTitle": "Dokumenti",
+    "pinnedRevision": "Rishikimi i Fiksuar",
+    "currentRevision": "Aktual",
+    "emptyCollection": "Ende pa dokumente në këtë koleksion.",
+    "addToCollection": "Shto"
   },
   "contracts": {
     "title": "Kontratat",
