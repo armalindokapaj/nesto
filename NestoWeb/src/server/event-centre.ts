@@ -85,3 +85,136 @@ export async function getNotificationVolume(tenantId: string, days = 7) {
   const rows = await db.notification.groupBy({ by: ["type"], where: { tenantId, createdAt: { gte: since } }, _count: { _all: true } });
   return rows.map((r) => ({ type: r.type, count: r._count._all })).sort((a, b) => b.count - a.count);
 }
+
+// ---------------------------------------------------------------------------
+// Phase 2 — Personal control: quiet hours + digest schedule. Both are pure
+// preference records read by future dispatch logic; there's no background
+// scheduler in this stack, so "digest" here means an on-demand summary
+// (getDigestPreview below), not a cron-generated DigestInstance.
+// ---------------------------------------------------------------------------
+
+export async function getQuietHours(tenantId: string, userId: string) {
+  return db.notificationQuietHours.findUnique({ where: { userId } });
+}
+
+export async function setQuietHours(tenantId: string, userId: string, input: { timezone: string; startTime: string; endTime: string; enabled: boolean }) {
+  return db.notificationQuietHours.upsert({
+    where: { userId },
+    create: { tenantId, userId, ...input },
+    update: input,
+  });
+}
+
+/** Local wall-clock check against IANA timezone quiet hours (handles overnight ranges like 22:00-07:00). */
+export function isWithinQuietHours(quietHours: { timezone: string; startTime: string; endTime: string; enabled: boolean } | null, now = new Date()): boolean {
+  if (!quietHours?.enabled) return false;
+  const local = new Intl.DateTimeFormat("en-GB", { timeZone: quietHours.timezone, hour: "2-digit", minute: "2-digit", hour12: false }).format(now);
+  const [h, m] = local.split(":").map(Number);
+  const minutes = h * 60 + m;
+  const [sh, sm] = quietHours.startTime.split(":").map(Number);
+  const [eh, em] = quietHours.endTime.split(":").map(Number);
+  const start = sh * 60 + sm;
+  const end = eh * 60 + em;
+  return start <= end ? minutes >= start && minutes < end : minutes >= start || minutes < end;
+}
+
+export async function getDigestRule(tenantId: string, userId: string) {
+  return db.digestRule.findUnique({ where: { userId } });
+}
+
+export async function setDigestRule(tenantId: string, userId: string, input: { frequency: string; timeOfDay: string }) {
+  return db.digestRule.upsert({ where: { userId }, create: { tenantId, userId, ...input }, update: input });
+}
+
+/** On-demand digest — unread notifications since the window start, re-checking nothing extra (Notification rows are already permission-filtered at creation). */
+export async function getDigestPreview(tenantId: string, userId: string, sinceDays = 1) {
+  const since = new Date(Date.now() - sinceDays * 24 * 60 * 60 * 1000);
+  return db.notification.findMany({ where: { tenantId, userId, createdAt: { gte: since } }, orderBy: { createdAt: "desc" }, take: 50 });
+}
+
+// ---------------------------------------------------------------------------
+// Phase 3 — Enterprise comms: announcements (optionally mandatory-ack) and
+// emergency alerts (capability-gated activation, bypass quiet hours by
+// definition since they're delivered as regular in-app notifications
+// regardless of the recipient's quiet-hours preference).
+// ---------------------------------------------------------------------------
+
+export async function listAnnouncements(tenantId: string) {
+  return db.announcement.findMany({
+    where: { tenantId, OR: [{ expiresAt: null }, { expiresAt: { gt: new Date() } }] },
+    include: { acks: true },
+    orderBy: { publishedAt: "desc" },
+  });
+}
+
+export async function createAnnouncement(
+  tenantId: string,
+  actorId: string,
+  input: { title: string; body: string; audienceType: string; audienceValue?: string; mandatoryAck: boolean; expiresAt?: Date }
+) {
+  const announcement = await db.announcement.create({ data: { tenantId, publishedById: actorId, ...input } });
+  // Deliver as a regular in-app notification to every tenant member — the
+  // one place this app does do a broadcast, and only because Announcement is
+  // itself the explicit, admin-authored broadcast primitive (distinct from
+  // publishEvent's per-recipient-resolved delivery).
+  const members = await db.companyMembership.findMany({ where: { tenantId, accessMode: { not: "SUSPENDED" } }, select: { userId: true } });
+  await db.notification.createMany({
+    data: members.map((m) => ({ tenantId, userId: m.userId, type: "ANNOUNCEMENT", title: input.title, body: input.body, link: "/announcements" })),
+  });
+  return announcement;
+}
+
+export async function acknowledgeAnnouncement(tenantId: string, announcementId: string, userId: string) {
+  const announcement = await db.announcement.findUnique({ where: { id: announcementId } });
+  if (!announcement || announcement.tenantId !== tenantId) throw new Error("Announcement not found.");
+  return db.announcementAck.upsert({
+    where: { announcementId_userId: { announcementId, userId } },
+    create: { announcementId, userId },
+    update: {},
+  });
+}
+
+export async function listEmergencyAlerts(tenantId: string) {
+  return db.emergencyAlert.findMany({ where: { tenantId }, orderBy: { activatedAt: "desc" } });
+}
+
+export async function activateEmergencyAlert(tenantId: string, actorId: string, input: { title: string; body: string }) {
+  const alert = await db.emergencyAlert.create({ data: { tenantId, activatedById: actorId, ...input } });
+  const members = await db.companyMembership.findMany({ where: { tenantId, accessMode: { not: "SUSPENDED" } }, select: { userId: true } });
+  await db.notification.createMany({
+    data: members.map((m) => ({ tenantId, userId: m.userId, type: "EMERGENCY_ALERT", title: `🚨 ${input.title}`, body: input.body, link: "/notifications" })),
+  });
+  await db.auditEvent.create({ data: { tenantId, actorId, action: "EMERGENCY_ALERT_ACTIVATED", targetType: "EmergencyAlert", targetId: alert.id } });
+  return alert;
+}
+
+export async function resolveEmergencyAlert(tenantId: string, actorId: string, alertId: string) {
+  const alert = await db.emergencyAlert.findUnique({ where: { id: alertId } });
+  if (!alert || alert.tenantId !== tenantId) throw new Error("Alert not found.");
+  return db.emergencyAlert.update({ where: { id: alertId }, data: { resolvedById: actorId, resolvedAt: new Date() } });
+}
+
+// ---------------------------------------------------------------------------
+// Phase 4 — External channels. This app has no real SMTP/push/SMS provider
+// credentials configured anywhere, so a "send" here composes the redacted
+// preview and records it as SIMULATED rather than making a live external
+// call — same "registry + logged intent, no fabricated external call"
+// boundary already used for IT Admin (no live SSO) and BIM (no live viewer).
+// A future integration only has to replace the body of this one function.
+// ---------------------------------------------------------------------------
+
+export async function simulateExternalDelivery(
+  tenantId: string,
+  input: { recipientUserId: string; channel: "EMAIL" | "PUSH" | "SMS"; subject?: string; sensitiveBody: string }
+) {
+  // The minimized/safe version only — never the raw sensitive body, per the
+  // PRD's external-channel redaction rule.
+  const redactedPreview = input.subject ? `${input.subject} — see in-app for details.` : "You have a new notification — see in-app for details.";
+  return db.notificationDeliveryLog.create({
+    data: { tenantId, recipientUserId: input.recipientUserId, channel: input.channel, status: "SIMULATED", subject: input.subject, redactedPreview },
+  });
+}
+
+export async function listDeliveryLog(tenantId: string, take = 50) {
+  return db.notificationDeliveryLog.findMany({ where: { tenantId }, orderBy: { createdAt: "desc" }, take });
+}

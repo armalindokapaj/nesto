@@ -53,6 +53,7 @@ import {
   Smartphone,
   Network,
   Scale,
+  Megaphone,
 } from "lucide-react";
 import { can, DASHBOARD_BY_ROLE, type Resource, type Level } from "@/lib/permissions";
 import type { Role } from "@/lib/constants";
@@ -79,6 +80,7 @@ export const NAV_SECTIONS: Record<string, NavSection[]> = {
       items: [
         { labelKey: "nav.dashboard", href: "/dashboard/executive", icon: LayoutDashboard },
         { labelKey: "nav.myApprovals", href: "/workflows", icon: Inbox },
+        { labelKey: "nav.announcements", href: "/announcements", icon: Megaphone },
         { labelKey: "nav.employeeDirectory", href: "/employees", icon: Contact },
         { labelKey: "nav.myPayslips", href: "/dashboard/hr/payroll/my-payslips", icon: Wallet },
       ],
@@ -126,6 +128,7 @@ export const NAV_SECTIONS: Record<string, NavSection[]> = {
       items: [
         { labelKey: "nav.dashboard", href: "/dashboard/admin", icon: LayoutDashboard, resource: "USER_MANAGEMENT" },
         { labelKey: "nav.myApprovals", href: "/workflows", icon: Inbox },
+        { labelKey: "nav.announcements", href: "/announcements", icon: Megaphone },
         { labelKey: "nav.employeeDirectory", href: "/employees", icon: Contact },
       ],
     },

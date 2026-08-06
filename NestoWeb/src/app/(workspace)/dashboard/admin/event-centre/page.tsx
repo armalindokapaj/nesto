@@ -1,7 +1,7 @@
 import { redirect } from "next/navigation";
 import { getCurrentUser } from "@/lib/dal";
 import { can } from "@/lib/permissions";
-import { ensureEventCatalogue, getNotificationVolume } from "@/server/event-centre";
+import { ensureEventCatalogue, getNotificationVolume, listDeliveryLog } from "@/server/event-centre";
 import { Card, CardHeader, CardTitle, CardDescription, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { NotificationPolicyToggle } from "@/components/admin/notification-policy-toggle";
@@ -28,7 +28,11 @@ export default async function EventCentrePage() {
   if (!can(role, "USER_MANAGEMENT", "READ")) redirect("/dashboard/executive");
   const canManage = can(role, "USER_MANAGEMENT", "FULL");
 
-  const [catalogue, volume] = await Promise.all([ensureEventCatalogue(tenantId), getNotificationVolume(tenantId)]);
+  const [catalogue, volume, deliveryLog] = await Promise.all([
+    ensureEventCatalogue(tenantId),
+    getNotificationVolume(tenantId),
+    canManage ? listDeliveryLog(tenantId, 20) : Promise.resolve([]),
+  ]);
   const { t } = await getT();
   const byModule = catalogue.reduce<Record<string, typeof catalogue>>((acc, e) => {
     (acc[e.module] ??= []).push(e);
@@ -55,6 +59,24 @@ export default async function EventCentrePage() {
                 <span className="font-medium text-ink">{v.count}</span>
               </div>
             ))}
+          </CardContent>
+        </Card>
+      )}
+
+      {canManage && (
+        <Card>
+          <CardHeader>
+            <CardTitle className="text-sm">{t("eventCentre.deliveryLog")}</CardTitle>
+            <CardDescription>{t("eventCentre.deliveryLogDesc")}</CardDescription>
+          </CardHeader>
+          <CardContent className="space-y-1.5">
+            {deliveryLog.map((d) => (
+              <div key={d.id} className="flex items-center justify-between text-xs">
+                <span className="text-ink-muted">{d.channel} · {d.redactedPreview}</span>
+                <Badge tone="neutral">{d.status}</Badge>
+              </div>
+            ))}
+            {deliveryLog.length === 0 && <p className="text-xs text-ink-faint">{t("eventCentre.noDeliveries")}</p>}
           </CardContent>
         </Card>
       )}

@@ -16,6 +16,7 @@ export const CAPABILITY_KEYS = [
   "hse.stop_work.release",
   "hr.compensation.view",
   "workflow.instance.override",
+  "notifications.emergency_alert.activate",
 ] as const;
 export type CapabilityKey = (typeof CAPABILITY_KEYS)[number];
 
@@ -23,6 +24,7 @@ export const CAPABILITY_LABELS: Record<CapabilityKey, string> = {
   "hse.stop_work.release": "Release a Stop-Work Order",
   "hr.compensation.view": "View Employee Compensation",
   "workflow.instance.override": "Override / Force-Cancel a Workflow Instance",
+  "notifications.emergency_alert.activate": "Activate an Emergency Alert",
 };
 
 /** Roles that hold a capability by default — the starting point before any per-user grant/revoke. */
@@ -30,6 +32,7 @@ const DEFAULT_CAPABILITY_ROLES: Record<CapabilityKey, Role[]> = {
   "hse.stop_work.release": ["OWNER", "ADMIN", "HSE"],
   "hr.compensation.view": ["OWNER", "ADMIN", "HR", "FINANCE"],
   "workflow.instance.override": ["OWNER", "ADMIN"],
+  "notifications.emergency_alert.activate": ["OWNER", "ADMIN", "HSE"],
 };
 
 /** Pure default check — no DB. Combined with per-user grants/revokes in server/capabilities.ts. */

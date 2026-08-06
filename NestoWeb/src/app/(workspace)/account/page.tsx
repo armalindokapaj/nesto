@@ -4,10 +4,12 @@ import { can } from "@/lib/permissions";
 import { getOrCreateTenantSettings } from "@/app/actions/tenant-settings";
 import { getReminderPreferences } from "@/server/calendar";
 import { getConfigResolver } from "@/server/platform-config";
+import { getQuietHours, getDigestRule } from "@/server/event-centre";
 import { Card, CardHeader, CardTitle, CardDescription, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import Link from "next/link";
 import { Smartphone } from "lucide-react";
+import { QuietHoursForm, DigestRuleForm } from "@/components/account/notification-schedule-form";
 import { Avatar } from "@/components/ui/avatar";
 import { Badge } from "@/components/ui/badge";
 import { ChangePasswordForm } from "@/components/account/change-password-form";
@@ -30,6 +32,7 @@ export default async function AccountPage() {
   const tenantSettings = canManageTenantSettings ? await getOrCreateTenantSettings(tenantId) : null;
   const resolveConfig = await getConfigResolver(tenantId, company?.id);
   const devicesEnabled = resolveConfig("mobile_access.page.my_devices");
+  const [quietHours, digestRule] = await Promise.all([getQuietHours(tenantId, user.id), getDigestRule(tenantId, user.id)]);
   const { t } = await getT();
 
   return (
@@ -123,6 +126,31 @@ export default async function AccountPage() {
           <NotificationPreferencesForm preferences={preferences} />
         </CardContent>
       </Card>
+
+      <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+        <Card>
+          <CardHeader>
+            <div>
+              <CardTitle>{t("account.quietHours")}</CardTitle>
+              <CardDescription>{t("account.quietHoursDesc")}</CardDescription>
+            </div>
+          </CardHeader>
+          <CardContent>
+            <QuietHoursForm quietHours={quietHours} />
+          </CardContent>
+        </Card>
+        <Card>
+          <CardHeader>
+            <div>
+              <CardTitle>{t("account.digest")}</CardTitle>
+              <CardDescription>{t("account.digestDesc")}</CardDescription>
+            </div>
+          </CardHeader>
+          <CardContent>
+            <DigestRuleForm digestRule={digestRule} />
+          </CardContent>
+        </Card>
+      </div>
 
       <Card>
         <CardHeader>
