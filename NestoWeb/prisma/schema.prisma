@@ -290,6 +290,9 @@ model Tenant {
 
   // --- Reporting Phase 2/3 (additive) ---------------------------------------
   currencyRates CurrencyRate[]
+
+  // --- Universal Draft Mode (additive) --------------------------------------
+  recordDrafts RecordDraft[]
 }
 
 model Company {
@@ -6235,4 +6238,29 @@ model CurrencyRate {
   setById      String
 
   @@index([tenantId, fromCurrency, toCurrency])
+}
+
+// ---------------------------------------------------------------------------
+// PRD_Platform_UI_UX_Architecture §18 Universal Draft Mode. Scoped to the
+// underlying primitive only — one draft slot per (user, form), never
+// touching business state (creating one never reserves a code/number,
+// notifies anyone, or changes any other record). Piloted on exactly one
+// existing form (Create Client) rather than retrofitting every save path in
+// the app at once — mass-migrating dozens of already-stable forms' save
+// behavior in one pass is a materially different (and much riskier) change
+// than adding a new, isolated, opt-in surface.
+// ---------------------------------------------------------------------------
+
+model RecordDraft {
+  id        String   @id @default(cuid())
+  tenantId  String
+  tenant    Tenant   @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  userId    String
+  // Stable key per form, e.g. "client.create" — not per-record, since a
+  // draft by definition doesn't have a record yet.
+  formKey   String
+  payload   String // JSON — the form's field values, verbatim
+  updatedAt DateTime @updatedAt
+
+  @@unique([tenantId, userId, formKey])
 }
