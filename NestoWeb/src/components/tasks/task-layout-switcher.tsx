@@ -1,15 +1,14 @@
 "use client";
 
-// PRD_Tasks_Module — Tasks Module Page ships 4 layouts (List, Board,
-// Calendar, Timeline); this Phase-1 pass adds Board and Calendar alongside
-// the existing List. Timeline/Gantt is deferred (heavier, needs a dedicated
-// date-range renderer). Layout choice lives in the URL (?layout=) so
+// PRD_Tasks_Module — Tasks Module Page ships all 4 layouts (List, Board,
+// Calendar, Timeline). Layout choice lives in the URL (?layout=) so
 // filters/scope survive a switch, per the PRD's "preserved across layout
-// switches" rule — no separate per-user persistence store yet.
+// switches" rule; a saved view (TaskSavedView) can additionally persist a
+// layout+filter combination server-side per user.
 
 import Link from "next/link";
 import { useSearchParams } from "next/navigation";
-import { List, LayoutGrid, CalendarDays } from "lucide-react";
+import { List, LayoutGrid, CalendarDays, GanttChartSquare } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useI18n } from "@/lib/i18n/locale-provider";
 
@@ -17,6 +16,7 @@ const LAYOUTS = [
   ["list", List, "tasksPage.layoutList"],
   ["board", LayoutGrid, "tasksPage.layoutBoard"],
   ["calendar", CalendarDays, "tasksPage.layoutCalendar"],
+  ["timeline", GanttChartSquare, "tasksPage.layoutTimeline"],
 ] as const;
 
 export function TaskLayoutSwitcher() {

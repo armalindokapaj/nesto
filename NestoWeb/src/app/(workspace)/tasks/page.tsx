@@ -4,7 +4,7 @@ import { can } from "@/lib/permissions";
 import { canViewTask } from "@/lib/project-access";
 import type { Role } from "@/lib/constants";
 import { listTasks, listProjects } from "@/server/projects";
-import { listStarredTaskIds } from "@/server/tasks-module";
+import { listStarredTaskIds, listSavedViews, processDueRecurrences } from "@/server/tasks-module";
 import { Card, CardContent } from "@/components/ui/card";
 import { Table, THead, TBody, TRow, TH, TD } from "@/components/ui/table";
 import { Badge } from "@/components/ui/badge";
@@ -18,6 +18,8 @@ import { TaskStarButton } from "@/components/tasks/task-star-button";
 import { TaskLayoutSwitcher } from "@/components/tasks/task-layout-switcher";
 import { TaskBoardView } from "@/components/tasks/task-board-view";
 import { TaskCalendarView } from "@/components/tasks/task-calendar-view";
+import { TaskTimelineView } from "@/components/tasks/task-timeline-view";
+import { TaskSavedViews } from "@/components/tasks/task-saved-views";
 import { TASK_STATUS_KEY } from "@/lib/constants";
 import type { TaskStatus } from "@/lib/constants";
 import { formatDate } from "@/lib/utils";
@@ -34,10 +36,12 @@ export default async function TasksPage({
   const canWrite = can(role, "TASKS", "WRITE");
 
   const { status, projectId, starred, layout, year, month } = await searchParams;
-  const [allTasks, projects, starredIds] = await Promise.all([
+  await processDueRecurrences(tenantId);
+  const [allTasks, projects, starredIds, savedViews] = await Promise.all([
     listTasks(tenantId),
     listProjects(tenantId),
     listStarredTaskIds(tenantId, user.id),
+    listSavedViews(tenantId, user.id),
   ]);
   const viewer = { userId: user.id, role: role as Role };
   const tasks = allTasks.filter(
@@ -78,8 +82,11 @@ export default async function TasksPage({
         </div>
       </div>
 
+      <TaskSavedViews views={savedViews} />
+
       {layout === "board" && <TaskBoardView tasks={tasks} starredIds={starredIds} />}
       {layout === "calendar" && <TaskCalendarView tasks={tasks} year={calendarYear} month={calendarMonth} />}
+      {layout === "timeline" && <TaskTimelineView tasks={tasks} />}
       {(!layout || layout === "list") && (
       <Card>
         <CardContent className="p-0">

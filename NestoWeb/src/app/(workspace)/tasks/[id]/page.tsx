@@ -11,7 +11,7 @@ import { listComments } from "@/server/comments";
 import { listAllMembers } from "@/server/admin";
 import { listContractors } from "@/server/contractors";
 import { listContracts } from "@/server/contracts";
-import { listChecklistItems, isTaskStarred } from "@/server/tasks-module";
+import { listChecklistItems, isTaskStarred, isTaskWatched, listTaskLinks, getTaskRecurrence } from "@/server/tasks-module";
 import { StartOrchestrationCard } from "@/components/projects/start-orchestration-card";
 import { TaskOrchestrationView } from "@/components/projects/task-orchestration-view";
 import { AccessDenied } from "@/components/ui/access-denied";
@@ -19,6 +19,7 @@ import { Card, CardHeader, CardTitle, CardContent } from "@/components/ui/card";
 import { TaskStarButton } from "@/components/tasks/task-star-button";
 import { TaskChecklist } from "@/components/tasks/task-checklist";
 import { TaskComments } from "@/components/tasks/task-comments";
+import { WatchTaskButton, TaskLinksCard, TaskRecurrenceCard } from "@/components/tasks/task-extras-card";
 import { getT } from "@/lib/i18n/server";
 
 export default async function TaskDetailPage({ params }: { params: Promise<{ id: string }> }) {
@@ -41,9 +42,12 @@ export default async function TaskDetailPage({ params }: { params: Promise<{ id:
 
   const backHref = task.projectId ? `/projects/${task.projectId}` : task.clientId ? `/clients/${task.clientId}` : "/tasks";
   const canWrite = can(role, "TASKS", "WRITE");
-  const [checklistItems, starred] = await Promise.all([
+  const [checklistItems, starred, watching, links, recurrence] = await Promise.all([
     listChecklistItems(tenantId, id),
     isTaskStarred(tenantId, id, user.id),
+    isTaskWatched(tenantId, id, user.id),
+    listTaskLinks(tenantId, id),
+    getTaskRecurrence(tenantId, id),
   ]);
 
   // §9/§14 — Checklist and Star apply to every task regardless of whether
@@ -59,6 +63,27 @@ export default async function TaskDetailPage({ params }: { params: Promise<{ id:
     </Card>
   );
 
+  const extrasCard = (
+    <>
+      <Card>
+        <CardHeader>
+          <CardTitle>{t("tasksPage.taskLinks")}</CardTitle>
+        </CardHeader>
+        <CardContent>
+          <TaskLinksCard taskId={id} links={links} canWrite={canWrite} />
+        </CardContent>
+      </Card>
+      <Card>
+        <CardHeader>
+          <CardTitle>{t("tasksPage.recurrence")}</CardTitle>
+        </CardHeader>
+        <CardContent>
+          <TaskRecurrenceCard taskId={id} recurrence={recurrence} canWrite={canWrite} />
+        </CardContent>
+      </Card>
+    </>
+  );
+
   if (!task.currentStageId) {
     const [members, comments] = await Promise.all([listAllMembers(tenantId), listComments(tenantId, "Task", id)]);
     return (
@@ -68,6 +93,7 @@ export default async function TaskDetailPage({ params }: { params: Promise<{ id:
         </Link>
         <div className="flex items-center gap-2">
           <TaskStarButton taskId={id} starred={starred} size={17} />
+          <WatchTaskButton taskId={id} watching={watching} />
           <span className="text-sm text-ink-muted">{task.code}</span>
         </div>
         <StartOrchestrationCard
@@ -86,6 +112,7 @@ export default async function TaskDetailPage({ params }: { params: Promise<{ id:
           </CardContent>
         </Card>
         {checklistCard}
+        {extrasCard}
       </div>
     );
   }
@@ -105,6 +132,7 @@ export default async function TaskDetailPage({ params }: { params: Promise<{ id:
       </Link>
       <div className="flex items-center gap-2">
         <TaskStarButton taskId={id} starred={starred} size={17} />
+        <WatchTaskButton taskId={id} watching={watching} />
         <span className="text-sm text-ink-muted">{task.code}</span>
       </div>
       <TaskOrchestrationView
@@ -118,6 +146,7 @@ export default async function TaskDetailPage({ params }: { params: Promise<{ id:
         role={role}
       />
       {checklistCard}
+      {extrasCard}
     </div>
   );
 }

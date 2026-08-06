@@ -129,3 +129,146 @@ export async function deleteChecklistItem(tenantId: string, itemId: string, acto
     summary: `Removed checklist item: ${item.title}`,
   });
 }
+
+// ---------------------------------------------------------------------------
+// Watching — private, never widens access. A watcher who loses task
+// visibility (participant removed) simply stops seeing the task at all,
+// same as anyone else; the watch row itself isn't cleaned up specially
+// since it grants nothing on its own.
+// ---------------------------------------------------------------------------
+
+export async function toggleTaskWatch(tenantId: string, taskId: string, userId: string) {
+  assertTenant(await db.task.findUnique({ where: { id: taskId } }), tenantId, "Task");
+  const existing = await db.taskWatcher.findUnique({ where: { taskId_userId: { taskId, userId } } });
+  if (existing) {
+    await db.taskWatcher.delete({ where: { id: existing.id } });
+    return { watching: false };
+  }
+  await db.taskWatcher.create({ data: { tenantId, taskId, userId } });
+  return { watching: true };
+}
+
+export async function listWatchedTaskIds(tenantId: string, userId: string) {
+  const rows = await db.taskWatcher.findMany({ where: { tenantId, userId }, select: { taskId: true } });
+  return new Set(rows.map((r) => r.taskId));
+}
+
+export async function isTaskWatched(tenantId: string, taskId: string, userId: string) {
+  return (await db.taskWatcher.findUnique({ where: { taskId_userId: { taskId, userId } } }))?.tenantId === tenantId;
+}
+
+/** No direct UserIdentity relation on TaskWatcher — callers resolve display names via listTenantUsersForPicker if needed. */
+export async function listTaskWatchers(tenantId: string, taskId: string) {
+  return db.taskWatcher.findMany({ where: { tenantId, taskId } });
+}
+
+// ---------------------------------------------------------------------------
+// Generic cross-entity links — mirrors DocumentLink's shape/pattern.
+// ---------------------------------------------------------------------------
+
+export async function listTaskLinks(tenantId: string, taskId: string) {
+  return db.taskLink.findMany({ where: { tenantId, taskId }, orderBy: { createdAt: "desc" } });
+}
+
+export async function addTaskLink(tenantId: string, actorId: string, taskId: string, entityType: string, entityId: string, relationType?: string) {
+  assertTenant(await db.task.findUnique({ where: { id: taskId } }), tenantId, "Task");
+  return db.taskLink.create({ data: { tenantId, taskId, entityType, entityId, relationType, createdById: actorId } });
+}
+
+export async function removeTaskLink(tenantId: string, linkId: string) {
+  const link = assertTenant(await db.taskLink.findUnique({ where: { id: linkId } }), tenantId, "TaskLink");
+  await db.taskLink.delete({ where: { id: link.id } });
+}
+
+// ---------------------------------------------------------------------------
+// Recurrence — lazy generation, no background scheduler. `dueDueOccurrences`
+// is called from the task list page load; any run whose nextRunAt has
+// passed generates its next Task occurrence and advances the schedule, so a
+// tenant that hasn't opened the app for a week still catches up correctly
+// (each catch-up only ever creates one occurrence — it advances to "next run
+// after now", not one row per missed period).
+// ---------------------------------------------------------------------------
+
+function advanceDate(from: Date, frequency: string, interval: number): Date {
+  const next = new Date(from);
+  if (frequency === "DAILY") next.setDate(next.getDate() + interval);
+  else if (frequency === "WEEKLY") next.setDate(next.getDate() + interval * 7);
+  else next.setMonth(next.getMonth() + interval);
+  return next;
+}
+
+export async function setTaskRecurrence(
+  tenantId: string,
+  actorId: string,
+  taskId: string,
+  input: { frequency: string; interval: number }
+) {
+  const task = assertTenant(await db.task.findUnique({ where: { id: taskId } }), tenantId, "Task");
+  const nextRunAt = advanceDate(task.dueDate ?? new Date(), input.frequency, input.interval);
+  return db.taskRecurrence.upsert({
+    where: { templateTaskId: taskId },
+    create: { tenantId, templateTaskId: taskId, frequency: input.frequency, interval: input.interval, nextRunAt, createdById: actorId },
+    update: { frequency: input.frequency, interval: input.interval, active: true },
+  });
+}
+
+export async function getTaskRecurrence(tenantId: string, taskId: string) {
+  const rec = await db.taskRecurrence.findUnique({ where: { templateTaskId: taskId } });
+  return rec && rec.tenantId === tenantId ? rec : null;
+}
+
+export async function stopTaskRecurrence(tenantId: string, recurrenceId: string) {
+  const rec = assertTenant(await db.taskRecurrence.findUnique({ where: { id: recurrenceId } }), tenantId, "TaskRecurrence");
+  return db.taskRecurrence.update({ where: { id: rec.id }, data: { active: false } });
+}
+
+/** Catches up any due recurrences for the tenant; call on task-list page load. */
+export async function processDueRecurrences(tenantId: string) {
+  const due = await db.taskRecurrence.findMany({
+    where: { tenantId, active: true, nextRunAt: { lte: new Date() } },
+    include: { templateTask: true },
+  });
+  for (const rec of due) {
+    const t = rec.templateTask;
+    const created = await db.task.create({
+      data: {
+        tenantId,
+        projectId: t.projectId,
+        clientId: t.clientId,
+        code: `${t.code}-R${Date.now().toString(36).toUpperCase()}`,
+        title: t.title,
+        description: t.description,
+        visibility: t.visibility,
+        priority: t.priority,
+        dueDate: rec.nextRunAt,
+        createdById: rec.createdById,
+        mainResponsibleId: t.mainResponsibleId,
+        departmentRole: t.departmentRole,
+      },
+    });
+    await db.taskRecurrence.update({
+      where: { id: rec.id },
+      data: { nextRunAt: advanceDate(rec.nextRunAt, rec.frequency, rec.interval), lastGeneratedAt: new Date(), lastGeneratedTaskId: created.id },
+    });
+  }
+  return due.length;
+}
+
+// ---------------------------------------------------------------------------
+// Saved views — per-user, server-persisted (the layout picker was
+// URL-only before this).
+// ---------------------------------------------------------------------------
+
+export async function listSavedViews(tenantId: string, userId: string) {
+  return db.taskSavedView.findMany({ where: { tenantId, userId }, orderBy: { createdAt: "desc" } });
+}
+
+export async function createSavedView(tenantId: string, userId: string, input: { name: string; layout: string; filtersJson?: string; isDefault?: boolean }) {
+  if (input.isDefault) await db.taskSavedView.updateMany({ where: { tenantId, userId }, data: { isDefault: false } });
+  return db.taskSavedView.create({ data: { tenantId, userId, ...input } });
+}
+
+export async function deleteSavedView(tenantId: string, viewId: string) {
+  const view = assertTenant(await db.taskSavedView.findUnique({ where: { id: viewId } }), tenantId, "TaskSavedView");
+  await db.taskSavedView.delete({ where: { id: view.id } });
+}

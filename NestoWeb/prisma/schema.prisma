@@ -274,6 +274,22 @@ model Tenant {
   shiftDefinitions    ShiftDefinition[]
   scheduleAssignments ScheduleAssignment[]
   attendanceEvents    AttendanceEvent[]
+
+  // --- Tasks gap-fill (additive) --------------------------------------------
+  taskWatchers    TaskWatcher[]
+  taskLinks       TaskLink[]
+  taskRecurrences TaskRecurrence[]
+  taskSavedViews  TaskSavedView[]
+
+  // --- Notifications Phase 2/3/4 (additive) ---------------------------------
+  notificationQuietHours   NotificationQuietHours[]
+  digestRules              DigestRule[]
+  announcements            Announcement[]
+  emergencyAlerts          EmergencyAlert[]
+  notificationDeliveryLogs NotificationDeliveryLog[]
+
+  // --- Reporting Phase 2/3 (additive) ---------------------------------------
+  currencyRates CurrencyRate[]
 }
 
 model Company {
@@ -990,6 +1006,9 @@ model Task {
   documents      DocumentFile[]
   stars          TaskStar[]
   checklistItems TaskChecklistItem[]
+  watchers       TaskWatcher[]
+  links          TaskLink[]
+  recurrence     TaskRecurrence?     @relation("TaskRecurrenceTemplate")
 
   stages                TaskStage[]                    @relation("TaskStages")
   departments           TaskDepartment[]
@@ -5387,6 +5406,13 @@ model ReportExecution {
   executedBy         UserIdentity     @relation("ReportExecutedBy", fields: [executedById], references: [id])
   rowCount           Int              @default(0)
   executedAt         DateTime         @default(now())
+  // Phase 2/3 — opt-in freeze. Null/false is the Phase 1 default (rows
+  // always re-queried live); issuing one snapshot freezes that run's exact
+  // result so it can never change even if the underlying data does later.
+  resultJson         String?
+  issued             Boolean          @default(false)
+  issuedAt           DateTime?
+  issuedById         String?
 
   @@index([tenantId, reportDefinitionId])
 }
@@ -6020,4 +6046,193 @@ model AttendanceEvent {
   createdAt   DateTime @default(now())
 
   @@index([tenantId, employeeId, occurredAt])
+}
+
+// ---------------------------------------------------------------------------
+// Tasks — gap-fill (PRD_Tasks_Module's remaining deferred items): watching,
+// generic cross-entity links, simple recurrence, and per-user saved views.
+// Additive; the existing participant-based visibility model is untouched —
+// watching/linking never grants access, same "following never grants record
+// access" rule the Notifications PRD states explicitly.
+// ---------------------------------------------------------------------------
+
+model TaskWatcher {
+  id        String   @id @default(cuid())
+  tenantId  String
+  tenant    Tenant   @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  taskId    String
+  task      Task     @relation(fields: [taskId], references: [id], onDelete: Cascade)
+  userId    String
+  createdAt DateTime @default(now())
+
+  @@unique([taskId, userId])
+  @@index([tenantId, userId])
+}
+
+model TaskLink {
+  id           String   @id @default(cuid())
+  tenantId     String
+  tenant       Tenant   @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  taskId       String
+  task         Task     @relation(fields: [taskId], references: [id], onDelete: Cascade)
+  entityType   String // PROJECT | CLIENT | CONTRACT | ASSET | TASK | OTHER
+  entityId     String
+  relationType String? // free text, e.g. "blocks", "relates to"
+  createdById  String
+  createdAt    DateTime @default(now())
+
+  @@index([tenantId, taskId])
+  @@index([tenantId, entityType, entityId])
+}
+
+// Simple recurrence: no background scheduler exists in this stack, so the
+// next occurrence is generated lazily (checked/advanced when the task list
+// loads, or on completion of the previous occurrence) rather than by a real
+// cron job — same "no infra that isn't actually here" discipline as
+// everywhere else this session.
+model TaskRecurrence {
+  id                  String    @id @default(cuid())
+  tenantId            String
+  tenant              Tenant    @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  templateTaskId      String    @unique
+  templateTask        Task      @relation("TaskRecurrenceTemplate", fields: [templateTaskId], references: [id], onDelete: Cascade)
+  frequency           String // DAILY | WEEKLY | MONTHLY
+  interval            Int       @default(1)
+  active              Boolean   @default(true)
+  nextRunAt           DateTime
+  lastGeneratedAt     DateTime?
+  lastGeneratedTaskId String?
+  createdById         String
+  createdAt           DateTime  @default(now())
+
+  @@index([tenantId, active, nextRunAt])
+}
+
+model TaskSavedView {
+  id          String   @id @default(cuid())
+  tenantId    String
+  tenant      Tenant   @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  userId      String
+  name        String
+  layout      String // LIST | BOARD | CALENDAR | TIMELINE
+  filtersJson String?
+  isDefault   Boolean  @default(false)
+  createdAt   DateTime @default(now())
+
+  @@index([tenantId, userId])
+}
+
+// ---------------------------------------------------------------------------
+// Notifications / Event Centre — Phase 2 "Personal control" and Phase 3
+// "Enterprise comms" from the PRD's own phase plan, on top of the Phase 1
+// core (EventCatalogueEntry/NotificationPolicy) already shipped. Phase 4
+// "External channels" is represented by NotificationDeliveryLog only — this
+// app has no real SMTP/push/SMS provider credentials, so external sends are
+// composed and logged as SIMULATED, never actually dispatched; same
+// "registry + logged intent, no live external call" boundary already used
+// for IT Admin (no SSO) and BIM (no live viewer).
+// ---------------------------------------------------------------------------
+
+model NotificationQuietHours {
+  id        String   @id @default(cuid())
+  tenantId  String
+  tenant    Tenant   @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  userId    String   @unique
+  timezone  String   @default("UTC") // IANA name, e.g. "Europe/Tirane" — survives DST, per the PRD
+  startTime String   @default("22:00") // HH:MM, local to `timezone`
+  endTime   String   @default("07:00")
+  enabled   Boolean  @default(false)
+  updatedAt DateTime @updatedAt
+}
+
+model DigestRule {
+  id        String   @id @default(cuid())
+  tenantId  String
+  tenant    Tenant   @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  userId    String   @unique
+  frequency String   @default("OFF") // OFF | DAILY | WEEKLY
+  timeOfDay String   @default("08:00")
+  updatedAt DateTime @updatedAt
+}
+
+model Announcement {
+  id            String    @id @default(cuid())
+  tenantId      String
+  tenant        Tenant    @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  title         String
+  body          String
+  audienceType  String    @default("ALL") // ALL | ROLE | DEPARTMENT
+  audienceValue String?
+  mandatoryAck  Boolean   @default(false)
+  publishedById String
+  publishedAt   DateTime  @default(now())
+  expiresAt     DateTime?
+
+  acks AnnouncementAck[]
+
+  @@index([tenantId, publishedAt])
+}
+
+model AnnouncementAck {
+  id             String       @id @default(cuid())
+  announcementId String
+  announcement   Announcement @relation(fields: [announcementId], references: [id], onDelete: Cascade)
+  userId         String
+  ackedAt        DateTime     @default(now())
+
+  @@unique([announcementId, userId])
+}
+
+// Activation gated by the capability-key registry (capabilities.ts /
+// UserCapabilityGrant) — "only configured emergency roles may activate one",
+// the same explicit-per-user-grant primitive built for exactly this kind of
+// case.
+model EmergencyAlert {
+  id            String    @id @default(cuid())
+  tenantId      String
+  tenant        Tenant    @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  title         String
+  body          String
+  activatedById String
+  activatedAt   DateTime  @default(now())
+  resolvedById  String?
+  resolvedAt    DateTime?
+
+  @@index([tenantId, resolvedAt])
+}
+
+model NotificationDeliveryLog {
+  id              String   @id @default(cuid())
+  tenantId        String
+  tenant          Tenant   @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  recipientUserId String
+  channel         String // EMAIL | PUSH | SMS
+  status          String   @default("SIMULATED") // SIMULATED — no real provider is wired up; see server note
+  subject         String?
+  redactedPreview String? // the minimized/safe external-channel text, never the raw sensitive body
+  createdAt       DateTime @default(now())
+
+  @@index([tenantId, recipientUserId])
+}
+
+// ---------------------------------------------------------------------------
+// Reporting & Analytics — Phase 2/3 slice: issued/immutable report snapshots
+// (freezing a ReportExecution's result on demand, opt-in — the live-query
+// default from Phase 1 is untouched for every execution that doesn't issue)
+// and a manually-maintained currency rate table for consolidated totals.
+// Forecasting is a simple linear run-rate projection computed in
+// server/analytics.ts, not a new stored entity.
+// ---------------------------------------------------------------------------
+
+model CurrencyRate {
+  id           String   @id @default(cuid())
+  tenantId     String
+  tenant       Tenant   @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  fromCurrency String
+  toCurrency   String
+  rate         Float
+  asOf         DateTime @default(now())
+  setById      String
+
+  @@index([tenantId, fromCurrency, toCurrency])
 }
