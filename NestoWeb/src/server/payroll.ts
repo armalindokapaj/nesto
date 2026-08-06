@@ -1,4 +1,5 @@
 import { db } from "@/lib/db";
+import type { Prisma } from "@/generated/prisma";
 
 // ---------------------------------------------------------------------------
 // PRD_HR_Payroll_Workforce — Phase 2 (Payroll). Scope decision 2026-08-06:
@@ -15,15 +16,22 @@ import { db } from "@/lib/db";
 // back at the locked one — never a reopen.
 // ---------------------------------------------------------------------------
 
+// `client` defaults to the top-level `db` for call sites outside a
+// transaction, but MUST be passed the active `tx` when called from inside
+// `db.$transaction(async (tx) => ...)` — writing through `db` there opens a
+// second connection that waits on the still-open outer transaction's lock
+// (SQLite serializes writers), which deadlocks until Prisma's 5s
+// interactive-transaction timeout kills the outer transaction.
 async function logPayrollActivity(
   tenantId: string,
   entityType: string,
   entityId: string,
   actorId: string | undefined,
   eventType: string,
-  summary: string
+  summary: string,
+  client: Prisma.TransactionClient | typeof db = db
 ) {
-  return db.payrollActivity.create({ data: { tenantId, entityType, entityId, actorId, eventType, summary } });
+  return client.payrollActivity.create({ data: { tenantId, entityType, entityId, actorId, eventType, summary } });
 }
 
 export async function listCompaniesForPicker(tenantId: string) {
@@ -56,7 +64,7 @@ export async function createPayrollRun(
 ) {
   return db.$transaction(async (tx) => {
     const run = await tx.payrollRun.create({ data: { tenantId, createdById, ...input } });
-    await logPayrollActivity(tenantId, "PayrollRun", run.id, createdById, "CREATED", "Payroll run created (draft)");
+    await logPayrollActivity(tenantId, "PayrollRun", run.id, createdById, "CREATED", "Payroll run created (draft)", tx);
     return run;
   });
 }
@@ -147,7 +155,8 @@ export async function calculatePayrollRun(tenantId: string, actorId: string, run
       runId,
       actorId,
       "CALCULATED",
-      `Payroll run calculated — ${linesCreated} employee${linesCreated === 1 ? "" : "s"}`
+      `Payroll run calculated — ${linesCreated} employee${linesCreated === 1 ? "" : "s"}`,
+      tx
     );
     return updated;
   });
@@ -164,7 +173,7 @@ export async function lockPayrollRun(tenantId: string, actorId: string, runId: s
       where: { id: runId },
       data: { status: "LOCKED", lockedById: actorId, lockedAt: new Date() },
     });
-    await logPayrollActivity(tenantId, "PayrollRun", runId, actorId, "LOCKED", `Payroll run locked — ${run.lines.length} payslips issued`);
+    await logPayrollActivity(tenantId, "PayrollRun", runId, actorId, "LOCKED", `Payroll run locked — ${run.lines.length} payslips issued`, tx);
     return updated;
   });
 }
@@ -176,7 +185,7 @@ export async function cancelPayrollRun(tenantId: string, actorId: string, runId:
 
   return db.$transaction(async (tx) => {
     const updated = await tx.payrollRun.update({ where: { id: runId }, data: { status: "CANCELLED" } });
-    await logPayrollActivity(tenantId, "PayrollRun", runId, actorId, "CANCELLED", "Payroll run cancelled");
+    await logPayrollActivity(tenantId, "PayrollRun", runId, actorId, "CANCELLED", "Payroll run cancelled", tx);
     return updated;
   });
 }
@@ -210,7 +219,8 @@ export async function createAdjustmentRun(
       run.id,
       createdById,
       "ADJUSTMENT_CREATED",
-      `Adjustment run created for locked run ${original.id}${input.reason ? ` — ${input.reason}` : ""}`
+      `Adjustment run created for locked run ${original.id}${input.reason ? ` — ${input.reason}` : ""}`,
+      tx
     );
     return run;
   });
