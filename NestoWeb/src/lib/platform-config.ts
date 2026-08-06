@@ -161,6 +161,9 @@ export const CONFIG_NODES: ConfigNode[] = [
   { key: "hr.action.manage_vacancy", label: "Manage Vacancy", level: "ACTION", parent: "hr" },
   { key: "hr.action.manage_candidate", label: "Manage Candidate", level: "ACTION", parent: "hr" },
   { key: "hr.action.manage_offer", label: "Manage Offer", level: "ACTION", parent: "hr" },
+  { key: "hr.page.attendance", label: "Attendance & Scheduling", level: "PAGE", parent: "hr", route: "/dashboard/hr/attendance" },
+  { key: "hr.action.manage_schedule", label: "Manage Shift Schedule", level: "ACTION", parent: "hr" },
+  { key: "hr.action.clock_attendance", label: "Clock In/Out", level: "ACTION", parent: "hr" },
 
   // --- HR Payroll (PRD_HR_Payroll_Workforce v1.0, Phase 2) ------------------
   { key: "hr.page.payroll", label: "Payroll", level: "PAGE", parent: "hr", route: "/dashboard/hr/payroll" },

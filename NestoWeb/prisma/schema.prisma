@@ -266,6 +266,11 @@ model Tenant {
   candidates           Candidate[]
   candidateStageEvents CandidateStageEvent[]
   offers               Offer[]
+
+  // --- PRD_HR_Payroll_Workforce — Attendance & Scheduling (additive) -------
+  shiftDefinitions    ShiftDefinition[]
+  scheduleAssignments ScheduleAssignment[]
+  attendanceEvents    AttendanceEvent[]
 }
 
 model Company {
@@ -1741,6 +1746,10 @@ model Employee {
   employmentRelationships EmploymentRelationship[]
   reportsToRelationships  EmploymentRelationship[] @relation("EmploymentReportsTo")
   payrollRunLines         PayrollRunLine[]
+
+  // --- PRD_HR_Payroll_Workforce — Attendance & Scheduling (additive) -------
+  scheduleAssignments ScheduleAssignment[]
+  attendanceEvents    AttendanceEvent[]
 
   @@index([tenantId, department])
 }
@@ -5860,4 +5869,71 @@ model Offer {
   respondedAt   DateTime?
 
   @@index([tenantId, candidateId])
+}
+
+// ---------------------------------------------------------------------------
+// PRD_HR_Payroll_Workforce — Attendance & Scheduling, the last remaining
+// "Coming Soon" stub in the app. Scoped to the PRD's own Phase-2 "workforce
+// ops" list, narrowed the same way Payroll Phase-2 narrowed the calc engine
+// and Recruitment narrowed onboarding: schedules + attendance only, no
+// Timesheet/TimesheetLine (that ties into project labour cost, which is
+// Work Progress's own PRD boundary — building it here would blur the
+// "modules stay in control of their own state" line the Workflow Engine and
+// Portal Access already draw). AttendanceEvent is an immutable ledger (same
+// discipline as Inventory movements / WorkflowDecision) — daily/period
+// summaries are derived at read time, not stored, so there is no separate
+// AttendanceDay write path to keep in sync.
+// ---------------------------------------------------------------------------
+
+model ShiftDefinition {
+  id          String   @id @default(cuid())
+  tenantId    String
+  tenant      Tenant   @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  name        String
+  startTime   String // "HH:MM", local to the tenant — no timezone modeling in Phase 1
+  endTime     String
+  daysOfWeek  String // comma-separated: "MON,TUE,WED,THU,FRI"
+  createdById String
+  createdAt   DateTime @default(now())
+
+  assignments ScheduleAssignment[]
+
+  @@index([tenantId])
+}
+
+// Effective-dated, same "close current, open new" discipline as
+// EmploymentRelationship — assigning a new shift closes the employee's prior
+// ACTIVE assignment rather than editing it.
+model ScheduleAssignment {
+  id                 String          @id @default(cuid())
+  tenantId           String
+  tenant             Tenant          @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  employeeId         String
+  employee           Employee        @relation(fields: [employeeId], references: [id], onDelete: Cascade)
+  shiftDefinitionId  String
+  shiftDefinition    ShiftDefinition @relation(fields: [shiftDefinitionId], references: [id])
+  effectiveStartDate DateTime
+  effectiveEndDate   DateTime?
+  status             String          @default("ACTIVE") // ACTIVE | ENDED
+  assignedById       String
+  createdAt          DateTime        @default(now())
+
+  @@index([tenantId, employeeId, status])
+}
+
+// Immutable by construction — no update/delete action is ever exposed; a
+// mistaken clock event is corrected by recording the matching counter-event,
+// never by editing history.
+model AttendanceEvent {
+  id          String   @id @default(cuid())
+  tenantId    String
+  tenant      Tenant   @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  employeeId  String
+  employee    Employee @relation(fields: [employeeId], references: [id], onDelete: Cascade)
+  type        String // CLOCK_IN | CLOCK_OUT
+  occurredAt  DateTime @default(now())
+  recordedById String
+  createdAt   DateTime @default(now())
+
+  @@index([tenantId, employeeId, occurredAt])
 }
