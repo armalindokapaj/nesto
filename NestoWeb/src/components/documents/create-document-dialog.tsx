@@ -16,13 +16,16 @@ type Props = {
   taskId?: string;
   unitId?: string;
   triggerLabel?: string;
+  // Universal Upload (topbar) passes an icon-only trigger instead of the
+  // default labeled button — same dialog/action underneath either way.
+  trigger?: React.ReactNode;
   // PRD_Rework_1 — Technical Documents / Government & Legal sections pass a
   // fixed category list so uploads land pre-sorted into the right folder,
   // same select-vs-free-text pattern as the existing taskId/TASK_FILE_CATEGORIES case.
   categoryOptions?: readonly string[];
 };
 
-export function CreateDocumentDialog({ projects, projectId, clientId, taskId, unitId, triggerLabel, categoryOptions }: Props) {
+export function CreateDocumentDialog({ projects, projectId, clientId, taskId, unitId, triggerLabel, trigger, categoryOptions }: Props) {
   const { t } = useI18n();
   const [open, setOpen] = useState(false);
   const [state, formAction, pending] = useActionState(createDocumentAction, undefined);
@@ -30,9 +33,11 @@ export function CreateDocumentDialog({ projects, projectId, clientId, taskId, un
   return (
     <Dialog.Root open={open} onOpenChange={setOpen}>
       <Dialog.Trigger asChild>
-        <Button size="sm">
-          <Plus size={14} /> {triggerLabel ?? t("documents.newDocument")}
-        </Button>
+        {trigger ?? (
+          <Button size="sm">
+            <Plus size={14} /> {triggerLabel ?? t("documents.newDocument")}
+          </Button>
+        )}
       </Dialog.Trigger>
       <Dialog.Portal>
         <Dialog.Overlay className="fixed inset-0 z-50 bg-ink/40" />

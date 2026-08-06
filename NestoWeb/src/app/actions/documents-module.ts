@@ -19,6 +19,7 @@ import {
   deleteCollection,
   addDocumentToCollection,
   removeDocumentFromCollection,
+  bulkArchiveDocuments,
 } from "@/server/documents-module";
 
 // PRD_Documents_Module — module-level actions (folders, shortcuts, Star,
@@ -272,4 +273,12 @@ export async function removeDocumentFromCollectionAction(itemId: string, collect
   if (!can(role, "DOCUMENTS", "READ")) throw new Error("Not authorized");
   await removeDocumentFromCollection(tenantId, itemId, user.id);
   revalidatePath(`/documents/collections/${collectionId}`);
+}
+
+export async function bulkArchiveDocumentsAction(formData: FormData): Promise<void> {
+  const { tenantId, role, user } = await getCurrentUser();
+  assertDocumentsWrite(role);
+  const documentIds = formData.getAll("documentIds").map(String);
+  if (documentIds.length > 0) await bulkArchiveDocuments(tenantId, user.id, documentIds);
+  revalidatePath("/documents");
 }

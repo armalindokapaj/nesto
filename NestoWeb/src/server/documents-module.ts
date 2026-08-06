@@ -390,6 +390,7 @@ export type DocumentScope =
   | "ALL"
   | "RECENT"
   | "STARRED"
+  | "MINE"
   | "AWAITING_APPROVAL"
   | "APPROVED"
   | "NEEDS_REVISION"
@@ -398,7 +399,7 @@ export type DocumentScope =
 
 /** §7.2 status summary cards. One grouped query rather than eight counts. */
 export async function getDocumentSummary(tenantId: string, userId: string) {
-  const [byStatus, total, archived, starred, expiring] = await Promise.all([
+  const [byStatus, total, archived, starred, expiring, mine] = await Promise.all([
     db.document.groupBy({ by: ["status"], where: { tenantId, archivedAt: null }, _count: { _all: true } }),
     db.document.count({ where: { tenantId, archivedAt: null } }),
     db.document.count({ where: { tenantId, archivedAt: { not: null } } }),
@@ -410,6 +411,7 @@ export async function getDocumentSummary(tenantId: string, userId: string) {
         expiresAt: { not: null, lte: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000) },
       },
     }),
+    db.document.count({ where: { tenantId, archivedAt: null, ownerId: userId } }),
   ]);
   const status = (s: string) => byStatus.find((r) => r.status === s)?._count._all ?? 0;
 
@@ -417,6 +419,7 @@ export async function getDocumentSummary(tenantId: string, userId: string) {
     all: total,
     recent: total,
     starred,
+    mine,
     awaitingApproval: status("AWAITING_APPROVAL"),
     approved: status("APPROVED") + status("ISSUED"),
     needsRevision: status("NEEDS_REVISION") + status("REJECTED"),
@@ -461,6 +464,10 @@ export async function listModuleDocuments(
   switch (scope) {
     case "STARRED":
       where.favorites = { some: { userId } };
+      break;
+    // Personal Workspace — everything this user owns, regardless of folder.
+    case "MINE":
+      where.ownerId = userId;
       break;
     case "AWAITING_APPROVAL":
       where.status = "AWAITING_APPROVAL";
@@ -544,7 +551,18 @@ export async function getDocumentPassport(tenantId: string, documentId: string, 
     include: { actor: { select: { id: true, displayName: true, avatarColor: true } } },
   });
 
-  return { ...document, isStarred: document.favorites.length > 0, activity };
+  // Checksum-based duplicate detection (§ deferred item) — checksum was
+  // already computed at upload time (src/server/documents.ts); this just
+  // surfaces matches rather than blocking the upload, since a legitimate
+  // re-attach of the same file to a different Document/folder is common.
+  const duplicates = document.currentRevision?.checksum
+    ? await db.document.findMany({
+        where: { tenantId, id: { not: document.id }, currentRevision: { checksum: document.currentRevision.checksum } },
+        select: { id: true, title: true, code: true, primaryFolder: { select: { name: true } } },
+      })
+    : [];
+
+  return { ...document, isStarred: document.favorites.length > 0, activity, duplicates };
 }
 
 /**
@@ -756,6 +774,18 @@ export async function archiveDocument(tenantId: string, documentId: string, acto
   await logActivity({ tenantId, documentId, actorId, eventType: "ARCHIVED", summary: "Document archived" });
 }
 
+/** Bulk ops, deferred item — same per-document archive path, just looped; no separate bulk-specific state. */
+export async function bulkArchiveDocuments(tenantId: string, actorId: string, documentIds: string[]) {
+  let archivedCount = 0;
+  for (const documentId of documentIds) {
+    const doc = await db.document.findUnique({ where: { id: documentId } });
+    if (!doc || doc.tenantId !== tenantId || doc.archivedAt) continue;
+    await archiveDocument(tenantId, documentId, actorId);
+    archivedCount++;
+  }
+  return archivedCount;
+}
+
 export async function restoreDocument(tenantId: string, documentId: string, actorId: string) {
   assertTenant(await db.document.findUnique({ where: { id: documentId } }), tenantId, "Document");
   await db.document.update({ where: { id: documentId }, data: { archivedAt: null, status: "DRAFT" } });
@@ -962,4 +992,37 @@ export async function removeDocumentFromCollection(tenantId: string, itemId: str
   if (!item) throw new Error("Item not found.");
   assertCollectionVisible(item.collection, tenantId, userId);
   await db.documentCollectionItem.delete({ where: { id: itemId } });
+}
+
+// ---------------------------------------------------------------------------
+// Storage dashboard — deferred item. Aggregates the same `fileSize` column
+// every revision already carries; no new tracking needed.
+// ---------------------------------------------------------------------------
+
+export async function getStorageDashboard(tenantId: string) {
+  const revisions = await db.documentFile.findMany({
+    where: { tenantId, documentId: { not: null } },
+    select: { fileSize: true, fileMimeType: true, document: { select: { primaryFolder: { select: { name: true } } } } },
+  });
+
+  const totalBytes = revisions.reduce((sum, r) => sum + (r.fileSize ?? 0), 0);
+  const byType = new Map<string, { count: number; bytes: number }>();
+  const byFolder = new Map<string, { count: number; bytes: number }>();
+  for (const r of revisions) {
+    const type = (r.fileMimeType ?? "unknown").split("/")[0];
+    const folder = r.document?.primaryFolder?.name ?? "—";
+    const t1 = byType.get(type) ?? { count: 0, bytes: 0 };
+    t1.count++; t1.bytes += r.fileSize ?? 0;
+    byType.set(type, t1);
+    const f1 = byFolder.get(folder) ?? { count: 0, bytes: 0 };
+    f1.count++; f1.bytes += r.fileSize ?? 0;
+    byFolder.set(folder, f1);
+  }
+
+  return {
+    totalBytes,
+    revisionCount: revisions.length,
+    byType: [...byType.entries()].map(([type, v]) => ({ type, ...v })).sort((a, b) => b.bytes - a.bytes),
+    byFolder: [...byFolder.entries()].map(([folder, v]) => ({ folder, ...v })).sort((a, b) => b.bytes - a.bytes),
+  };
 }

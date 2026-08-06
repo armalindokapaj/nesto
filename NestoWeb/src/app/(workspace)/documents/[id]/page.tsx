@@ -149,6 +149,11 @@ export default async function DocumentDetailPage({ params }: { params: Promise<{
                 </Button>
               </form>
             )}
+            {head?.fileMimeType?.startsWith("image/") && (
+              <a href={`/api/documents/${head.id}/watermark`} target="_blank" rel="noreferrer">
+                <Button size="sm" variant="secondary" type="button">{t("documents.watermarkPreview")}</Button>
+              </a>
+            )}
           </div>
           {canApprove && head && canDecideApproval && <ApprovalDecisionButtons documentId={head.id} />}
         </CardContent>
@@ -158,7 +163,12 @@ export default async function DocumentDetailPage({ params }: { params: Promise<{
         <div className="space-y-6">
           <Card>
             <CardHeader>
-              <CardTitle>{t("documents.revisionHistory")}</CardTitle>
+              <div className="flex items-center justify-between gap-3">
+                <CardTitle>{t("documents.revisionHistory")}</CardTitle>
+                {revisions.length > 1 && (
+                  <Link href={`/documents/${document.id}/compare`} className="text-xs text-gold hover:underline">{t("documents.compareRevisions")}</Link>
+                )}
+              </div>
             </CardHeader>
             <CardContent className="space-y-4">
               {revisions.map((revision, index) => {
@@ -339,6 +349,25 @@ export default async function DocumentDetailPage({ params }: { params: Promise<{
                     </ul>
                   </div>
                 )}
+              </CardContent>
+            </Card>
+          )}
+
+          {document.duplicates.length > 0 && (
+            <Card>
+              <CardHeader>
+                <CardTitle className="text-sm flex items-center gap-1.5 text-warning"><FileWarning size={13} /> {t("documents.possibleDuplicates")}</CardTitle>
+                <CardDescription>{t("documents.possibleDuplicatesDesc")}</CardDescription>
+              </CardHeader>
+              <CardContent>
+                <ul className="space-y-1 text-xs">
+                  {document.duplicates.map((d) => (
+                    <li key={d.id}>
+                      <Link href={`/documents/${d.id}`} className="text-ink hover:text-gold hover:underline">{d.code} — {d.title}</Link>
+                      {d.primaryFolder && <span className="text-ink-faint"> ({d.primaryFolder.name})</span>}
+                    </li>
+                  ))}
+                </ul>
               </CardContent>
             </Card>
           )}

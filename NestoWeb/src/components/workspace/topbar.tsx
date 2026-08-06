@@ -3,13 +3,15 @@
 import { useTransition } from "react";
 import Link from "next/link";
 import * as DropdownMenu from "@radix-ui/react-dropdown-menu";
-import { Menu, ChevronDown, LogOut, Settings, HelpCircle, PanelLeftClose, PanelLeftOpen, ClipboardCheck, ShieldCheck, CalendarDays } from "lucide-react";
+import { Menu, ChevronDown, LogOut, Settings, HelpCircle, PanelLeftClose, PanelLeftOpen, ClipboardCheck, ShieldCheck, CalendarDays, UploadCloud } from "lucide-react";
 import { Avatar } from "@/components/ui/avatar";
 import { ROLE_LABELS } from "@/lib/constants";
 import type { Role } from "@/lib/constants";
 import { logout } from "@/app/actions/auth";
 import { GlobalSearch } from "@/components/workspace/global-search";
 import { NotificationBell } from "@/components/workspace/notification-bell";
+import { CreateDocumentDialog } from "@/components/documents/create-document-dialog";
+import { Button } from "@/components/ui/button";
 import { useI18n } from "@/lib/i18n/locale-provider";
 
 export function Topbar({
@@ -22,6 +24,8 @@ export function Topbar({
   notificationCount,
   inboxCount,
   isPlatformAdmin,
+  canUpload,
+  uploadProjects,
 }: {
   onToggleMobile: () => void;
   onToggleCollapse: () => void;
@@ -32,6 +36,8 @@ export function Topbar({
   notificationCount: number;
   inboxCount: number;
   isPlatformAdmin?: boolean;
+  canUpload?: boolean;
+  uploadProjects?: { id: string; name: string }[];
 }) {
   const { t } = useI18n();
   const [, startTransition] = useTransition();
@@ -54,6 +60,23 @@ export function Topbar({
       </div>
 
       <div className="flex items-center gap-1.5 ml-auto">
+        {canUpload && (
+          <CreateDocumentDialog
+            projects={uploadProjects}
+            triggerLabel={t("documents.universalUpload")}
+            trigger={
+              <Button
+                size="sm"
+                variant="ghost"
+                className="h-9 w-9 p-0 rounded-lg"
+                aria-label={t("documents.universalUpload")}
+                title={t("documents.universalUpload")}
+              >
+                <UploadCloud size={18} />
+              </Button>
+            }
+          />
+        )}
         <Link
           href="/calendar"
           className="flex h-9 w-9 items-center justify-center rounded-lg text-ink-muted hover:bg-surface-sunken hover:text-ink transition-colors"

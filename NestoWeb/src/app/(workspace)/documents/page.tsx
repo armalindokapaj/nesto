@@ -1,6 +1,6 @@
 import { redirect } from "next/navigation";
 import Link from "next/link";
-import { X, BadgeCheck } from "lucide-react";
+import { X, BadgeCheck, Archive } from "lucide-react";
 import { getCurrentUser } from "@/lib/dal";
 import { can } from "@/lib/permissions";
 import {
@@ -20,6 +20,8 @@ import { FolderTree } from "@/components/documents/folder-tree";
 import { CreateFolderDialog } from "@/components/documents/create-folder-dialog";
 import { CreateDocumentDialog } from "@/components/documents/create-document-dialog";
 import { DocumentStarButton } from "@/components/documents/document-star-button";
+import { Button } from "@/components/ui/button";
+import { bulkArchiveDocumentsAction } from "@/app/actions/documents-module";
 import { listProjects } from "@/server/projects";
 import { formatDate } from "@/lib/utils";
 import { getT } from "@/lib/i18n/server";
@@ -27,6 +29,7 @@ import { getT } from "@/lib/i18n/server";
 const SCOPES: { key: DocumentScope; labelKey: string; countKey: keyof Awaited<ReturnType<typeof getDocumentSummary>> }[] = [
   { key: "ALL", labelKey: "documents.scopeAll", countKey: "all" },
   { key: "STARRED", labelKey: "documents.scopeStarred", countKey: "starred" },
+  { key: "MINE", labelKey: "documents.scopeMine", countKey: "mine" },
   { key: "AWAITING_APPROVAL", labelKey: "documents.scopeAwaitingApproval", countKey: "awaitingApproval" },
   { key: "APPROVED", labelKey: "documents.scopeApproved", countKey: "approved" },
   { key: "NEEDS_REVISION", labelKey: "documents.scopeNeedsRevision", countKey: "needsRevision" },
@@ -98,9 +101,12 @@ export default async function DocumentsPage({
           <CardContent>
             <FolderTree nodes={tree} />
           </CardContent>
-          <CardContent className="pt-0">
-            <Link href="/documents/collections" className="text-sm font-medium text-ink hover:text-gold">
+          <CardContent className="pt-0 space-y-2">
+            <Link href="/documents/collections" className="block text-sm font-medium text-ink hover:text-gold">
               {t("documents.collectionsTitle")}
+            </Link>
+            <Link href="/documents/storage" className="block text-sm font-medium text-ink hover:text-gold">
+              {t("documents.storageTitle")}
             </Link>
           </CardContent>
         </Card>
@@ -148,24 +154,34 @@ export default async function DocumentsPage({
           </Card>
 
           <Card>
-            <CardContent className="p-0">
-              <Table>
-                <THead>
-                  <TRow>
-                    <TH className="w-6" />
-                    <TH>{t("documents.name")}</TH>
-                    <TH>{t("documents.folder")}</TH>
-                    <TH>{t("common.status")}</TH>
-                    <TH>{t("documents.owner")}</TH>
-                    <TH>{t("dashboards.admin.joined")}</TH>
-                  </TRow>
-                </THead>
-                <TBody>
-                  {documents.map((doc) => (
-                    <TRow key={doc.id}>
-                      <TD>
-                        <DocumentStarButton documentId={doc.id} starred={doc.isStarred} />
-                      </TD>
+            <form action={bulkArchiveDocumentsAction}>
+              {canCreate && documents.length > 0 && (
+                <div className="flex items-center justify-end px-4 pt-3">
+                  <Button size="sm" variant="secondary" type="submit"><Archive size={13} /> {t("documents.bulkArchive")}</Button>
+                </div>
+              )}
+              <CardContent className="p-0">
+                <Table>
+                  <THead>
+                    <TRow>
+                      <TH className="w-6" />
+                      <TH className="w-6" />
+                      <TH>{t("documents.name")}</TH>
+                      <TH>{t("documents.folder")}</TH>
+                      <TH>{t("common.status")}</TH>
+                      <TH>{t("documents.owner")}</TH>
+                      <TH>{t("dashboards.admin.joined")}</TH>
+                    </TRow>
+                  </THead>
+                  <TBody>
+                    {documents.map((doc) => (
+                      <TRow key={doc.id}>
+                        <TD>
+                          {canCreate && <input type="checkbox" name="documentIds" value={doc.id} aria-label={t("documents.bulkArchive")} />}
+                        </TD>
+                        <TD>
+                          <DocumentStarButton documentId={doc.id} starred={doc.isStarred} />
+                        </TD>
                       <TD className="font-medium text-ink">
                         <Link href={`/documents/${doc.id}`} className="inline-flex items-center gap-1.5 hover:text-gold hover:underline">
                           {doc.title}
@@ -198,14 +214,15 @@ export default async function DocumentsPage({
                   ))}
                   {documents.length === 0 && (
                     <TRow>
-                      <TD colSpan={6} className="py-8 text-center text-ink-faint">
+                      <TD colSpan={7} className="py-8 text-center text-ink-faint">
                         {t("documents.noResults")}
                       </TD>
                     </TRow>
                   )}
                 </TBody>
               </Table>
-            </CardContent>
+              </CardContent>
+            </form>
           </Card>
 
           <p className="px-1 text-xs text-ink-faint">{t("documents.note")}</p>
