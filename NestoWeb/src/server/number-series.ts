@@ -34,6 +34,7 @@ const SERIES_CONFIG: Record<string, { prefix: string; seqLength: number; include
   HSE_OBSERVATION: { prefix: "OBS", seqLength: 5, includeYear: true },
   HSE_INCIDENT: { prefix: "INC", seqLength: 5, includeYear: true },
   IT_TICKET: { prefix: "ITK", seqLength: 5, includeYear: true },
+  LEGAL_CASE: { prefix: "CASE", seqLength: 5, includeYear: true },
 };
 
 export async function allocateNumber(tenantId: string, entityType: keyof typeof SERIES_CONFIG): Promise<string> {

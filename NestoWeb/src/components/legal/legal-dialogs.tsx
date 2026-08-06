@@ -10,6 +10,12 @@ import {
   amendPermitAction,
   setLegalReadinessStatusAction,
   setPermitStatusAction,
+  createLegalCaseAction,
+  setLegalCaseStatusAction,
+  grantCaseAccessAction,
+  revokeCaseAccessAction,
+  createLegalHoldAction,
+  releaseLegalHoldAction,
 } from "@/app/actions/legal";
 import { Button } from "@/components/ui/button";
 import { Input, Label } from "@/components/ui/input";
@@ -263,4 +269,106 @@ export function SetReadinessForm({ projectId, currentStatus }: { projectId: stri
       </Button>
     </form>
   );
+}
+
+// ---------------------------------------------------------------------------
+// Cases, Disputes & Legal Hold
+// ---------------------------------------------------------------------------
+
+export function CreateCaseDialog({ projects }: { projects: { id: string; name: string; code: string }[] }) {
+  const { t } = useI18n();
+  const [open, setOpen] = useState(false);
+  const [state, formAction] = useActionState(createLegalCaseAction, undefined);
+  return (
+    <DialogShell trigger={<Button size="sm"><Plus size={14} /> {t("legal.newCase")}</Button>} title={t("legal.newCase")} open={open} onOpenChange={setOpen}>
+      <form action={async (fd) => { await formAction(fd); setOpen(false); }} className="space-y-3.5">
+        <div className="space-y-1.5"><Label htmlFor="title">{t("legal.caseTitle")}</Label><Input id="title" name="title" required /></div>
+        <div className="space-y-1.5">
+          <Label htmlFor="caseType">{t("legal.caseType")}</Label>
+          <select id="caseType" name="caseType" defaultValue="DISPUTE" className={SELECT_CLASS}>
+            {["LITIGATION", "CLAIM", "DISPUTE", "REGULATORY", "OTHER"].map((v) => <option key={v} value={v}>{t(`legal.caseType_${v}`)}</option>)}
+          </select>
+        </div>
+        <div className="space-y-1.5">
+          <Label htmlFor="projectId">{t("legal.relatedProject")}</Label>
+          <select id="projectId" name="projectId" defaultValue="" className={SELECT_CLASS}>
+            <option value="">{t("common.none")}</option>
+            {projects.map((p) => <option key={p.id} value={p.id}>{p.code} — {p.name}</option>)}
+          </select>
+        </div>
+        <div className="space-y-1.5"><Label htmlFor="counterparty">{t("legal.counterparty")}</Label><Input id="counterparty" name="counterparty" /></div>
+        <div className="space-y-1.5">
+          <Label htmlFor="confidentialityTier">{t("legal.confidentialityTier")}</Label>
+          <select id="confidentialityTier" name="confidentialityTier" defaultValue="STANDARD" className={SELECT_CLASS}>
+            {["STANDARD", "RESTRICTED", "CONFIDENTIAL", "LEGAL_PRIVILEGED", "EXECUTIVE", "LITIGATION_RESTRICTED", "EXTERNAL_COUNSEL_ONLY"].map((v) => (
+              <option key={v} value={v}>{t(`legal.tier_${v}`)}</option>
+            ))}
+          </select>
+        </div>
+        <div className="space-y-1.5"><Label htmlFor="summary">{t("common.description")}</Label><Input id="summary" name="summary" /></div>
+        {state?.error && <p className="text-sm text-danger">{state.error}</p>}
+        <Button type="submit" className="w-full">{t("common.save")}</Button>
+      </form>
+    </DialogShell>
+  );
+}
+
+export function CaseStatusActions({ caseId, status }: { caseId: string; status: string }) {
+  const { t } = useI18n();
+  const next: Record<string, string[]> = { OPEN: ["IN_PROGRESS", "ON_HOLD", "RESOLVED"], IN_PROGRESS: ["ON_HOLD", "RESOLVED"], ON_HOLD: ["IN_PROGRESS"], RESOLVED: ["CLOSED", "IN_PROGRESS"], CLOSED: [] };
+  const options = next[status] ?? [];
+  if (options.length === 0) return null;
+  return (
+    <div className="flex gap-2">
+      {options.map((s) => (
+        <Button key={s} size="sm" variant="secondary" onClick={() => setLegalCaseStatusAction(caseId, s)}>{t(`legal.caseStatus_${s}`)}</Button>
+      ))}
+    </div>
+  );
+}
+
+export function GrantCaseAccessForm({ caseId, users }: { caseId: string; users: { id: string; displayName: string }[] }) {
+  const { t } = useI18n();
+  const [userId, setUserId] = useState("");
+  return (
+    <div className="flex gap-2">
+      <select className={SELECT_CLASS} value={userId} onChange={(e) => setUserId(e.target.value)}>
+        <option value="" disabled>{t("common.select")}</option>
+        {users.map((u) => <option key={u.id} value={u.id}>{u.displayName}</option>)}
+      </select>
+      <Button size="sm" disabled={!userId} onClick={() => { grantCaseAccessAction(caseId, userId); setUserId(""); }}>{t("legal.grantAccess")}</Button>
+    </div>
+  );
+}
+
+export function RevokeCaseAccessButton({ caseId, accessId }: { caseId: string; accessId: string }) {
+  const { t } = useI18n();
+  return <Button size="sm" variant="ghost" onClick={() => revokeCaseAccessAction(caseId, accessId)}>{t("common.remove")}</Button>;
+}
+
+export function CreateHoldDialog({ cases }: { cases: { id: string; caseNumber: string; title: string }[] }) {
+  const { t } = useI18n();
+  const [open, setOpen] = useState(false);
+  const [state, formAction] = useActionState(createLegalHoldAction, undefined);
+  return (
+    <DialogShell trigger={<Button size="sm"><Plus size={14} /> {t("legal.newHold")}</Button>} title={t("legal.newHold")} open={open} onOpenChange={setOpen}>
+      <form action={async (fd) => { await formAction(fd); setOpen(false); }} className="space-y-3.5">
+        <div className="space-y-1.5">
+          <Label htmlFor="caseId">{t("legal.relatedCase")}</Label>
+          <select id="caseId" name="caseId" defaultValue="" className={SELECT_CLASS}>
+            <option value="">{t("common.none")}</option>
+            {cases.map((c) => <option key={c.id} value={c.id}>{c.caseNumber} — {c.title}</option>)}
+          </select>
+        </div>
+        <div className="space-y-1.5"><Label htmlFor="scope">{t("legal.holdScope")}</Label><Input id="scope" name="scope" required /></div>
+        {state?.error && <p className="text-sm text-danger">{state.error}</p>}
+        <Button type="submit" className="w-full">{t("common.save")}</Button>
+      </form>
+    </DialogShell>
+  );
+}
+
+export function ReleaseHoldButton({ holdId, caseId }: { holdId: string; caseId?: string }) {
+  const { t } = useI18n();
+  return <Button size="sm" variant="ghost" onClick={() => releaseLegalHoldAction(holdId, caseId)}>{t("legal.releaseHold")}</Button>;
 }

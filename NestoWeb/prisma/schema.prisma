@@ -199,6 +199,9 @@ model Tenant {
   permitAmendments       PermitAmendment[]
   legalReadinessStatuses LegalReadinessStatus[]
   legalActivities        LegalActivity[]
+  legalCases             LegalCase[]
+  legalCaseAccessGrants  LegalCaseAccess[]
+  legalHolds             LegalHold[]
 
   // --- PRD_HSE_Module (additive) -------------------------------------------
   hazards              Hazard[]
@@ -4849,7 +4852,7 @@ model LegalActivity {
   id         String        @id @default(cuid())
   tenantId   String
   tenant     Tenant        @relation(fields: [tenantId], references: [id], onDelete: Cascade)
-  entityType String // "Permit" | "LegalAuthority" | "LegalReadinessStatus"
+  entityType String // "Permit" | "LegalAuthority" | "LegalReadinessStatus" | "LegalCase"
   entityId   String
   actorId    String?
   actor      UserIdentity? @relation("LegalActivityActor", fields: [actorId], references: [id])
@@ -4858,6 +4861,87 @@ model LegalActivity {
   createdAt  DateTime      @default(now())
 
   @@index([tenantId, entityType, entityId])
+}
+
+// ---------------------------------------------------------------------------
+// PRD_Government_Legal_Compliance — Cases, Disputes & Legal Hold, this PRD's
+// Phase 3 layer (regulatory/permits foundation from Phase 1 already exists
+// above). Scoped to the entities that actually change behaviour: LegalCase
+// covers the PRD's Claim/Dispute/LegalCase family under one status-tracked
+// record (caseType distinguishes them), and the confidentiality ladder is
+// collapsed from the PRD's 7 named tiers to 2 enforcement buckets — role-
+// visible (STANDARD/RESTRICTED) vs grant-required (everything else,
+// CONFIDENTIAL and up) — because the behaviour that actually matters is
+// binary: "does LEGAL role membership alone see this, or does it require an
+// explicit LegalCaseAccess grant." Not built: LegalOpinion/PowerOfAttorney,
+// RegulatoryInspection, ComplianceObligation, LegalNotice, Fine/Penalty/
+// Appeal, insurance/property-legal records — later PRD phases.
+//
+// LegalHold is a registry only — Documents has no delete action yet to
+// enforce against (checked before building), so there is nothing to wire a
+// block into today; the hold record exists and is ready for that hook once
+// Documents grows one, same "registry + logged intent, enforcement deferred"
+// boundary already used for IT Admin (no live SSO) and BIM (no live viewer).
+// ---------------------------------------------------------------------------
+
+model LegalCase {
+  id                 String    @id @default(cuid())
+  tenantId           String
+  tenant             Tenant    @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  caseNumber         String
+  title              String
+  caseType           String // LITIGATION | CLAIM | DISPUTE | REGULATORY | OTHER
+  status             String    @default("OPEN") // OPEN | IN_PROGRESS | ON_HOLD | RESOLVED | CLOSED
+  // Soft reference — Projects module is FROZEN, never a Prisma relation.
+  projectId          String?
+  counterparty       String?
+  summary            String?
+  confidentialityTier String   @default("STANDARD") // STANDARD | RESTRICTED | CONFIDENTIAL | LEGAL_PRIVILEGED | EXECUTIVE | LITIGATION_RESTRICTED | EXTERNAL_COUNSEL_ONLY
+  openedById         String
+  openedAt           DateTime  @default(now())
+  closedAt           DateTime?
+
+  accessGrants LegalCaseAccess[]
+  holds        LegalHold[]
+
+  @@unique([tenantId, caseNumber])
+  @@index([tenantId, status])
+}
+
+// The PRD's own rule: "project access does not automatically grant case
+// access." A grant is independent of project-team membership and of
+// COMPANY_SETTINGS/USER_MANAGEMENT — it is checked in addition to, not
+// instead of, the LEGAL role gate in canViewLegalCase().
+model LegalCaseAccess {
+  id          String       @id @default(cuid())
+  tenantId    String
+  tenant      Tenant       @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  caseId      String
+  legalCase   LegalCase    @relation(fields: [caseId], references: [id], onDelete: Cascade)
+  userId      String
+  grantedById String
+  grantedAt   DateTime     @default(now())
+  revokedAt   DateTime?
+
+  @@unique([caseId, userId])
+}
+
+model LegalHold {
+  id           String    @id @default(cuid())
+  tenantId     String
+  tenant       Tenant    @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  caseId       String?
+  legalCase    LegalCase? @relation(fields: [caseId], references: [id])
+  scope        String // free-text description of what the hold covers
+  targetType   String? // soft reference, e.g. "Document" — no FK, see schema note above
+  targetId     String?
+  status       String    @default("ACTIVE") // ACTIVE | RELEASED
+  placedById   String
+  placedAt     DateTime  @default(now())
+  releasedById String?
+  releasedAt   DateTime?
+
+  @@index([tenantId, status])
 }
 
 // ---------------------------------------------------------------------------

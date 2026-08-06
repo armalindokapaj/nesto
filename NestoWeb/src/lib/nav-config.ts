@@ -52,6 +52,7 @@ import {
   Laptop,
   Smartphone,
   Network,
+  Scale,
 } from "lucide-react";
 import { can, DASHBOARD_BY_ROLE, type Resource, type Level } from "@/lib/permissions";
 import type { Role } from "@/lib/constants";
@@ -257,6 +258,8 @@ export const NAV_SECTIONS: Record<string, NavSection[]> = {
       titleKey: "nav.compliance",
       items: [
         { labelKey: "nav.permits", href: "/dashboard/legal/permits", icon: FileText, resource: "LEGAL", moduleKey: "LEGAL" },
+        { labelKey: "nav.legalCases", href: "/dashboard/legal/cases", icon: Scale, resource: "LEGAL", moduleKey: "LEGAL" },
+        { labelKey: "nav.legalHolds", href: "/dashboard/legal/holds", icon: Lock, resource: "LEGAL", moduleKey: "LEGAL" },
         { labelKey: "nav.contracts", href: "/contracts", icon: FileText, resource: "CONTRACTS", moduleKey: "CONTRACTS" },
         { labelKey: "nav.contractors", href: "/contractors", icon: UserCog, resource: "COMPANY_NETWORK", moduleKey: "COMPANY_NETWORK" },
         { labelKey: "nav.projects", href: "/projects", icon: FolderKanban },

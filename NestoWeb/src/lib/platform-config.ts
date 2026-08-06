@@ -184,6 +184,12 @@ export const CONFIG_NODES: ConfigNode[] = [
   { key: "legal.action.create_permit", label: "Create Permit", level: "ACTION", parent: "legal" },
   { key: "legal.action.amend_permit", label: "Amend Permit", level: "ACTION", parent: "legal" },
   { key: "legal.action.set_readiness", label: "Set Legal Readiness Status", level: "ACTION", parent: "legal" },
+  { key: "legal.page.cases", label: "Legal Cases", level: "PAGE", parent: "legal", route: "/dashboard/legal/cases" },
+  { key: "legal.page.case_detail", label: "Case Page", level: "PAGE", parent: "legal", route: "/dashboard/legal/cases/[id]" },
+  { key: "legal.page.holds", label: "Legal Holds", level: "PAGE", parent: "legal", route: "/dashboard/legal/holds" },
+  { key: "legal.feature.case_access_grants", label: "Per-Case Access Grants", level: "FEATURE", parent: "legal" },
+  { key: "legal.action.manage_case", label: "Manage Legal Case", level: "ACTION", parent: "legal" },
+  { key: "legal.action.manage_hold", label: "Manage Legal Hold", level: "ACTION", parent: "legal" },
 
   // --- HSE (PRD_HSE_Module v1.0, Phase 1) -----------------------------------
   // Reuses the existing "HSE_REPORTS" resource/moduleKey (permissions.ts,

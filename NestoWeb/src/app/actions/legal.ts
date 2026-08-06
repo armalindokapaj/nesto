@@ -11,6 +11,12 @@ import {
   addPermitCondition,
   amendPermit,
   setLegalReadinessStatus,
+  createLegalCase,
+  setLegalCaseStatus,
+  grantCaseAccess,
+  revokeCaseAccess,
+  createLegalHold,
+  releaseLegalHold,
 } from "@/server/legal";
 
 const CreateAuthoritySchema = z.object({
@@ -138,5 +144,105 @@ export async function setLegalReadinessStatusAction(_prev: LegalActionState, for
   await setLegalReadinessStatus(tenantId, user.id, parsed.data.projectId, parsed.data.status, parsed.data.reason);
   revalidatePath(`/dashboard/legal/projects/${parsed.data.projectId}`);
   revalidatePath("/dashboard/legal");
+  return undefined;
+}
+
+// ---------------------------------------------------------------------------
+// Cases, Disputes & Legal Hold
+// ---------------------------------------------------------------------------
+
+const CreateCaseSchema = z.object({
+  title: z.string().min(1, "Enter a case title"),
+  caseType: z.enum(["LITIGATION", "CLAIM", "DISPUTE", "REGULATORY", "OTHER"]),
+  projectId: z.string().optional(),
+  counterparty: z.string().optional(),
+  summary: z.string().optional(),
+  confidentialityTier: z.enum(["STANDARD", "RESTRICTED", "CONFIDENTIAL", "LEGAL_PRIVILEGED", "EXECUTIVE", "LITIGATION_RESTRICTED", "EXTERNAL_COUNSEL_ONLY"]).optional(),
+});
+
+export async function createLegalCaseAction(_prev: LegalActionState, formData: FormData): Promise<LegalActionState> {
+  const { tenantId, role, user } = await getCurrentUser();
+  if (!can(role, "LEGAL", "WRITE")) return { error: "You do not have permission to open a case." };
+
+  const parsed = CreateCaseSchema.safeParse({
+    title: formData.get("title"),
+    caseType: formData.get("caseType"),
+    projectId: formData.get("projectId") || undefined,
+    counterparty: formData.get("counterparty") || undefined,
+    summary: formData.get("summary") || undefined,
+    confidentialityTier: formData.get("confidentialityTier") || undefined,
+  });
+  if (!parsed.success) return { error: parsed.error.issues[0]?.message ?? "Invalid input" };
+
+  const legalCase = await createLegalCase(tenantId, user.id, parsed.data);
+  revalidatePath("/dashboard/legal/cases");
+  revalidatePath(`/dashboard/legal/cases/${legalCase.id}`);
+  return undefined;
+}
+
+export async function setLegalCaseStatusAction(caseId: string, status: string): Promise<LegalActionState> {
+  const { tenantId, role, user } = await getCurrentUser();
+  if (!can(role, "LEGAL", "FULL")) return { error: "You do not have permission to change case status." };
+  try {
+    await setLegalCaseStatus(tenantId, user.id, caseId, status);
+  } catch (e) {
+    return { error: e instanceof Error ? e.message : "Could not update case." };
+  }
+  revalidatePath(`/dashboard/legal/cases/${caseId}`);
+  revalidatePath("/dashboard/legal/cases");
+  return undefined;
+}
+
+export async function grantCaseAccessAction(caseId: string, userId: string): Promise<LegalActionState> {
+  const { tenantId, role, user } = await getCurrentUser();
+  if (!can(role, "LEGAL", "FULL")) return { error: "You do not have permission to grant case access." };
+  await grantCaseAccess(tenantId, user.id, caseId, userId);
+  revalidatePath(`/dashboard/legal/cases/${caseId}`);
+  return undefined;
+}
+
+export async function revokeCaseAccessAction(caseId: string, accessId: string): Promise<LegalActionState> {
+  const { tenantId, role, user } = await getCurrentUser();
+  if (!can(role, "LEGAL", "FULL")) return { error: "You do not have permission to revoke case access." };
+  await revokeCaseAccess(tenantId, user.id, accessId);
+  revalidatePath(`/dashboard/legal/cases/${caseId}`);
+  return undefined;
+}
+
+const CreateHoldSchema = z.object({
+  caseId: z.string().optional(),
+  scope: z.string().min(1, "Describe what this hold covers"),
+  targetType: z.string().optional(),
+  targetId: z.string().optional(),
+});
+
+export async function createLegalHoldAction(_prev: LegalActionState, formData: FormData): Promise<LegalActionState> {
+  const { tenantId, role, user } = await getCurrentUser();
+  if (!can(role, "LEGAL", "FULL")) return { error: "You do not have permission to place a legal hold." };
+
+  const parsed = CreateHoldSchema.safeParse({
+    caseId: formData.get("caseId") || undefined,
+    scope: formData.get("scope"),
+    targetType: formData.get("targetType") || undefined,
+    targetId: formData.get("targetId") || undefined,
+  });
+  if (!parsed.success) return { error: parsed.error.issues[0]?.message ?? "Invalid input" };
+
+  await createLegalHold(tenantId, user.id, parsed.data);
+  revalidatePath("/dashboard/legal/holds");
+  if (parsed.data.caseId) revalidatePath(`/dashboard/legal/cases/${parsed.data.caseId}`);
+  return undefined;
+}
+
+export async function releaseLegalHoldAction(holdId: string, caseId?: string): Promise<LegalActionState> {
+  const { tenantId, role, user } = await getCurrentUser();
+  if (!can(role, "LEGAL", "FULL")) return { error: "You do not have permission to release a legal hold." };
+  try {
+    await releaseLegalHold(tenantId, user.id, holdId);
+  } catch (e) {
+    return { error: e instanceof Error ? e.message : "Could not release hold." };
+  }
+  revalidatePath("/dashboard/legal/holds");
+  if (caseId) revalidatePath(`/dashboard/legal/cases/${caseId}`);
   return undefined;
 }
