@@ -1,8 +1,8 @@
 "use client";
 
 import { useState, useTransition } from "react";
-import { Play } from "lucide-react";
-import { executeReportAction } from "@/app/actions/analytics";
+import { Play, Lock } from "lucide-react";
+import { executeReportAction, issueReportExecutionAction } from "@/app/actions/analytics";
 import { Button } from "@/components/ui/button";
 import { ExportCsvButton } from "@/components/ui/export-csv-button";
 import { useI18n } from "@/lib/i18n/locale-provider";
@@ -14,6 +14,8 @@ import { useI18n } from "@/lib/i18n/locale-provider";
 export function ReportRunner({ reportId, reportName }: { reportId: string; reportName: string }) {
   const { t } = useI18n();
   const [rows, setRows] = useState<Record<string, string | number>[] | null>(null);
+  const [executionId, setExecutionId] = useState<string | null>(null);
+  const [issued, setIssued] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [pending, startTransition] = useTransition();
 
@@ -26,9 +28,11 @@ export function ReportRunner({ reportId, reportName }: { reportId: string; repor
           onClick={() =>
             startTransition(async () => {
               setError(null);
+              setIssued(false);
               try {
                 const result = await executeReportAction(reportId);
-                setRows(result as Record<string, string | number>[]);
+                setRows(result.rows as Record<string, string | number>[]);
+                setExecutionId(result.executionId);
               } catch (e) {
                 setError(e instanceof Error ? e.message : "Could not run report.");
               }
@@ -38,6 +42,16 @@ export function ReportRunner({ reportId, reportName }: { reportId: string; repor
           <Play size={14} /> {pending ? t("common.saving") : t("analytics.run")}
         </Button>
         {rows && <ExportCsvButton filename={reportName} rows={rows} />}
+        {executionId && !issued && (
+          <Button
+            size="sm"
+            variant="secondary"
+            onClick={() => startTransition(async () => { await issueReportExecutionAction(executionId); setIssued(true); })}
+          >
+            <Lock size={14} /> {t("analytics.issueSnapshot")}
+          </Button>
+        )}
+        {issued && <span className="text-xs text-success">{t("analytics.issued")}</span>}
       </div>
       {error && <p className="text-xs text-danger">{error}</p>}
       {rows && (

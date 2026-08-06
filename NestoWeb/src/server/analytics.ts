@@ -154,11 +154,76 @@ export async function executeReport(
       throw new Error(`Unknown report kind: ${report.kind}`);
   }
 
-  await db.reportExecution.create({ data: { tenantId, reportDefinitionId: report.id, executedById: actorId, rowCount: rows.length } });
+  // resultJson is stored on every run (these aggregate result sets are
+  // small) so that issuing a snapshot later is just flipping a flag on data
+  // that was already frozen at execution time — never a second query.
+  const execution = await db.reportExecution.create({ data: { tenantId, reportDefinitionId: report.id, executedById: actorId, rowCount: rows.length, resultJson: JSON.stringify(rows) } });
   await logActivity(tenantId, "ReportDefinition", report.id, actorId, "report.executed", `${report.name} executed, ${rows.length} row(s).`);
-  return rows;
+  return { rows, executionId: execution.id };
 }
 
 export async function listReportExecutions(tenantId: string, reportId: string) {
   return db.reportExecution.findMany({ where: { tenantId, reportDefinitionId: reportId }, include: { executedBy: { select: { displayName: true } } }, orderBy: { executedAt: "desc" }, take: 20 });
+}
+
+// ---------------------------------------------------------------------------
+// Phase 2/3 — issued/immutable snapshots and currency consolidation. See the
+// schema comment above CurrencyRate/ReportExecution.resultJson for scope.
+// ---------------------------------------------------------------------------
+
+/** Freezes an already-executed run as a permanent, immutable snapshot — no update path is ever exposed for it after this. */
+export async function issueReportExecution(tenantId: string, actorId: string, executionId: string) {
+  const execution = assertTenant(await db.reportExecution.findUnique({ where: { id: executionId } }), tenantId, "ReportExecution");
+  if (execution.issued) return execution;
+  const updated = await db.reportExecution.update({ where: { id: execution.id }, data: { issued: true, issuedAt: new Date(), issuedById: actorId } });
+  await logActivity(tenantId, "ReportDefinition", execution.reportDefinitionId, actorId, "report.issued", "A run was issued as a permanent snapshot.");
+  return updated;
+}
+
+export async function listIssuedReports(tenantId: string) {
+  return db.reportExecution.findMany({
+    where: { tenantId, issued: true },
+    include: { reportDefinition: { select: { name: true, kind: true } }, executedBy: { select: { displayName: true } } },
+    orderBy: { issuedAt: "desc" },
+  });
+}
+
+export async function listCurrencyRates(tenantId: string) {
+  return db.currencyRate.findMany({ where: { tenantId }, orderBy: { asOf: "desc" }, take: 50 });
+}
+
+export async function setCurrencyRate(tenantId: string, actorId: string, input: { fromCurrency: string; toCurrency: string; rate: number }) {
+  return db.currencyRate.create({ data: { tenantId, setById: actorId, ...input } });
+}
+
+/** Most-recent rate for the pair; identity for same-currency; null if no rate has ever been set. */
+export async function convertAmount(tenantId: string, amount: number, fromCurrency: string, toCurrency: string): Promise<number | null> {
+  if (fromCurrency === toCurrency) return amount;
+  const rate = await db.currencyRate.findFirst({ where: { tenantId, fromCurrency, toCurrency }, orderBy: { asOf: "desc" } });
+  if (!rate) return null;
+  return amount * rate.rate;
+}
+
+/**
+ * Simple linear run-rate forecast: elapsed-time-vs-progress-made, projected
+ * forward to 100%. Deliberately not a statistical trend model (that needs a
+ * stored progress time series this app doesn't keep) — an honest, auditable
+ * heuristic instead of a fabricated black-box number, consistent with the
+ * "full calculation trace, no black-box numbers" rule used across the app.
+ */
+export async function getProjectCompletionForecast(tenantId: string, projectId: string) {
+  const project = assertTenant(await db.project.findUnique({ where: { id: projectId } }), tenantId, "Project");
+  if (!project.startDate || project.progressPct <= 0 || project.progressPct >= 100) {
+    return { forecastDate: null, basis: "insufficient_data" as const };
+  }
+  const elapsedDays = (Date.now() - project.startDate.getTime()) / (24 * 60 * 60 * 1000);
+  const impliedTotalDays = elapsedDays / (project.progressPct / 100);
+  const forecastDate = new Date(project.startDate.getTime() + impliedTotalDays * 24 * 60 * 60 * 1000);
+  return { forecastDate, basis: "linear_run_rate" as const, elapsedDays: Math.round(elapsedDays), progressPct: project.progressPct };
+}
+
+export async function listActiveProjectForecasts(tenantId: string) {
+  const projects = await db.project.findMany({ where: { tenantId, status: { in: ["ACTIVE", "ON_TRACK", "AT_RISK", "DELAYED"] } }, select: { id: true, name: true, code: true } });
+  const forecasts = await Promise.all(projects.map(async (p) => ({ project: p, forecast: await getProjectCompletionForecast(tenantId, p.id) })));
+  return forecasts.filter((f) => f.forecast.forecastDate !== null);
 }

@@ -3,10 +3,10 @@ import { redirect } from "next/navigation";
 import { ArrowLeft, Archive } from "lucide-react";
 import { getCurrentUser } from "@/lib/dal";
 import { can } from "@/lib/permissions";
-import { listReportDefinitions } from "@/server/analytics";
+import { listReportDefinitions, listIssuedReports } from "@/server/analytics";
 import { getConfigResolver } from "@/server/platform-config";
 import { archiveReportDefinitionAction } from "@/app/actions/analytics";
-import { Card, CardHeader, CardTitle, CardContent } from "@/components/ui/card";
+import { Card, CardHeader, CardTitle, CardDescription, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { CreateReportDialog } from "@/components/analytics/create-report-dialog";
 import { ReportRunner } from "@/components/analytics/report-runner";
@@ -19,7 +19,7 @@ export default async function ReportLibraryPage() {
   if (!(await getConfigResolver(tenantId, company?.id))("analytics.page.reports")) redirect("/analytics");
   const canWrite = can(role, "PROJECTS", "WRITE");
 
-  const reports = await listReportDefinitions(tenantId);
+  const [reports, issuedReports] = await Promise.all([listReportDefinitions(tenantId), listIssuedReports(tenantId)]);
   const { t } = await getT();
 
   return (
@@ -60,6 +60,24 @@ export default async function ReportLibraryPage() {
         ))}
         {!reports.length && <div className="rounded-xl border border-dashed border-border py-16 text-center text-sm text-ink-faint">{t("analytics.noReports")}</div>}
       </div>
+
+      <Card>
+        <CardHeader>
+          <div>
+            <CardTitle className="text-sm">{t("analytics.issuedReports")}</CardTitle>
+            <CardDescription>{t("analytics.issuedReportsSubtitle")}</CardDescription>
+          </div>
+        </CardHeader>
+        <CardContent className="space-y-1.5">
+          {issuedReports.map((e) => (
+            <div key={e.id} className="flex items-center justify-between text-sm">
+              <span className="text-ink-muted">{e.reportDefinition.name} · {e.executedBy.displayName}</span>
+              <span className="text-ink text-xs">{formatDate(e.issuedAt!)}</span>
+            </div>
+          ))}
+          {issuedReports.length === 0 && <p className="text-sm text-ink-faint">{t("analytics.noIssuedReports")}</p>}
+        </CardContent>
+      </Card>
     </div>
   );
 }

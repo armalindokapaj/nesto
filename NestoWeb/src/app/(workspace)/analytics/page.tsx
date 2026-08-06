@@ -2,10 +2,11 @@ import Link from "next/link";
 import { redirect } from "next/navigation";
 import { getCurrentUser } from "@/lib/dal";
 import { can } from "@/lib/permissions";
-import { getAnalyticsOverview, ensureMetricCatalogue } from "@/server/analytics";
+import { getAnalyticsOverview, ensureMetricCatalogue, listActiveProjectForecasts, listCurrencyRates } from "@/server/analytics";
 import { getConfigResolver } from "@/server/platform-config";
-import { Card, CardHeader, CardTitle, CardContent } from "@/components/ui/card";
-import { formatCurrency } from "@/lib/utils";
+import { Card, CardHeader, CardTitle, CardDescription, CardContent } from "@/components/ui/card";
+import { CreateCurrencyRateDialog } from "@/components/analytics/currency-rate-dialog";
+import { formatCurrency, formatDate } from "@/lib/utils";
 import { getT } from "@/lib/i18n/server";
 
 // PRD_Reporting_Analytics Phase 1 — Executive Overview. Live queries only
@@ -25,7 +26,13 @@ export default async function AnalyticsOverviewPage() {
     hse: can(role, "HSE_REPORTS", "READ"),
   };
 
-  const [overview, metrics] = await Promise.all([getAnalyticsOverview(tenantId, access), ensureMetricCatalogue(tenantId)]);
+  const canManageRates = can(role, "FINANCE", "WRITE");
+  const [overview, metrics, forecasts, currencyRates] = await Promise.all([
+    getAnalyticsOverview(tenantId, access),
+    ensureMetricCatalogue(tenantId),
+    listActiveProjectForecasts(tenantId),
+    listCurrencyRates(tenantId),
+  ]);
   const { t } = await getT();
 
   const tiles = [
@@ -58,6 +65,46 @@ export default async function AnalyticsOverviewPage() {
           </Card>
         ))}
       </div>
+
+      {forecasts.length > 0 && (
+        <Card>
+          <CardHeader>
+            <div>
+              <CardTitle className="text-sm">{t("analytics.completionForecast")}</CardTitle>
+              <CardDescription>{t("analytics.forecastLinearNote")}</CardDescription>
+            </div>
+          </CardHeader>
+          <CardContent className="space-y-1.5">
+            {forecasts.map(({ project, forecast }) => (
+              <div key={project.id} className="flex items-center justify-between text-sm">
+                <span className="text-ink-muted">{project.code} — {project.name}</span>
+                <span className="text-ink">{forecast.forecastDate ? formatDate(forecast.forecastDate) : "—"} ({forecast.progressPct}%)</span>
+              </div>
+            ))}
+          </CardContent>
+        </Card>
+      )}
+
+      <Card>
+        <CardHeader>
+          <div className="flex items-center justify-between gap-3">
+            <div>
+              <CardTitle className="text-sm">{t("analytics.currencyRates")}</CardTitle>
+              <CardDescription>{t("analytics.currencyRatesSubtitle")}</CardDescription>
+            </div>
+            {canManageRates && <CreateCurrencyRateDialog />}
+          </div>
+        </CardHeader>
+        <CardContent className="space-y-1.5">
+          {currencyRates.map((r) => (
+            <div key={r.id} className="flex items-center justify-between text-sm">
+              <span className="text-ink-muted">{r.fromCurrency} → {r.toCurrency}</span>
+              <span className="text-ink">{r.rate} <span className="text-ink-faint text-xs">({formatDate(r.asOf)})</span></span>
+            </div>
+          ))}
+          {currencyRates.length === 0 && <p className="text-sm text-ink-faint">{t("analytics.noRates")}</p>}
+        </CardContent>
+      </Card>
 
       <Card>
         <CardHeader>

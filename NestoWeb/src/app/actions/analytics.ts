@@ -5,7 +5,7 @@ import { revalidatePath } from "next/cache";
 import { getCurrentUser } from "@/lib/dal";
 import { can } from "@/lib/permissions";
 import { assertConfigEnabled } from "@/server/platform-config";
-import { createReportDefinition, archiveReportDefinition, executeReport, isKnownReportKind } from "@/server/analytics";
+import { createReportDefinition, archiveReportDefinition, executeReport, isKnownReportKind, issueReportExecution, setCurrencyRate } from "@/server/analytics";
 
 export type AnalyticsActionState = { error?: string; success?: string } | undefined;
 const errorState = (e: unknown, fallback: string) => ({ error: e instanceof Error ? e.message : fallback });
@@ -55,7 +55,32 @@ export async function archiveReportDefinitionAction(reportId: string) {
 
 export async function executeReportAction(reportId: string) {
   const c = await context();
-  const rows = await executeReport(c.tenantId, c.user.id, reportId, accessFor(c.role));
+  const result = await executeReport(c.tenantId, c.user.id, reportId, accessFor(c.role));
   revalidatePath("/analytics/reports");
-  return rows;
+  return result;
+}
+
+export async function issueReportExecutionAction(executionId: string) {
+  const c = await context();
+  if (!can(c.role, "PROJECTS", "WRITE")) throw new Error("You do not have permission to issue a report snapshot.");
+  await issueReportExecution(c.tenantId, c.user.id, executionId);
+  revalidatePath("/analytics/reports");
+}
+
+const CurrencyRateSchema = z.object({
+  fromCurrency: z.string().min(1),
+  toCurrency: z.string().min(1),
+  rate: z.coerce.number().positive(),
+});
+
+export async function setCurrencyRateAction(_: AnalyticsActionState, formData: FormData): Promise<AnalyticsActionState> {
+  try {
+    const c = await context();
+    if (!can(c.role, "FINANCE", "WRITE")) throw new Error("You do not have permission to set currency rates.");
+    const p = CurrencyRateSchema.safeParse(Object.fromEntries(formData));
+    if (!p.success) return { error: p.error.issues[0]?.message ?? "Invalid rate" };
+    await setCurrencyRate(c.tenantId, c.user.id, p.data);
+    revalidatePath("/analytics");
+    return { success: "Rate saved." };
+  } catch (e) { return errorState(e, "Could not save rate."); }
 }
