@@ -260,6 +260,12 @@ model Tenant {
   externalOrganizations       ExternalOrganization[]
   portalMemberships           PortalMembership[]
   businessAccessRelationships BusinessAccessRelationship[]
+
+  // --- PRD_HR_Payroll_Workforce — Recruitment (additive) --------------------
+  vacancies            Vacancy[]
+  candidates           Candidate[]
+  candidateStageEvents CandidateStageEvent[]
+  offers               Offer[]
 }
 
 model Company {
@@ -5765,4 +5771,93 @@ model BusinessAccessRelationship {
   revokedAt     DateTime?
 
   @@unique([externalOrgId, projectId])
+}
+
+// ---------------------------------------------------------------------------
+// PRD_HR_Payroll_Workforce — Recruitment, the remaining slice of that PRD's
+// own Phase-1 "HR foundation" (§ delivery phase 1 lists "employees, org,
+// contracts, recruitment, onboarding"; EmploymentRelationship shipped
+// 2026-08-06, this closes the recruitment half). Scoped to the pipeline
+// itself — Vacancy -> Candidate -> Offer, immutable stage history. No
+// onboarding checklist/plan (a later phase-1 sub-item) and no automatic
+// Candidate -> Employee/EmploymentRelationship conversion on hire — HR
+// records the hire manually via the existing Employee/EmploymentRelationship
+// flow, same "modules stay in control of their own state" boundary the
+// Workflow Engine uses (WF-FR-015).
+// ---------------------------------------------------------------------------
+
+model Vacancy {
+  id          String   @id @default(cuid())
+  tenantId    String
+  tenant      Tenant   @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  title       String
+  department  String?
+  position    String?
+  headcount   Int      @default(1)
+  status      String   @default("OPEN") // OPEN | ON_HOLD | FILLED | CANCELLED
+  openedById  String
+  createdAt   DateTime @default(now())
+
+  candidates Candidate[]
+
+  @@index([tenantId, status])
+}
+
+model Candidate {
+  id               String   @id @default(cuid())
+  tenantId         String
+  tenant           Tenant   @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  vacancyId        String
+  vacancy          Vacancy  @relation(fields: [vacancyId], references: [id], onDelete: Cascade)
+  fullName         String
+  email            String?
+  phone            String?
+  source           String?
+  // APPLIED | SCREENING | INTERVIEW | OFFER | HIRED | REJECTED
+  stage            String   @default("APPLIED")
+  notes            String?
+  addedById        String
+  createdAt        DateTime @default(now())
+  updatedAt        DateTime @updatedAt
+
+  stageEvents CandidateStageEvent[]
+  offers      Offer[]
+
+  @@index([tenantId, vacancyId])
+  @@index([tenantId, stage])
+}
+
+// Immutable by construction — a stage change always appends an event and
+// updates Candidate.stage; history is never edited, matching the same
+// discipline as WorkflowDecision/PayrollActivity.
+model CandidateStageEvent {
+  id          String    @id @default(cuid())
+  tenantId    String
+  tenant      Tenant    @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  candidateId String
+  candidate   Candidate @relation(fields: [candidateId], references: [id], onDelete: Cascade)
+  fromStage   String?
+  toStage     String
+  note        String?
+  actedById   String
+  actedAt     DateTime  @default(now())
+
+  @@index([tenantId, candidateId])
+}
+
+model Offer {
+  id            String    @id @default(cuid())
+  tenantId      String
+  tenant        Tenant    @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  candidateId   String
+  candidate     Candidate @relation(fields: [candidateId], references: [id], onDelete: Cascade)
+  position      String
+  compensation  Float?
+  currency      String    @default("EUR")
+  status        String    @default("DRAFT") // DRAFT | SENT | ACCEPTED | DECLINED | WITHDRAWN
+  extendedById  String
+  extendedAt    DateTime  @default(now())
+  respondedAt   DateTime?
+
+  @@index([tenantId, candidateId])
 }

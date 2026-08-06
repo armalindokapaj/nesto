@@ -156,6 +156,11 @@ export const CONFIG_NODES: ConfigNode[] = [
   { key: "hr.section.compensation", label: "Compensation (confidential)", level: "SECTION", parent: "hr.page.employee_detail" },
   { key: "hr.feature.intercompany_transfer", label: "Intercompany Transfer", level: "FEATURE", parent: "hr" },
   { key: "hr.action.record_employment", label: "Record Employment Change", level: "ACTION", parent: "hr" },
+  { key: "hr.page.recruitment", label: "Recruitment", level: "PAGE", parent: "hr", route: "/dashboard/hr/recruitment" },
+  { key: "hr.page.vacancy_detail", label: "Vacancy Page", level: "PAGE", parent: "hr", route: "/dashboard/hr/recruitment/[id]" },
+  { key: "hr.action.manage_vacancy", label: "Manage Vacancy", level: "ACTION", parent: "hr" },
+  { key: "hr.action.manage_candidate", label: "Manage Candidate", level: "ACTION", parent: "hr" },
+  { key: "hr.action.manage_offer", label: "Manage Offer", level: "ACTION", parent: "hr" },
 
   // --- HR Payroll (PRD_HR_Payroll_Workforce v1.0, Phase 2) ------------------
   { key: "hr.page.payroll", label: "Payroll", level: "PAGE", parent: "hr", route: "/dashboard/hr/payroll" },
