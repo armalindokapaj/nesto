@@ -238,6 +238,28 @@ model Tenant {
 
   // --- Platform Configuration ----------------------------------------------
   platformConfigSettings PlatformConfigSetting[]
+
+  // --- PRD_Approvals_Workflow_Engine Phase 1 (additive) ---------------------
+  workflowDefinitions WorkflowDefinition[]
+  workflowInstances   WorkflowInstance[]
+  workflowDecisions   WorkflowDecision[]
+
+  // --- PRD_Complete_Role_Permission_Matrix — capability grants (additive) --
+  userCapabilityGrants UserCapabilityGrant[]
+
+  // --- PRD_IT_Administration_Integrations_Service_Management Phase 1 -------
+  itDepartmentProfile ItDepartmentProfile?
+  itDevices           ItDevice[]
+  softwareLicences    SoftwareLicence[]
+  itServiceTickets    ItServiceTicket[]
+
+  // --- PRD_Mobile_Offline_Platform Phase 1 (additive: device registry) -----
+  registeredDevices RegisteredDevice[]
+
+  // --- PRD_Client_Supplier_Portals Phase 1 (additive) -----------------------
+  externalOrganizations       ExternalOrganization[]
+  portalMemberships           PortalMembership[]
+  businessAccessRelationships BusinessAccessRelationship[]
 }
 
 model Company {
@@ -477,6 +499,20 @@ model UserIdentity {
   payrollRunsCreated   PayrollRun[]      @relation("PayrollRunCreatedBy")
   payrollRunsLocked    PayrollRun[]      @relation("PayrollRunLockedBy")
   payrollActivityActed PayrollActivity[] @relation("PayrollActivityActor")
+
+  // --- PRD_Approvals_Workflow_Engine Phase 1 (additive) --------------------
+  workflowInstancesSubmitted WorkflowInstance[] @relation("WorkflowInstanceSubmittedBy")
+  workflowDecisionsMade      WorkflowDecision[] @relation("WorkflowDecisionDecidedBy")
+
+  // --- PRD_Complete_Role_Permission_Matrix — capability grants (additive) --
+  capabilityGrantsReceived UserCapabilityGrant[] @relation("UserCapabilityGrantUser")
+  capabilityGrantsIssued   UserCapabilityGrant[] @relation("UserCapabilityGrantGrantedBy")
+
+  // --- PRD_Mobile_Offline_Platform Phase 1 (additive: device registry) -----
+  registeredDevices RegisteredDevice[] @relation("RegisteredDeviceUser")
+
+  // --- PRD_Client_Supplier_Portals Phase 1 (additive) -----------------------
+  portalMemberships PortalMembership[] @relation("PortalMembershipUser")
 }
 
 // Links an identity to a tenant workspace with a role, department and access mode.
@@ -576,6 +612,11 @@ model Project {
   // PRD_Units / PRD_Unit_Page Real Estate Inventory
   structures ProjectStructure[]
   units      Unit[]
+
+  // PRD_Client_Supplier_Portals Phase 1 (additive) — Projects module itself is
+  // frozen (read/link only); this is solely the required Prisma back-relation
+  // for BusinessAccessRelationship, no Projects business logic touched.
+  businessAccessRelationships BusinessAccessRelationship[]
 
   @@unique([tenantId, code])
   @@index([tenantId, status])
@@ -5395,4 +5436,333 @@ model BimObjectLink {
 
   @@index([tenantId, modelId])
   @@index([tenantId, entityType, entityId])
+}
+
+// ---------------------------------------------------------------------------
+// PRD_Approvals_Workflow_Engine — Phase 1 "Approval foundation" only (per the
+// PRD's own §54 phase plan). Sequential routing, a work-item queue, immutable
+// decisions, and audit — no parallel/quorum paths, no visual builder, no
+// durable-timer/SLA engine, no BPMN-compatibility layer. Modeled as a real
+// state machine (not a bool flag) because "approved" and "source finalized"
+// are deliberately distinct statuses (WF-FR-015): a workflow can be fully
+// approved yet still waiting on the owning module to apply its own
+// transition. Source modules stay in full control of their own state; this
+// engine only owns routing + decisions, exactly like the PRD's ownership
+// boundary requires.
+// ---------------------------------------------------------------------------
+
+model WorkflowDefinition {
+  id               String   @id @default(cuid())
+  tenantId         String
+  tenant           Tenant   @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  key              String // stable machine key, e.g. "HSE_INCIDENT_CLOSURE"
+  name             String
+  sourceModule     String
+  sourceEntityType String
+  isActive         Boolean  @default(true)
+  createdById      String
+  createdAt        DateTime @default(now())
+
+  stages    WorkflowStageTemplate[]
+  instances WorkflowInstance[]
+
+  @@unique([tenantId, key])
+  @@index([tenantId, sourceModule, sourceEntityType])
+}
+
+model WorkflowStageTemplate {
+  id                   String             @id @default(cuid())
+  workflowDefinitionId String
+  workflowDefinition   WorkflowDefinition @relation(fields: [workflowDefinitionId], references: [id], onDelete: Cascade)
+  sequence             Int
+  name                 String
+  // Exactly one of these is set — a role-wide approval slot, or one named approver.
+  approverRole         String?
+  approverUserId       String?
+  createdAt            DateTime           @default(now())
+
+  @@unique([workflowDefinitionId, sequence])
+}
+
+model WorkflowInstance {
+  id                   String             @id @default(cuid())
+  tenantId             String
+  tenant               Tenant             @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  workflowDefinitionId String
+  workflowDefinition   WorkflowDefinition @relation(fields: [workflowDefinitionId], references: [id])
+  sourceModule         String
+  sourceEntityType     String
+  sourceEntityId       String
+  sourceRecordVersion  Int                @default(1)
+  // PENDING | APPROVED | REJECTED | CANCELLED | SOURCE_FINALIZATION_PENDING | COMPLETED
+  status               String             @default("PENDING")
+  currentStageSequence Int?
+  submittedById        String
+  submittedBy          UserIdentity       @relation("WorkflowInstanceSubmittedBy", fields: [submittedById], references: [id])
+  submittedAt          DateTime           @default(now())
+  completedAt          DateTime?
+  correlationId        String?
+  createdAt            DateTime           @default(now())
+
+  stages    WorkflowStageInstance[]
+  decisions WorkflowDecision[]
+
+  // WF-FR-002 idempotency: at most one non-terminal instance per source record.
+  @@index([tenantId, sourceModule, sourceEntityType, sourceEntityId])
+  @@index([tenantId, status])
+}
+
+model WorkflowStageInstance {
+  id                 String           @id @default(cuid())
+  workflowInstanceId String
+  workflowInstance   WorkflowInstance @relation(fields: [workflowInstanceId], references: [id], onDelete: Cascade)
+  sequence           Int
+  name               String
+  approverRole       String?
+  approverUserId     String?
+  // PENDING | ACTIVE | APPROVED | REJECTED | SKIPPED
+  status             String           @default("PENDING")
+  decidedById        String?
+  decidedAt          DateTime?
+  createdAt          DateTime         @default(now())
+
+  decisions WorkflowDecision[]
+
+  @@unique([workflowInstanceId, sequence])
+}
+
+// Immutable by construction — no update/delete server action is ever exposed
+// for this model (WF-FR-008/WF-FR-038: corrections happen via a new decision
+// on a returned/resubmitted stage, never by editing history).
+model WorkflowDecision {
+  id                 String                @id @default(cuid())
+  tenantId           String
+  tenant             Tenant                @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  workflowInstanceId String
+  workflowInstance   WorkflowInstance      @relation(fields: [workflowInstanceId], references: [id], onDelete: Cascade)
+  stageInstanceId    String
+  stageInstance      WorkflowStageInstance @relation(fields: [stageInstanceId], references: [id], onDelete: Cascade)
+  decidedById        String
+  decidedBy          UserIdentity          @relation("WorkflowDecisionDecidedBy", fields: [decidedById], references: [id])
+  decision           String // APPROVE | REJECT | RETURN
+  comment            String?
+  decidedAt          DateTime              @default(now())
+
+  @@index([tenantId, workflowInstanceId])
+}
+
+// ---------------------------------------------------------------------------
+// PRD_Complete_Role_Permission_Matrix — the PRD's own capability-key model
+// (§10/§33, format "<domain>.<resource>.<action>") is the formally-specified
+// replacement for src/lib/permissions.ts's coarse can(role, RESOURCE, LEVEL).
+// Adopting it in full (60+ roles, field policy, SoD engine, break-glass) is a
+// multi-quarter platform rebuild per that PRD's own phase plan. What ships
+// here is the addressable primitive underneath it: a capability-key registry
+// (src/lib/capabilities.ts, in-code, mirrors CONFIG_NODES/RESOURCES) with
+// default per-role grants, PLUS this table for the one thing a static role
+// matrix can never express — an explicit, audited, per-user grant beyond
+// (or narrower than) role defaults. Existing can()/RESOURCES is untouched;
+// this is an additive, narrower-scope layer alongside it, exactly the way
+// the PRD's own Appendix A keys (hse.stop_work.release, hr.compensation.view,
+// workflow.instance.override) were the concrete motivating cases.
+// ---------------------------------------------------------------------------
+
+model UserCapabilityGrant {
+  id            String       @id @default(cuid())
+  tenantId      String
+  tenant        Tenant       @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  userId        String
+  user          UserIdentity @relation("UserCapabilityGrantUser", fields: [userId], references: [id], onDelete: Cascade)
+  capabilityKey String
+  grantedById   String
+  grantedBy     UserIdentity @relation("UserCapabilityGrantGrantedBy", fields: [grantedById], references: [id])
+  grantedAt     DateTime     @default(now())
+  revokedAt     DateTime?
+
+  @@unique([userId, capabilityKey])
+  @@index([tenantId, capabilityKey])
+}
+
+// ---------------------------------------------------------------------------
+// PRD_IT_Administration_Integrations_Service_Management — Phase 1 "IT
+// Foundation" only (§57): protected IT department, device/licence registry,
+// Service Desk. Zero external-provider dependency by design — no real SSO/
+// M365/Google/webhook adapters (Phases 2-4 of that PRD), matching the same
+// "registry + logged action, no real external call" scope-down already used
+// for BIM (no live viewer) and Notifications (no external channels).
+// ---------------------------------------------------------------------------
+
+model ItDepartmentProfile {
+  id        String   @id @default(cuid())
+  tenantId  String   @unique
+  tenant    Tenant   @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  mode      String   @default("BASIC") // BASIC | MANAGED
+  createdAt DateTime @default(now())
+}
+
+model ItDevice {
+  id           String   @id @default(cuid())
+  tenantId     String
+  tenant       Tenant   @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  assetId      String? // soft reference — the physical asset record lives in the Assets module
+  name         String
+  deviceType   String // LAPTOP | DESKTOP | MOBILE | TABLET | SERVER | NETWORK | OTHER
+  ownerUserId  String?
+  serialNumber String?
+  status       String   @default("ACTIVE") // ACTIVE | RETIRED | LOST | IN_REPAIR
+  notes        String?
+  createdById  String
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+
+  @@index([tenantId, status])
+}
+
+model SoftwareLicence {
+  id          String    @id @default(cuid())
+  tenantId    String
+  tenant      Tenant    @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  productName String
+  vendor      String?
+  seatsTotal  Int
+  expiresAt   DateTime?
+  costPerSeat Float?
+  notes       String?
+  createdById String
+  createdAt   DateTime  @default(now())
+
+  assignments LicenceAssignment[]
+
+  @@index([tenantId])
+}
+
+model LicenceAssignment {
+  id         String          @id @default(cuid())
+  licenceId  String
+  licence    SoftwareLicence @relation(fields: [licenceId], references: [id], onDelete: Cascade)
+  userId     String
+  assignedAt DateTime        @default(now())
+  revokedAt  DateTime?
+
+  @@index([licenceId])
+}
+
+model ItServiceTicket {
+  id            String    @id @default(cuid())
+  tenantId      String
+  tenant        Tenant    @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  number        String
+  ticketType    String // REQUEST | INCIDENT | PROBLEM | CHANGE
+  title         String
+  description   String?
+  priority      String    @default("MEDIUM") // LOW | MEDIUM | HIGH | CRITICAL
+  status        String    @default("OPEN") // OPEN | IN_PROGRESS | RESOLVED | CLOSED
+  requestedById String
+  assignedToId  String?
+  resolvedAt    DateTime?
+  closedAt      DateTime?
+  createdAt     DateTime  @default(now())
+  updatedAt     DateTime  @updatedAt
+
+  comments ItTicketComment[]
+
+  @@index([tenantId, status])
+  @@index([tenantId, ticketType])
+}
+
+model ItTicketComment {
+  id        String          @id @default(cuid())
+  ticketId  String
+  ticket    ItServiceTicket @relation(fields: [ticketId], references: [id], onDelete: Cascade)
+  authorId  String
+  body      String
+  createdAt DateTime        @default(now())
+
+  @@index([ticketId])
+}
+
+// ---------------------------------------------------------------------------
+// PRD_Mobile_Offline_Platform — Phase 1 "Responsive foundation" only (§51):
+// device registration + online-only responsive access. No offline engine
+// (encrypted local DB, workspaces, sync deltas, offline commands, conflict
+// resolution — Phase 2+) because that PRD itself assumes a native-mobile-
+// first surface (OS keystore, background sync, push tokens) this Next.js web
+// app doesn't have; building a fake offline layer would violate more
+// invariants (AC-002 "inaccessible after revocation") than it satisfies.
+// ---------------------------------------------------------------------------
+
+model RegisteredDevice {
+  id           String       @id @default(cuid())
+  tenantId     String
+  tenant       Tenant       @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  userId       String
+  user         UserIdentity @relation("RegisteredDeviceUser", fields: [userId], references: [id], onDelete: Cascade)
+  platform     String // IOS | ANDROID | WEB
+  deviceLabel  String
+  status       String       @default("ACTIVE") // ACTIVE | REVOKED
+  registeredAt DateTime     @default(now())
+  lastSeenAt   DateTime     @default(now())
+  revokedAt    DateTime?
+
+  @@index([tenantId, userId])
+}
+
+// ---------------------------------------------------------------------------
+// PRD_Client_Supplier_Portals — Phase 1 "Shared foundation" only (§60),
+// scoped further: rather than standing up a second external-facing
+// authentication system (its own accounts/sessions/MFA — a materially large
+// build), this reuses the existing CLIENT/CONTRACTOR UserIdentity login the
+// app already has (PRD_10) and adds the registry layer a real portal needs
+// on top of it — which external organization a person belongs to, and which
+// projects that organization is explicitly granted. No e-signature, payment
+// gateway, or external IdP (PRD's own "self-contained initial release").
+// ---------------------------------------------------------------------------
+
+model ExternalOrganization {
+  id               String   @id @default(cuid())
+  tenantId         String
+  tenant           Tenant   @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  name             String
+  orgType          String // CLIENT | SUPPLIER
+  linkedClientId   String? // soft reference to an existing Client record
+  linkedSupplierId String? // soft reference to an existing Supplier record
+  status           String   @default("ACTIVE") // ACTIVE | SUSPENDED
+  createdById      String
+  createdAt        DateTime @default(now())
+
+  memberships  PortalMembership[]
+  accessGrants BusinessAccessRelationship[]
+
+  @@index([tenantId, orgType])
+}
+
+model PortalMembership {
+  id            String               @id @default(cuid())
+  tenantId      String
+  tenant        Tenant               @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  externalOrgId String
+  externalOrg   ExternalOrganization @relation(fields: [externalOrgId], references: [id], onDelete: Cascade)
+  userId        String
+  user          UserIdentity         @relation("PortalMembershipUser", fields: [userId], references: [id], onDelete: Cascade)
+  portalRole    String               @default("MEMBER") // ADMIN | MEMBER | VIEWER — org-internal role, distinct from platform Role
+  status        String               @default("ACTIVE") // ACTIVE | REMOVED
+  addedById     String
+  addedAt       DateTime             @default(now())
+
+  @@unique([externalOrgId, userId])
+}
+
+model BusinessAccessRelationship {
+  id            String               @id @default(cuid())
+  tenantId      String
+  tenant        Tenant               @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  externalOrgId String
+  externalOrg   ExternalOrganization @relation(fields: [externalOrgId], references: [id], onDelete: Cascade)
+  projectId     String
+  project       Project              @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  grantedById   String
+  grantedAt     DateTime             @default(now())
+  revokedAt     DateTime?
+
+  @@unique([externalOrgId, projectId])
 }

@@ -7,6 +7,9 @@ import { Badge } from "@/components/ui/badge";
 import { ROLES, ROLE_LABELS } from "@/lib/constants";
 import type { Role } from "@/lib/constants";
 import { getT } from "@/lib/i18n/server";
+import { listCapabilityGrants } from "@/server/capabilities";
+import { listTenantUsersForPicker } from "@/server/hse";
+import { CapabilityGrantsCard } from "@/components/admin/capability-grants-card";
 
 const LEVEL_TONE = {
   NONE: "neutral",
@@ -16,10 +19,14 @@ const LEVEL_TONE = {
 } as const;
 
 export default async function AdminRolesPage() {
-  const { role } = await getCurrentUser();
+  const { tenantId, role } = await getCurrentUser();
   if (!can(role, "USER_MANAGEMENT", "READ")) redirect("/dashboard/executive");
+  const canManageCapabilities = can(role, "USER_MANAGEMENT", "FULL");
 
   const { t } = await getT();
+  const [grants, users] = canManageCapabilities
+    ? await Promise.all([listCapabilityGrants(tenantId), listTenantUsersForPicker(tenantId)])
+    : [[], []];
 
   return (
     <div className="space-y-6">
@@ -58,6 +65,20 @@ export default async function AdminRolesPage() {
           </Table>
         </CardContent>
       </Card>
+
+      {canManageCapabilities && (
+        <Card>
+          <CardHeader>
+            <div>
+              <CardTitle>{t("admin_sub.capabilityGrantsTitle")}</CardTitle>
+              <CardDescription>{t("admin_sub.capabilityGrantsSubtitle")}</CardDescription>
+            </div>
+          </CardHeader>
+          <CardContent>
+            <CapabilityGrantsCard users={users} grants={grants} />
+          </CardContent>
+        </Card>
+      )}
     </div>
   );
 }

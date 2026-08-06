@@ -3,7 +3,11 @@ import { db } from "@/lib/db";
 import { can } from "@/lib/permissions";
 import { getOrCreateTenantSettings } from "@/app/actions/tenant-settings";
 import { getReminderPreferences } from "@/server/calendar";
+import { getConfigResolver } from "@/server/platform-config";
 import { Card, CardHeader, CardTitle, CardDescription, CardContent } from "@/components/ui/card";
+import { Button } from "@/components/ui/button";
+import Link from "next/link";
+import { Smartphone } from "lucide-react";
 import { Avatar } from "@/components/ui/avatar";
 import { Badge } from "@/components/ui/badge";
 import { ChangePasswordForm } from "@/components/account/change-password-form";
@@ -24,6 +28,8 @@ export default async function AccountPage() {
   ]);
   const canManageTenantSettings = can(role as Role, "COMPANY_SETTINGS", "FULL") || can(role as Role, "FINANCE", "FULL");
   const tenantSettings = canManageTenantSettings ? await getOrCreateTenantSettings(tenantId) : null;
+  const resolveConfig = await getConfigResolver(tenantId, company?.id);
+  const devicesEnabled = resolveConfig("mobile_access.page.my_devices");
   const { t } = await getT();
 
   return (
@@ -129,6 +135,24 @@ export default async function AccountPage() {
           <ReminderPreferencesForm preferences={reminderPreferences} />
         </CardContent>
       </Card>
+
+      {devicesEnabled && (
+        <Card>
+          <CardHeader>
+            <div>
+              <CardTitle>{t("mobileAccess.myDevices")}</CardTitle>
+              <CardDescription>{t("mobileAccess.myDevicesSubtitle")}</CardDescription>
+            </div>
+          </CardHeader>
+          <CardContent>
+            <Link href="/account/devices">
+              <Button variant="secondary" size="sm">
+                <Smartphone size={14} /> {t("mobileAccess.myDevices")}
+              </Button>
+            </Link>
+          </CardContent>
+        </Card>
+      )}
 
       {tenantSettings && (
         <Card>

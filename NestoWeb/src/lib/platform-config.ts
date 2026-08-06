@@ -221,6 +221,43 @@ export const CONFIG_NODES: ConfigNode[] = [
   { key: "bim.action.register_model", label: "Register Model", level: "ACTION", parent: "bim" },
   { key: "bim.action.upload_version", label: "Register Model Version", level: "ACTION", parent: "bim" },
   { key: "bim.action.link_object", label: "Link Model to Record", level: "ACTION", parent: "bim" },
+
+  // PRD_Approvals_Workflow_Engine — Phase 1 (sequential routing only).
+  { key: "workflow", label: "Approvals and Workflow Engine", level: "MODULE" },
+  { key: "workflow.page.inbox", label: "My Approvals", level: "PAGE", parent: "workflow", route: "/workflows" },
+  { key: "workflow.page.definitions", label: "Workflow Definitions", level: "PAGE", parent: "workflow", route: "/dashboard/admin/workflows" },
+  { key: "workflow.action.create_definition", label: "Create Workflow Definition", level: "ACTION", parent: "workflow" },
+  { key: "workflow.action.decide", label: "Decide Work Item", level: "ACTION", parent: "workflow" },
+  { key: "workflow.action.cancel", label: "Cancel Workflow Instance", level: "ACTION", parent: "workflow" },
+
+  // PRD_IT_Administration_Integrations_Service_Management — Phase 1 "IT
+  // Foundation" only (no external SSO/M365/Google/webhook adapters).
+  { key: "it_admin", label: "IT Administration", level: "MODULE" },
+  { key: "it_admin.page.dashboard", label: "IT Dashboard", level: "PAGE", parent: "it_admin", route: "/dashboard/admin/it" },
+  { key: "it_admin.page.devices", label: "Device Registry", level: "PAGE", parent: "it_admin", route: "/dashboard/admin/it/devices" },
+  { key: "it_admin.page.licences", label: "Software Licences", level: "PAGE", parent: "it_admin", route: "/dashboard/admin/it/licences" },
+  { key: "it_admin.page.tickets", label: "Service Desk", level: "PAGE", parent: "it_admin", route: "/dashboard/admin/it/tickets" },
+  { key: "it_admin.page.ticket_detail", label: "Ticket Page", level: "PAGE", parent: "it_admin", route: "/dashboard/admin/it/tickets/[id]" },
+  { key: "it_admin.action.manage_devices", label: "Manage Devices", level: "ACTION", parent: "it_admin" },
+  { key: "it_admin.action.manage_licences", label: "Manage Licences", level: "ACTION", parent: "it_admin" },
+  { key: "it_admin.action.create_ticket", label: "Create Service Ticket", level: "ACTION", parent: "it_admin" },
+  { key: "it_admin.action.manage_ticket", label: "Manage Service Ticket", level: "ACTION", parent: "it_admin" },
+
+  // PRD_Mobile_Offline_Platform — Phase 1 "Responsive foundation" only (device
+  // registration + online-only access; no offline sync engine).
+  { key: "mobile_access", label: "Mobile Device Access", level: "MODULE" },
+  { key: "mobile_access.page.my_devices", label: "My Devices", level: "PAGE", parent: "mobile_access", route: "/account/devices" },
+  { key: "mobile_access.page.admin", label: "Device Access Admin", level: "PAGE", parent: "mobile_access", route: "/dashboard/admin/devices" },
+  { key: "mobile_access.action.register_device", label: "Register Device", level: "ACTION", parent: "mobile_access" },
+  { key: "mobile_access.action.revoke_device", label: "Revoke Device", level: "ACTION", parent: "mobile_access" },
+
+  // PRD_Client_Supplier_Portals — Phase 1 "Shared foundation" only, scoped to
+  // reuse the existing CLIENT/CONTRACTOR login rather than a second auth system.
+  { key: "portal_access", label: "Client & Supplier Portal Access", level: "MODULE" },
+  { key: "portal_access.page.admin", label: "External Organizations", level: "PAGE", parent: "portal_access", route: "/dashboard/admin/portal-access" },
+  { key: "portal_access.action.create_org", label: "Register External Organization", level: "ACTION", parent: "portal_access" },
+  { key: "portal_access.action.manage_membership", label: "Manage Portal Membership", level: "ACTION", parent: "portal_access" },
+  { key: "portal_access.action.grant_project_access", label: "Grant Project Access", level: "ACTION", parent: "portal_access" },
 ];
 
 const NODE_BY_KEY = new Map(CONFIG_NODES.map((n) => [n.key, n]));

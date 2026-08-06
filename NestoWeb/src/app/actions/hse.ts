@@ -27,6 +27,7 @@ import {
   createToolboxTalk,
   addEmergencyContact,
 } from "@/server/hse";
+import { hasCapability } from "@/server/capabilities";
 
 const CreateHseReportSchema = z.object({
   projectId: z.string().min(1, "Select a project"),
@@ -228,6 +229,13 @@ const ReleaseStopWorkSchema = z.object({
 export async function releaseStopWorkOrderAction(_prev: HseActionState, formData: FormData): Promise<HseActionState> {
   const { tenantId, role, user } = await getCurrentUser();
   if (!can(role, "HSE_REPORTS", "FULL")) return { error: "You do not have permission to release a stop-work order." };
+  // PRD_Complete_Role_Permission_Matrix Appendix A: hse.stop_work.release is
+  // explicitly named as a capability that must be revocable per-person, not
+  // just per-role — an Owner may need to release this authority from one
+  // named HSE user without demoting their whole role.
+  if (!(await hasCapability(tenantId, user.id, role, "hse.stop_work.release"))) {
+    return { error: "Your authority to release stop-work orders has been revoked." };
+  }
 
   const parsed = ReleaseStopWorkSchema.safeParse({
     orderId: formData.get("orderId"),

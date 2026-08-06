@@ -48,6 +48,10 @@ import {
   CalendarRange,
   NotebookPen,
   Package,
+  Inbox,
+  Laptop,
+  Smartphone,
+  Network,
 } from "lucide-react";
 import { can, DASHBOARD_BY_ROLE, type Resource, type Level } from "@/lib/permissions";
 import type { Role } from "@/lib/constants";
@@ -73,6 +77,7 @@ export const NAV_SECTIONS: Record<string, NavSection[]> = {
     {
       items: [
         { labelKey: "nav.dashboard", href: "/dashboard/executive", icon: LayoutDashboard },
+        { labelKey: "nav.myApprovals", href: "/workflows", icon: Inbox },
         { labelKey: "nav.employeeDirectory", href: "/employees", icon: Contact },
         { labelKey: "nav.myPayslips", href: "/dashboard/hr/payroll/my-payslips", icon: Wallet },
       ],
@@ -119,6 +124,7 @@ export const NAV_SECTIONS: Record<string, NavSection[]> = {
     {
       items: [
         { labelKey: "nav.dashboard", href: "/dashboard/admin", icon: LayoutDashboard, resource: "USER_MANAGEMENT" },
+        { labelKey: "nav.myApprovals", href: "/workflows", icon: Inbox },
         { labelKey: "nav.employeeDirectory", href: "/employees", icon: Contact },
       ],
     },
@@ -143,6 +149,10 @@ export const NAV_SECTIONS: Record<string, NavSection[]> = {
         { labelKey: "nav.security", href: "/dashboard/admin/security", icon: Lock, resource: "USER_MANAGEMENT" },
         { labelKey: "nav.auditLogs", href: "/dashboard/admin/audit", icon: ScrollText, resource: "AUDIT_LOGS" },
         { labelKey: "nav.eventCentre", href: "/dashboard/admin/event-centre", icon: Bell, resource: "USER_MANAGEMENT" },
+        { labelKey: "nav.workflowDefinitions", href: "/dashboard/admin/workflows", icon: Workflow, resource: "COMPANY_SETTINGS", level: "FULL" },
+        { labelKey: "nav.itAdmin", href: "/dashboard/admin/it", icon: Laptop, resource: "COMPANY_SETTINGS", level: "FULL" },
+        { labelKey: "nav.deviceAccess", href: "/dashboard/admin/devices", icon: Smartphone, resource: "USER_MANAGEMENT" },
+        { labelKey: "nav.portalAccess", href: "/dashboard/admin/portal-access", icon: Network, resource: "COMPANY_SETTINGS", level: "FULL" },
       ],
     },
   ],
