@@ -54,6 +54,8 @@ import {
   Network,
   Scale,
   Megaphone,
+  UploadCloud,
+  ListChecks,
 } from "lucide-react";
 import { can, DASHBOARD_BY_ROLE, type Resource, type Level } from "@/lib/permissions";
 import type { Role } from "@/lib/constants";
@@ -157,6 +159,8 @@ export const NAV_SECTIONS: Record<string, NavSection[]> = {
         { labelKey: "nav.itAdmin", href: "/dashboard/admin/it", icon: Laptop, resource: "COMPANY_SETTINGS", level: "FULL" },
         { labelKey: "nav.deviceAccess", href: "/dashboard/admin/devices", icon: Smartphone, resource: "USER_MANAGEMENT" },
         { labelKey: "nav.portalAccess", href: "/dashboard/admin/portal-access", icon: Network, resource: "COMPANY_SETTINGS", level: "FULL" },
+        { labelKey: "nav.importCenter", href: "/dashboard/admin/import", icon: UploadCloud },
+        { labelKey: "nav.setupCenter", href: "/dashboard/admin/setup", icon: ListChecks, resource: "COMPANY_SETTINGS", level: "FULL" },
       ],
     },
   ],

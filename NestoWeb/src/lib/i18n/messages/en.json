@@ -119,6 +119,8 @@
     "auditLogs": "Audit Logs",
     "eventCentre": "Event Centre",
     "announcements": "Announcements",
+    "importCenter": "Import Center",
+    "setupCenter": "Setup Center",
     "myApprovals": "My Approvals",
     "workflowDefinitions": "Workflow Definitions",
     "itAdmin": "IT Administration",
@@ -2464,5 +2466,37 @@
     "meeting": "Meeting",
     "supplier": "Supplier",
     "bimModel": "BIM Model"
+  },
+  "importCenter": {
+    "title": "Import Center",
+    "subtitle": "Bulk-import records from a CSV file — upload, validate, preview, commit.",
+    "entityType": "What are you importing?",
+    "columnsIntro": "Your CSV needs a header row with these columns:",
+    "validating": "Validating…",
+    "validRows": "ready to import",
+    "invalidRows": "need attention",
+    "row": "Row",
+    "commitImport": "Import",
+    "importing": "Importing…",
+    "importComplete": "Import complete",
+    "created": "created",
+    "failedCount": "failed",
+    "importMore": "Import another file",
+    "noPermission": "You don't have permission to import any record type.",
+    "unitsNote": "Importing Units?",
+    "unitsNoteDesc": "Unit imports run from each project's own Units page — they use the same upload/validate/preview/commit flow as this hub."
+  },
+  "drafts": {
+    "restorePrompt": "You have an unsaved draft from earlier — restore it?",
+    "restore": "Restore",
+    "discard": "Discard"
+  },
+  "setupCenter": {
+    "title": "Setup Center",
+    "subtitle": "Where your workspace stands, area by area — click through to finish any of them.",
+    "readiness": "Areas Ready",
+    "status_NOT_STARTED": "Not Started",
+    "status_IN_PROGRESS": "In Progress",
+    "status_READY": "Ready"
   }
 }

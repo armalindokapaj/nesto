@@ -119,6 +119,8 @@
     "auditLogs": "Regjistrat e Auditimit",
     "eventCentre": "Qendra e Ngjarjeve",
     "announcements": "Njoftimet",
+    "importCenter": "Qendra e Importimit",
+    "setupCenter": "Qendra e Konfigurimit",
     "myApprovals": "Miratimet e Mia",
     "workflowDefinitions": "Përkufizimet e Rrjedhës së Punës",
     "itAdmin": "Administrimi i IT",
@@ -2464,5 +2466,37 @@
     "meeting": "Takim",
     "supplier": "Furnizues",
     "bimModel": "Model BIM"
+  },
+  "importCenter": {
+    "title": "Qendra e Importimit",
+    "subtitle": "Importo të dhëna me shumicë nga një skedar CSV — ngarko, vlefto, shiko, konfirmo.",
+    "entityType": "Çfarë po importoni?",
+    "columnsIntro": "CSV-ja juaj ka nevojë për një rresht titulli me këto kolona:",
+    "validating": "Duke vleftuar…",
+    "validRows": "gati për import",
+    "invalidRows": "kanë nevojë për vëmendje",
+    "row": "Rreshti",
+    "commitImport": "Importo",
+    "importing": "Duke importuar…",
+    "importComplete": "Importi u kompletua",
+    "created": "krijuar",
+    "failedCount": "dështuar",
+    "importMore": "Importo një skedar tjetër",
+    "noPermission": "Nuk keni leje për të importuar asnjë lloj rekordi.",
+    "unitsNote": "Po importoni Njësi?",
+    "unitsNoteDesc": "Importet e njësive kryhen nga faqja e Njësive e secilit projekt — përdorin të njëjtin proces ngarko/vlefto/shiko/konfirmo si kjo qendër."
+  },
+  "drafts": {
+    "restorePrompt": "Keni një draft të paruajtur nga më parë — ta rikthej?",
+    "restore": "Rikthe",
+    "discard": "Hidhe"
+  },
+  "setupCenter": {
+    "title": "Qendra e Konfigurimit",
+    "subtitle": "Ku qëndron hapësira juaj e punës, fushë pas fushe — klikoni për të përfunduar secilën.",
+    "readiness": "Fusha Gati",
+    "status_NOT_STARTED": "Nuk ka Filluar",
+    "status_IN_PROGRESS": "Në Vazhdim",
+    "status_READY": "Gati"
   }
 }
