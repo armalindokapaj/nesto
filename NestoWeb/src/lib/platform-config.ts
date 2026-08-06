@@ -209,6 +209,18 @@ export const CONFIG_NODES: ConfigNode[] = [
   { key: "hse.action.create_induction", label: "Record Induction", level: "ACTION", parent: "hse" },
   { key: "hse.action.create_toolbox_talk", label: "Record Toolbox Talk", level: "ACTION", parent: "hse" },
   { key: "hse.action.manage_emergency_contacts", label: "Manage Emergency Contacts", level: "ACTION", parent: "hse" },
+
+  { key: "analytics", label: "Analytics and Reporting", level: "MODULE" },
+  { key: "analytics.page.overview", label: "Analytics Overview", level: "PAGE", parent: "analytics", route: "/analytics" },
+  { key: "analytics.page.reports", label: "Report Library", level: "PAGE", parent: "analytics", route: "/analytics/reports" },
+  { key: "analytics.action.create_report", label: "Create Saved Report", level: "ACTION", parent: "analytics" },
+
+  { key: "bim", label: "BIM and Digital Twin (Registry)", level: "MODULE" },
+  { key: "bim.page.models", label: "BIM Model Registry", level: "PAGE", parent: "bim", route: "/dashboard/bim" },
+  { key: "bim.page.model_detail", label: "BIM Model Page", level: "PAGE", parent: "bim", route: "/dashboard/bim/[id]" },
+  { key: "bim.action.register_model", label: "Register Model", level: "ACTION", parent: "bim" },
+  { key: "bim.action.upload_version", label: "Register Model Version", level: "ACTION", parent: "bim" },
+  { key: "bim.action.link_object", label: "Link Model to Record", level: "ACTION", parent: "bim" },
 ];
 
 const NODE_BY_KEY = new Map(CONFIG_NODES.map((n) => [n.key, n]));
