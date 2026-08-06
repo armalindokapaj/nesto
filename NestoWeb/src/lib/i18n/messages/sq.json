@@ -2449,5 +2449,20 @@
     "status_COMPLETE": "Kompletuar",
     "status_IN_PROGRESS": "Në Vazhdim",
     "status_INCOMPLETE": "Jo e Kompletuar"
+  },
+  "quickCreate": {
+    "title": "I Ri",
+    "task": "Detyrë",
+    "document": "Dokument",
+    "client": "Klient",
+    "contract": "Kontratë",
+    "vacancy": "Pozicion Vakant",
+    "legalCase": "Çështje Ligjore",
+    "legalHold": "Bllokim Ligjor",
+    "itTicket": "Biletë IT",
+    "announcement": "Njoftim",
+    "meeting": "Takim",
+    "supplier": "Furnizues",
+    "bimModel": "Model BIM"
   }
 }

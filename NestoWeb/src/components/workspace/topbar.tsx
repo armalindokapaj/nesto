@@ -11,6 +11,7 @@ import { logout } from "@/app/actions/auth";
 import { GlobalSearch } from "@/components/workspace/global-search";
 import { NotificationBell } from "@/components/workspace/notification-bell";
 import { CreateDocumentDialog } from "@/components/documents/create-document-dialog";
+import { QuickCreate } from "@/components/workspace/quick-create";
 import { Button } from "@/components/ui/button";
 import { useI18n } from "@/lib/i18n/locale-provider";
 
@@ -60,6 +61,7 @@ export function Topbar({
       </div>
 
       <div className="flex items-center gap-1.5 ml-auto">
+        <QuickCreate role={role} />
         {canUpload && (
           <CreateDocumentDialog
             projects={uploadProjects}

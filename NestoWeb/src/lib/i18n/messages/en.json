@@ -2449,5 +2449,20 @@
     "status_COMPLETE": "Complete",
     "status_IN_PROGRESS": "In Progress",
     "status_INCOMPLETE": "Incomplete"
+  },
+  "quickCreate": {
+    "title": "New",
+    "task": "Task",
+    "document": "Document",
+    "client": "Client",
+    "contract": "Contract",
+    "vacancy": "Vacancy",
+    "legalCase": "Legal Case",
+    "legalHold": "Legal Hold",
+    "itTicket": "IT Ticket",
+    "announcement": "Announcement",
+    "meeting": "Meeting",
+    "supplier": "Supplier",
+    "bimModel": "BIM Model"
   }
 }
