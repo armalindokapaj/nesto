@@ -15,6 +15,17 @@ import {
   setPermitToWorkStatus,
   issueStopWorkOrder,
   releaseStopWorkOrder,
+  createInspection,
+  completeInspection,
+  createObservation,
+  closeObservation,
+  createIncident,
+  transitionIncident,
+  createCorrectiveAction,
+  transitionCorrectiveAction,
+  createInduction,
+  createToolboxTalk,
+  addEmergencyContact,
 } from "@/server/hse";
 
 const CreateHseReportSchema = z.object({
@@ -227,5 +238,175 @@ export async function releaseStopWorkOrderAction(_prev: HseActionState, formData
   await releaseStopWorkOrder(tenantId, user.id, parsed.data.orderId, parsed.data.releaseNotes);
   revalidatePath("/dashboard/hse/stop-work");
   revalidatePath("/dashboard/hse");
+  return undefined;
+}
+
+// ---------------------------------------------------------------------------
+// PRD_HSE_Module §49.1 Phase 1 rework — Inspections, Observations, Incidents,
+// Corrective Actions, Inductions, Toolbox Talks, Emergency Contacts.
+// ---------------------------------------------------------------------------
+
+const CreateInspectionSchema = z.object({
+  projectId: z.string().min(1, "Select a project"),
+  type: z.enum(["SITE_SAFETY", "SCAFFOLD", "EQUIPMENT", "ELECTRICAL", "ENVIRONMENTAL", "OTHER"]).optional(),
+  location: z.string().optional(),
+  findings: z.string().optional(),
+});
+
+export async function createInspectionAction(_prev: HseActionState, formData: FormData): Promise<HseActionState> {
+  const { tenantId, role, user } = await getCurrentUser();
+  if (!can(role, "HSE_REPORTS", "WRITE")) return { error: "You do not have permission to log inspections." };
+  const parsed = CreateInspectionSchema.safeParse({ projectId: formData.get("projectId"), type: formData.get("type") || undefined, location: formData.get("location") || undefined, findings: formData.get("findings") || undefined });
+  if (!parsed.success) return { error: parsed.error.issues[0]?.message ?? "Invalid input" };
+  await createInspection(tenantId, user.id, parsed.data);
+  revalidatePath("/dashboard/hse/inspections");
+  revalidatePath("/dashboard/hse");
+  return undefined;
+}
+
+export async function completeInspectionAction(inspectionId: string, outcome: string, findings?: string) {
+  const { tenantId, role, user } = await getCurrentUser();
+  if (!can(role, "HSE_REPORTS", "WRITE")) throw new Error("You do not have permission to complete inspections.");
+  await completeInspection(tenantId, user.id, inspectionId, outcome, findings);
+  revalidatePath("/dashboard/hse/inspections");
+}
+
+const CreateObservationSchema = z.object({
+  projectId: z.string().min(1, "Select a project"),
+  type: z.enum(["SAFE_ACT", "UNSAFE_ACT", "SAFE_CONDITION", "UNSAFE_CONDITION", "NEAR_MISS"]).optional(),
+  description: z.string().min(2),
+  location: z.string().optional(),
+  severity: z.enum(["LOW", "MEDIUM", "HIGH"]).optional(),
+});
+
+export async function createObservationAction(_prev: HseActionState, formData: FormData): Promise<HseActionState> {
+  const { tenantId, role, user } = await getCurrentUser();
+  if (!can(role, "HSE_REPORTS", "WRITE")) return { error: "You do not have permission to report observations." };
+  const parsed = CreateObservationSchema.safeParse({ projectId: formData.get("projectId"), type: formData.get("type") || undefined, description: formData.get("description"), location: formData.get("location") || undefined, severity: formData.get("severity") || undefined });
+  if (!parsed.success) return { error: parsed.error.issues[0]?.message ?? "Invalid input" };
+  await createObservation(tenantId, user.id, parsed.data);
+  revalidatePath("/dashboard/hse/observations");
+  revalidatePath("/dashboard/hse");
+  return undefined;
+}
+
+export async function closeObservationAction(observationId: string, actionTaken?: string) {
+  const { tenantId, role, user } = await getCurrentUser();
+  if (!can(role, "HSE_REPORTS", "WRITE")) throw new Error("You do not have permission to close observations.");
+  await closeObservation(tenantId, user.id, observationId, actionTaken);
+  revalidatePath("/dashboard/hse/observations");
+}
+
+const CreateIncidentSchema = z.object({
+  projectId: z.string().min(1, "Select a project"),
+  classification: z.enum(["NEAR_MISS", "FIRST_AID", "MEDICAL_TREATMENT", "LOST_TIME", "FATALITY", "PROPERTY_DAMAGE", "ENVIRONMENTAL"]).optional(),
+  title: z.string().min(2),
+  description: z.string().min(2),
+  occurredAt: z.coerce.date(),
+  location: z.string().optional(),
+  injuredPersonRef: z.string().optional(),
+});
+
+export async function createIncidentAction(_prev: HseActionState, formData: FormData): Promise<HseActionState> {
+  const { tenantId, role, user } = await getCurrentUser();
+  if (!can(role, "HSE_REPORTS", "WRITE")) return { error: "You do not have permission to report incidents." };
+  const parsed = CreateIncidentSchema.safeParse({ projectId: formData.get("projectId"), classification: formData.get("classification") || undefined, title: formData.get("title"), description: formData.get("description"), occurredAt: formData.get("occurredAt"), location: formData.get("location") || undefined, injuredPersonRef: formData.get("injuredPersonRef") || undefined });
+  if (!parsed.success) return { error: parsed.error.issues[0]?.message ?? "Invalid input" };
+  await createIncident(tenantId, user.id, parsed.data);
+  revalidatePath("/dashboard/hse/incidents");
+  revalidatePath("/dashboard/hse");
+  return undefined;
+}
+
+// Closing an incident (and assigning an investigator) is FULL-gated — the
+// same "governed record" boundary used for risk assessment approval and
+// stop-work release.
+export async function transitionIncidentAction(incidentId: string, status: string, investigatorId?: string, rootCause?: string) {
+  const { tenantId, role, user } = await getCurrentUser();
+  const required = status === "CLOSED" ? "FULL" : "WRITE";
+  if (!can(role, "HSE_REPORTS", required)) throw new Error("You do not have permission to change this incident's status.");
+  await transitionIncident(tenantId, user.id, incidentId, status, { investigatorId, rootCause });
+  revalidatePath(`/dashboard/hse/incidents/${incidentId}`);
+  revalidatePath("/dashboard/hse/incidents");
+}
+
+const CreateCorrectiveActionSchema = z.object({
+  incidentId: z.string().optional(),
+  inspectionId: z.string().optional(),
+  description: z.string().min(2),
+  ownerId: z.string().min(1, "Assign an owner"),
+  dueDate: z.coerce.date().optional(),
+});
+
+export async function createCorrectiveActionAction(_prev: HseActionState, formData: FormData): Promise<HseActionState> {
+  const { tenantId, role, user } = await getCurrentUser();
+  if (!can(role, "HSE_REPORTS", "WRITE")) return { error: "You do not have permission to raise corrective actions." };
+  const parsed = CreateCorrectiveActionSchema.safeParse({ incidentId: formData.get("incidentId") || undefined, inspectionId: formData.get("inspectionId") || undefined, description: formData.get("description"), ownerId: formData.get("ownerId"), dueDate: formData.get("dueDate") || undefined });
+  if (!parsed.success) return { error: parsed.error.issues[0]?.message ?? "Invalid input" };
+  await createCorrectiveAction(tenantId, user.id, parsed.data);
+  if (parsed.data.incidentId) revalidatePath(`/dashboard/hse/incidents/${parsed.data.incidentId}`);
+  revalidatePath("/dashboard/hse/incidents");
+  return undefined;
+}
+
+export async function transitionCorrectiveActionAction(actionId: string, status: string, incidentId?: string) {
+  const { tenantId, role, user } = await getCurrentUser();
+  if (!can(role, "HSE_REPORTS", "WRITE")) throw new Error("You do not have permission to update corrective actions.");
+  await transitionCorrectiveAction(tenantId, user.id, actionId, status, status === "COMPLETED" ? user.id : undefined);
+  if (incidentId) revalidatePath(`/dashboard/hse/incidents/${incidentId}`);
+  revalidatePath("/dashboard/hse/incidents");
+}
+
+const CreateInductionSchema = z.object({
+  projectId: z.string().min(1, "Select a project"),
+  workerName: z.string().min(2),
+  workerCompany: z.string().optional(),
+  topicsCovered: z.string().optional(),
+  expiresAt: z.coerce.date().optional(),
+});
+
+export async function createInductionAction(_prev: HseActionState, formData: FormData): Promise<HseActionState> {
+  const { tenantId, role, user } = await getCurrentUser();
+  if (!can(role, "HSE_REPORTS", "WRITE")) return { error: "You do not have permission to record inductions." };
+  const parsed = CreateInductionSchema.safeParse({ projectId: formData.get("projectId"), workerName: formData.get("workerName"), workerCompany: formData.get("workerCompany") || undefined, topicsCovered: formData.get("topicsCovered") || undefined, expiresAt: formData.get("expiresAt") || undefined });
+  if (!parsed.success) return { error: parsed.error.issues[0]?.message ?? "Invalid input" };
+  await createInduction(tenantId, user.id, parsed.data);
+  revalidatePath("/dashboard/hse/inductions");
+  return undefined;
+}
+
+const CreateToolboxTalkSchema = z.object({
+  projectId: z.string().min(1, "Select a project"),
+  topic: z.string().min(2),
+  notes: z.string().optional(),
+  attendeeCount: z.coerce.number().int().min(0).optional(),
+});
+
+export async function createToolboxTalkAction(_prev: HseActionState, formData: FormData): Promise<HseActionState> {
+  const { tenantId, role, user } = await getCurrentUser();
+  if (!can(role, "HSE_REPORTS", "WRITE")) return { error: "You do not have permission to record toolbox talks." };
+  const parsed = CreateToolboxTalkSchema.safeParse({ projectId: formData.get("projectId"), topic: formData.get("topic"), notes: formData.get("notes") || undefined, attendeeCount: formData.get("attendeeCount") || undefined });
+  if (!parsed.success) return { error: parsed.error.issues[0]?.message ?? "Invalid input" };
+  await createToolboxTalk(tenantId, user.id, parsed.data);
+  revalidatePath("/dashboard/hse/inductions");
+  return undefined;
+}
+
+const AddEmergencyContactSchema = z.object({
+  projectId: z.string().min(1, "Select a project"),
+  name: z.string().min(2),
+  role: z.string().optional(),
+  phone: z.string().min(2),
+  type: z.enum(["AMBULANCE", "FIRE", "POLICE", "HOSPITAL", "SITE_MANAGER", "CLIENT", "OTHER"]).optional(),
+  isPrimary: z.coerce.boolean().optional(),
+});
+
+export async function addEmergencyContactAction(_prev: HseActionState, formData: FormData): Promise<HseActionState> {
+  const { tenantId, role, user } = await getCurrentUser();
+  if (!can(role, "HSE_REPORTS", "WRITE")) return { error: "You do not have permission to manage emergency contacts." };
+  const parsed = AddEmergencyContactSchema.safeParse({ projectId: formData.get("projectId"), name: formData.get("name"), role: formData.get("role") || undefined, phone: formData.get("phone"), type: formData.get("type") || undefined, isPrimary: formData.get("isPrimary") === "on" });
+  if (!parsed.success) return { error: parsed.error.issues[0]?.message ?? "Invalid input" };
+  await addEmergencyContact(tenantId, user.id, parsed.data);
+  revalidatePath("/dashboard/hse/emergency");
   return undefined;
 }

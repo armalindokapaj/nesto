@@ -3,7 +3,8 @@ import Link from "next/link";
 import { ArrowLeft, Archive, ArchiveRestore, Download, FileWarning } from "lucide-react";
 import { getCurrentUser } from "@/lib/dal";
 import { can } from "@/lib/permissions";
-import { getDocumentPassport, getFolderTree, flattenFolders } from "@/server/documents-module";
+import { getDocumentPassport, getFolderTree, flattenFolders, listReadReceipts } from "@/server/documents-module";
+import { RequiredReadingCard } from "@/components/documents/required-reading-card";
 import { archiveDocumentAction, restoreDocumentAction } from "@/app/actions/documents-module";
 import { listAllMembers } from "@/server/admin";
 import { Card, CardHeader, CardTitle, CardDescription, CardContent } from "@/components/ui/card";
@@ -41,6 +42,8 @@ const TIMELINE_LABELS: Record<string, string> = {
   ARCHIVED: "Archived",
   RESTORED: "Restored",
   COMMENTED: "Comment added",
+  REQUIRED_READING_ASSIGNED: "Required reading assigned",
+  REQUIRED_READING_ACKNOWLEDGED: "Marked as read",
 };
 
 const ENTITY_LINK: Record<string, (id: string) => string> = {
@@ -62,7 +65,7 @@ export default async function DocumentDetailPage({ params }: { params: Promise<{
   const canWrite = can(role, "DOCUMENTS", "WRITE");
   const canApprove = can(role, "DOCUMENTS", "FULL");
 
-  const members = await listAllMembers(tenantId);
+  const [members, readReceipts] = await Promise.all([listAllMembers(tenantId), listReadReceipts(tenantId, id)]);
   const eligibleApprovers = head
     ? members
         .filter((m) => can(m.role as Role, "DOCUMENTS", "FULL") && m.userId !== head.uploadedById)
@@ -264,6 +267,82 @@ export default async function DocumentDetailPage({ params }: { params: Promise<{
         </div>
 
         <div className="space-y-6">
+          <Card>
+            <CardHeader>
+              <CardTitle className="text-sm">{t("documents.controls")}</CardTitle>
+            </CardHeader>
+            <CardContent className="space-y-2 text-xs text-ink-muted">
+              <div className="flex items-center justify-between">
+                <span>{t("documents.confidentiality")}</span>
+                <Badge tone={document.confidentiality === "RESTRICTED" ? "danger" : document.confidentiality === "CONFIDENTIAL" ? "warning" : "neutral"}>
+                  {document.confidentiality}
+                </Badge>
+              </div>
+              {document.expiresAt && (
+                <div className="flex items-center justify-between">
+                  <span>{t("documents.expiresOn")}</span>
+                  <span className="text-ink">{formatDate(document.expiresAt)}</span>
+                </div>
+              )}
+              {document.legalHold && (
+                <div className="flex items-center justify-between text-warning">
+                  <span>{t("documents.legalHold")}</span>
+                  <span>●</span>
+                </div>
+              )}
+            </CardContent>
+          </Card>
+
+          <Card>
+            <CardHeader>
+              <CardTitle className="text-sm">{t("documents.requiredReading")}</CardTitle>
+            </CardHeader>
+            <CardContent>
+              <RequiredReadingCard
+                documentId={document.id}
+                required={document.requiredReading}
+                receipts={readReceipts}
+                currentUserId={user.id}
+                canAssign={canWrite}
+                members={members.map((m) => ({ id: m.userId, displayName: m.user.displayName }))}
+              />
+            </CardContent>
+          </Card>
+
+          {(document.dependsOn.length > 0 || document.dependedOnBy.length > 0) && (
+            <Card>
+              <CardHeader>
+                <CardTitle className="text-sm">{t("documents.dependenciesAndImpact")}</CardTitle>
+              </CardHeader>
+              <CardContent className="space-y-3 text-xs">
+                {document.dependsOn.length > 0 && (
+                  <div>
+                    <p className="mb-1 text-ink-faint">{t("documents.dependsOn")}</p>
+                    <ul className="space-y-1">
+                      {document.dependsOn.map((d) => (
+                        <li key={d.id}>
+                          <Link href={`/documents/${d.dependsOn.id}`} className="text-ink hover:text-gold hover:underline">{d.dependsOn.title}</Link>
+                        </li>
+                      ))}
+                    </ul>
+                  </div>
+                )}
+                {document.dependedOnBy.length > 0 && (
+                  <div>
+                    <p className="mb-1 flex items-center gap-1.5 text-warning"><FileWarning size={12} /> {t("documents.impactedByChange")}</p>
+                    <ul className="space-y-1">
+                      {document.dependedOnBy.map((d) => (
+                        <li key={d.id}>
+                          <Link href={`/documents/${d.document.id}`} className="text-ink hover:text-gold hover:underline">{d.document.title}</Link>
+                        </li>
+                      ))}
+                    </ul>
+                  </div>
+                )}
+              </CardContent>
+            </Card>
+          )}
+
           <Card>
             <CardHeader>
               <CardTitle className="text-sm">{t("documents.shortcuts")}</CardTitle>

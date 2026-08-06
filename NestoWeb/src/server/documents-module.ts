@@ -839,3 +839,59 @@ export function flattenFolders<T extends { id: string; name: string; children: T
 ): { id: string; name: string; depth: number }[] {
   return roots.flatMap((f) => [{ id: f.id, name: f.name, depth }, ...flattenFolders(f.children, depth + 1)]);
 }
+
+// ---------------------------------------------------------------------------
+// PRD_Documents_Module §27 "Required Reading" — assignment + open/acknowledge
+// receipts. Schema (`DocumentReadReceipt`) already existed from the Phase-1
+// pass; this closes the gap of nothing ever writing to it. Kept separate
+// from Favorites/Star (§7.4) — required reading is assigned by an owner and
+// tracked for compliance, a Star is a private, unrelated preference.
+// ---------------------------------------------------------------------------
+
+export async function setRequiredReading(tenantId: string, documentId: string, actorId: string, required: boolean, assigneeIds: string[]) {
+  assertTenant(await db.document.findUnique({ where: { id: documentId } }), tenantId, "Document");
+  await db.$transaction([
+    db.document.update({ where: { id: documentId }, data: { requiredReading: required } }),
+    ...(required
+      ? assigneeIds.map((userId) =>
+          db.documentReadReceipt.upsert({
+            where: { documentId_userId: { documentId, userId } },
+            create: { tenantId, documentId, userId, assignedAt: new Date() },
+            update: { assignedAt: new Date() },
+          })
+        )
+      : []),
+  ]);
+  await logActivity({
+    tenantId,
+    documentId,
+    actorId,
+    eventType: "REQUIRED_READING_ASSIGNED",
+    summary: required ? `Required reading assigned to ${assigneeIds.length} member(s)` : "Required reading cleared",
+  });
+}
+
+export async function acknowledgeRequiredReading(tenantId: string, documentId: string, userId: string) {
+  assertTenant(await db.document.findUnique({ where: { id: documentId } }), tenantId, "Document");
+  await db.documentReadReceipt.upsert({
+    where: { documentId_userId: { documentId, userId } },
+    create: { tenantId, documentId, userId, assignedAt: new Date(), openedAt: new Date(), acknowledgedAt: new Date() },
+    update: { openedAt: new Date(), acknowledgedAt: new Date() },
+  });
+  await logActivity({
+    tenantId,
+    documentId,
+    actorId: userId,
+    eventType: "REQUIRED_READING_ACKNOWLEDGED",
+    summary: "Marked as read",
+  });
+}
+
+export async function listReadReceipts(tenantId: string, documentId: string) {
+  assertTenant(await db.document.findUnique({ where: { id: documentId } }), tenantId, "Document");
+  return db.documentReadReceipt.findMany({
+    where: { tenantId, documentId },
+    include: { user: { select: { id: true, displayName: true, avatarColor: true } } },
+    orderBy: { assignedAt: "desc" },
+  });
+}

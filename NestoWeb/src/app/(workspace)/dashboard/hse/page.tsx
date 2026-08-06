@@ -33,7 +33,7 @@ export default async function HseDashboardPage() {
         <p className="text-sm text-ink-muted mt-0.5">{t("hse.dashboardSubtitle")}</p>
       </div>
 
-      <div className="grid grid-cols-1 gap-4 sm:grid-cols-3">
+      <div className="grid grid-cols-1 gap-4 sm:grid-cols-3 xl:grid-cols-6">
         <Card>
           <CardContent className="py-4">
             <p className="text-xs text-ink-faint">{t("hse.activeHazards")}</p>
@@ -50,6 +50,24 @@ export default async function HseDashboardPage() {
           <CardContent className="py-4">
             <p className="text-xs text-ink-faint">{t("hse.activeStopWork")}</p>
             <p className="text-2xl font-semibold text-danger mt-1">{summary.activeStopWork}</p>
+          </CardContent>
+        </Card>
+        <Card>
+          <CardContent className="py-4">
+            <p className="text-xs text-ink-faint">{t("hse.incidentsTitle")}</p>
+            <p className="text-2xl font-semibold text-danger mt-1">{summary.openIncidents}</p>
+          </CardContent>
+        </Card>
+        <Card>
+          <CardContent className="py-4">
+            <p className="text-xs text-ink-faint">{t("hse.observationsTitle")}</p>
+            <p className="text-2xl font-semibold text-warning mt-1">{summary.openObservations}</p>
+          </CardContent>
+        </Card>
+        <Card>
+          <CardContent className="py-4">
+            <p className="text-xs text-ink-faint">{t("hse.correctiveActionsTitle")}</p>
+            <p className="text-2xl font-semibold text-ink mt-1">{summary.openActions}</p>
           </CardContent>
         </Card>
       </div>
@@ -105,6 +123,26 @@ export default async function HseDashboardPage() {
         <span className="text-ink-faint">·</span>
         <Link href="/dashboard/hse/stop-work" className="text-sm text-gold hover:underline">
           {t("hse.stopWorkTitle")}
+        </Link>
+        <span className="text-ink-faint">·</span>
+        <Link href="/dashboard/hse/inspections" className="text-sm text-gold hover:underline">
+          {t("hse.inspectionsTitle")}
+        </Link>
+        <span className="text-ink-faint">·</span>
+        <Link href="/dashboard/hse/observations" className="text-sm text-gold hover:underline">
+          {t("hse.observationsTitle")}
+        </Link>
+        <span className="text-ink-faint">·</span>
+        <Link href="/dashboard/hse/incidents" className="text-sm text-gold hover:underline">
+          {t("hse.incidentsTitle")}
+        </Link>
+        <span className="text-ink-faint">·</span>
+        <Link href="/dashboard/hse/inductions" className="text-sm text-gold hover:underline">
+          {t("hse.inductionsTitle")}
+        </Link>
+        <span className="text-ink-faint">·</span>
+        <Link href="/dashboard/hse/emergency" className="text-sm text-gold hover:underline">
+          {t("hse.emergencyTitle")}
         </Link>
         <span className="text-ink-faint">·</span>
         <Link href="/hse-reports" className="text-sm text-gold hover:underline">

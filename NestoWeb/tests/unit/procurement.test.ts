@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { calculateProcurementTotals, isProcurementTransitionAllowed } from "@/lib/procurement";
+import { calculateProcurementTotals, deriveDocumentStatus, isProcurementTransitionAllowed } from "@/lib/procurement";
 
 describe("procurement lifecycle controls", () => {
   it("allows the controlled request path and rejects skipped states", () => {
@@ -23,5 +23,21 @@ describe("procurement commercial totals", () => {
       { quantity: 10, unitPrice: 25, discount: 10, tax: 24 },
       { quantity: 2, unitPrice: 100 },
     ], 15)).toEqual({ subtotal: 450, discount: 10, tax: 24, freight: 15, total: 479 });
+  });
+});
+
+describe("supplier document renewal status", () => {
+  const now = new Date("2026-08-06T00:00:00Z");
+
+  it("treats documents with no expiry as always valid", () => {
+    expect(deriveDocumentStatus(null, now)).toBe("VALID");
+  });
+
+  it("flags documents inside the 30-day renewal window without marking them expired", () => {
+    expect(deriveDocumentStatus(new Date("2026-08-20T00:00:00Z"), now)).toBe("EXPIRING_SOON");
+  });
+
+  it("marks a past expiry date as expired", () => {
+    expect(deriveDocumentStatus(new Date("2026-07-01T00:00:00Z"), now)).toBe("EXPIRED");
   });
 });

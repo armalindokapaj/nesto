@@ -17,3 +17,16 @@ export function validateAcceptedQuantity(current: number, addition: number, appr
 export function canTransitionWorkPackage(from: string, to: string) {
   return (WORK_PACKAGE_TRANSITIONS[from] ?? []).includes(to);
 }
+
+// PRD Work Progress §45 Phase 1 — progress updates move through a
+// submit/verify workflow; only an accepted update may roll up into the
+// package's accepted quantity, and a rejected one can be corrected and
+// resubmitted rather than silently vanishing.
+export const PROGRESS_UPDATE_TRANSITIONS: Record<string, string[]> = {
+  DRAFT: ["SUBMITTED"], SUBMITTED: ["UNDER_VERIFICATION", "REJECTED"],
+  UNDER_VERIFICATION: ["ACCEPTED", "REJECTED"], REJECTED: ["DRAFT"], ACCEPTED: [],
+};
+
+export function canTransitionProgressUpdate(from: string, to: string) {
+  return (PROGRESS_UPDATE_TRANSITIONS[from] ?? []).includes(to);
+}

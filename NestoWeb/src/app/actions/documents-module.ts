@@ -13,6 +13,8 @@ import {
   archiveDocument,
   restoreDocument,
   addDocumentComment,
+  setRequiredReading,
+  acknowledgeRequiredReading,
 } from "@/server/documents-module";
 
 // PRD_Documents_Module — module-level actions (folders, shortcuts, Star,
@@ -178,4 +180,35 @@ export async function addDocumentCommentAction(_prev: ActionState, formData: For
 
   revalidatePath(`/documents/${parsed.data.documentId}`);
   return { ok: true };
+}
+
+const SetRequiredReadingSchema = z.object({
+  documentId: z.string().min(1),
+  required: z.coerce.boolean(),
+  assigneeIds: z.array(z.string()).default([]),
+});
+
+export async function setRequiredReadingAction(_prev: ActionState, formData: FormData): Promise<ActionState> {
+  const { tenantId, role, user } = await getCurrentUser();
+  const parsed = SetRequiredReadingSchema.safeParse({
+    documentId: formData.get("documentId"),
+    required: formData.get("required") === "on",
+    assigneeIds: formData.getAll("assigneeIds"),
+  });
+  if (!parsed.success) return { error: parsed.error.issues[0]?.message ?? "Invalid input" };
+  try {
+    assertDocumentsWrite(role);
+    await setRequiredReading(tenantId, parsed.data.documentId, user.id, parsed.data.required, parsed.data.assigneeIds);
+  } catch (error) {
+    return { error: error instanceof Error ? error.message : "Could not update required reading" };
+  }
+  revalidatePath(`/documents/${parsed.data.documentId}`);
+  return { ok: true };
+}
+
+export async function acknowledgeRequiredReadingAction(documentId: string) {
+  const { tenantId, role, user } = await getCurrentUser();
+  if (!can(role, "DOCUMENTS", "READ")) throw new Error("Not authorized");
+  await acknowledgeRequiredReading(tenantId, documentId, user.id);
+  revalidatePath(`/documents/${documentId}`);
 }

@@ -15,6 +15,9 @@ import { DeleteTaskButton } from "@/components/projects/delete-task-button";
 import { TaskDocumentsBadge } from "@/components/projects/task-documents-badge";
 import { TaskFilters } from "@/components/tasks/task-filters";
 import { TaskStarButton } from "@/components/tasks/task-star-button";
+import { TaskLayoutSwitcher } from "@/components/tasks/task-layout-switcher";
+import { TaskBoardView } from "@/components/tasks/task-board-view";
+import { TaskCalendarView } from "@/components/tasks/task-calendar-view";
 import { TASK_STATUS_KEY } from "@/lib/constants";
 import type { TaskStatus } from "@/lib/constants";
 import { formatDate } from "@/lib/utils";
@@ -24,13 +27,13 @@ import Link from "next/link";
 export default async function TasksPage({
   searchParams,
 }: {
-  searchParams: Promise<{ status?: string; projectId?: string; starred?: string }>;
+  searchParams: Promise<{ status?: string; projectId?: string; starred?: string; layout?: string; year?: string; month?: string }>;
 }) {
   const { tenantId, role, user } = await getCurrentUser();
   if (!can(role, "TASKS", "READ")) redirect("/dashboard/executive");
   const canWrite = can(role, "TASKS", "WRITE");
 
-  const { status, projectId, starred } = await searchParams;
+  const { status, projectId, starred, layout, year, month } = await searchParams;
   const [allTasks, projects, starredIds] = await Promise.all([
     listTasks(tenantId),
     listProjects(tenantId),
@@ -45,6 +48,9 @@ export default async function TasksPage({
       (!starred || starredIds.has(task.id))
   );
   const { t } = await getT();
+  const now = new Date();
+  const calendarYear = year ? Number(year) : now.getUTCFullYear();
+  const calendarMonth = month ? Number(month) : now.getUTCMonth();
 
   return (
     <div className="space-y-6">
@@ -58,17 +64,23 @@ export default async function TasksPage({
 
       <div className="flex items-center justify-between gap-3 flex-wrap">
         <TaskFilters projects={projects.map((p) => ({ id: p.id, name: p.name }))} />
-        <Link
-          href={starred ? "/tasks" : "/tasks?starred=1"}
-          className={
-            "inline-flex items-center gap-1.5 rounded-full border px-3 py-1 text-xs font-medium transition-colors " +
-            (starred ? "border-gold/40 bg-gold/10 text-gold-deep" : "border-border text-ink-muted hover:text-ink hover:bg-surface-sunken")
-          }
-        >
-          {t("task.starredTasks")}
-        </Link>
+        <div className="flex items-center gap-2.5">
+          <Link
+            href={starred ? "/tasks" : "/tasks?starred=1"}
+            className={
+              "inline-flex items-center gap-1.5 rounded-full border px-3 py-1 text-xs font-medium transition-colors " +
+              (starred ? "border-gold/40 bg-gold/10 text-gold-deep" : "border-border text-ink-muted hover:text-ink hover:bg-surface-sunken")
+            }
+          >
+            {t("task.starredTasks")}
+          </Link>
+          <TaskLayoutSwitcher />
+        </div>
       </div>
 
+      {layout === "board" && <TaskBoardView tasks={tasks} starredIds={starredIds} />}
+      {layout === "calendar" && <TaskCalendarView tasks={tasks} year={calendarYear} month={calendarMonth} />}
+      {(!layout || layout === "list") && (
       <Card>
         <CardContent className="p-0">
           <Table>
@@ -147,6 +159,7 @@ export default async function TasksPage({
           </Table>
         </CardContent>
       </Card>
+      )}
     </div>
   );
 }

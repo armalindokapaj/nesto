@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { acceptedProgress, canTransitionWorkPackage, validateAcceptedQuantity } from "@/lib/work-progress";
+import { acceptedProgress, canTransitionProgressUpdate, canTransitionWorkPackage, validateAcceptedQuantity } from "@/lib/work-progress";
 
 describe("work progress measurement integrity", () => {
   it("derives accepted physical progress from accepted scope quantities", () => {
@@ -20,5 +20,19 @@ describe("work package lifecycle", () => {
     expect(canTransitionWorkPackage("DRAFT", "PLANNED")).toBe(true);
     expect(canTransitionWorkPackage("DRAFT", "COMPLETE")).toBe(false);
     expect(canTransitionWorkPackage("COMPLETE", "CLOSED")).toBe(true);
+  });
+});
+
+describe("progress update verification workflow", () => {
+  it("requires a draft claim to be submitted before verification, and blocks direct acceptance", () => {
+    expect(canTransitionProgressUpdate("DRAFT", "SUBMITTED")).toBe(true);
+    expect(canTransitionProgressUpdate("DRAFT", "ACCEPTED")).toBe(false);
+    expect(canTransitionProgressUpdate("SUBMITTED", "ACCEPTED")).toBe(false);
+    expect(canTransitionProgressUpdate("UNDER_VERIFICATION", "ACCEPTED")).toBe(true);
+  });
+
+  it("allows a rejected claim to be corrected and resubmitted from draft, but never mutated once accepted", () => {
+    expect(canTransitionProgressUpdate("REJECTED", "DRAFT")).toBe(true);
+    expect(canTransitionProgressUpdate("ACCEPTED", "REJECTED")).toBe(false);
   });
 });

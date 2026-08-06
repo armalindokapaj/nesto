@@ -76,6 +76,8 @@ model Tenant {
   supplierContacts         SupplierContact[]
   supplierQualifications   SupplierQualification[]
   supplierRiskFlags        SupplierRiskFlag[]
+  supplierCategories       SupplierCategory[]
+  supplierDocuments        SupplierDocument[]
   purchaseRequests         PurchaseRequest[]
   purchaseRequestLines     PurchaseRequestLine[]
   procurementPackages      ProcurementPackage[]
@@ -199,16 +201,24 @@ model Tenant {
   legalActivities        LegalActivity[]
 
   // --- PRD_HSE_Module (additive) -------------------------------------------
-  hazards         Hazard[]
-  riskAssessments RiskAssessment[]
-  permitsToWork   PermitToWork[]
-  stopWorkOrders  StopWorkOrder[]
-  hseActivities   HseActivity[]
+  hazards              Hazard[]
+  riskAssessments      RiskAssessment[]
+  permitsToWork        PermitToWork[]
+  stopWorkOrders       StopWorkOrder[]
+  hseActivities        HseActivity[]
+  // --- PRD_HSE_Module Phase 1 "Operational Foundation" rework (additive) --
+  hseInspections       HseInspection[]
+  hseObservations      HseObservation[]
+  hseIncidents         HseIncident[]
+  hseCorrectiveActions HseCorrectiveAction[]
+  hseInductions        HseInduction[]
+  hseToolboxTalks      HseToolboxTalk[]
+  hseEmergencyContacts HseEmergencyContact[]
 
   // --- PRD_HR_Payroll_Workforce Phase 2 (additive: Payroll) ----------------
-  payrollGroups    PayrollGroup[]
-  payrollRuns      PayrollRun[]
-  payrollRunLines  PayrollRunLine[]
+  payrollGroups     PayrollGroup[]
+  payrollRuns       PayrollRun[]
+  payrollRunLines   PayrollRunLine[]
   payrollActivities PayrollActivity[]
 
   // --- Platform Configuration ----------------------------------------------
@@ -237,6 +247,7 @@ model Company {
   procurementSuppliers      Supplier[]
   purchaseRequests          PurchaseRequest[]
   procurementPackages       ProcurementPackage[]
+  supplierCategories        SupplierCategory[]
   procurementRfqs           ProcurementRfq[]
   supplierQuotations        SupplierQuotation[]
   procurementPurchaseOrders PurchaseOrder[]
@@ -428,9 +439,19 @@ model UserIdentity {
   stopWorkOrdersReleased  StopWorkOrder[]  @relation("StopWorkReleasedBy")
   hseActivityActed        HseActivity[]    @relation("HseActivityActor")
 
+  // --- PRD_HSE_Module Phase 1 rework (additive) -----------------------------
+  hseInspectionsPerformed      HseInspection[]       @relation("HseInspectionInspector")
+  hseObservationsReported      HseObservation[]      @relation("HseObservationReportedBy")
+  hseIncidentsReported         HseIncident[]         @relation("HseIncidentReportedBy")
+  hseIncidentsInvestigated     HseIncident[]         @relation("HseIncidentInvestigator")
+  hseCorrectiveActionsOwned    HseCorrectiveAction[] @relation("HseCorrectiveActionOwner")
+  hseCorrectiveActionsVerified HseCorrectiveAction[] @relation("HseCorrectiveActionVerifiedBy")
+  hseInductionsConducted       HseInduction[]        @relation("HseInductionConductedBy")
+  hseToolboxTalksConducted     HseToolboxTalk[]      @relation("HseToolboxTalkConductedBy")
+
   // --- PRD_HR_Payroll_Workforce Phase 2 (additive: Payroll) ----------------
-  payrollRunsCreated  PayrollRun[]      @relation("PayrollRunCreatedBy")
-  payrollRunsLocked   PayrollRun[]      @relation("PayrollRunLockedBy")
+  payrollRunsCreated   PayrollRun[]      @relation("PayrollRunCreatedBy")
+  payrollRunsLocked    PayrollRun[]      @relation("PayrollRunLockedBy")
   payrollActivityActed PayrollActivity[] @relation("PayrollActivityActor")
 }
 
@@ -1810,39 +1831,42 @@ model HseReport {
 // ---------------------------------------------------------------------------
 
 model Supplier {
-  id                  String    @id @default(cuid())
+  id                  String            @id @default(cuid())
   tenantId            String
-  tenant              Tenant    @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  tenant              Tenant            @relation(fields: [tenantId], references: [id], onDelete: Cascade)
   companyId           String?
-  company             Company?  @relation(fields: [companyId], references: [id])
+  company             Company?          @relation(fields: [companyId], references: [id])
   number              String // Number Series: SUP-{SEQ6}
   name                String
   legalName           String?
   tradingName         String?
-  supplierType        String    @default("MATERIALS")
+  supplierType        String            @default("MATERIALS")
   category            String // e.g. Steel, Concrete, Electrical, MEP
+  categoryId          String? // optional link into the SupplierCategory taxonomy; `category` remains the free-text label of record
+  categoryRef         SupplierCategory? @relation(fields: [categoryId], references: [id])
   email               String?
   phone               String?
   website             String?
   taxId               String?
   registrationId      String?
-  countryCode         String    @default("AL")
+  countryCode         String            @default("AL")
   address             String?
   paymentTerms        String?
   leadTimeDays        Int?
-  currency            String    @default("EUR")
-  qualificationStatus String    @default("NOT_STARTED")
+  currency            String            @default("EUR")
+  qualificationStatus String            @default("NOT_STARTED")
   overallScore        Float?
-  status              String    @default("PROSPECT") // PROSPECT | UNDER_QUALIFICATION | QUALIFIED | PREFERRED | SUSPENDED | BLACKLISTED | ARCHIVED
+  status              String            @default("PROSPECT") // PROSPECT | UNDER_QUALIFICATION | QUALIFIED | PREFERRED | SUSPENDED | BLACKLISTED | ARCHIVED
   notes               String?
-  version             Int       @default(1)
-  createdAt           DateTime  @default(now())
-  updatedAt           DateTime  @default(now()) @updatedAt
+  version             Int               @default(1)
+  createdAt           DateTime          @default(now())
+  updatedAt           DateTime          @default(now()) @updatedAt
   archivedAt          DateTime?
 
   contacts       SupplierContact[]
   qualifications SupplierQualification[]
   riskFlags      SupplierRiskFlag[]
+  documents      SupplierDocument[]
   rfqInvitations ProcurementRfqSupplier[]
   quotations     SupplierQuotation[]
   purchaseOrders PurchaseOrder[]
@@ -1901,6 +1925,58 @@ model SupplierRiskFlag {
   resolvedAt DateTime?
 
   @@index([tenantId, supplierId, status])
+}
+
+// PRD Procurement §27.2 Phase 1 "Foundation" — supplier categories are a
+// dedicated, tenant-owned taxonomy (not just a free-text label) so
+// scoping, reporting and future category-level approval rules have
+// something structured to attach to. `Supplier.category` keeps carrying
+// the display label for backward compatibility; `categoryId` is optional.
+model SupplierCategory {
+  id          String             @id @default(cuid())
+  tenantId    String
+  tenant      Tenant             @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  companyId   String?
+  company     Company?           @relation(fields: [companyId], references: [id])
+  code        String
+  name        String
+  description String?
+  parentId    String?
+  parent      SupplierCategory?  @relation("SupplierCategoryTree", fields: [parentId], references: [id])
+  children    SupplierCategory[] @relation("SupplierCategoryTree")
+  active      Boolean            @default(true)
+  createdById String
+  createdAt   DateTime           @default(now())
+
+  suppliers Supplier[]
+
+  @@unique([tenantId, code])
+  @@index([tenantId, active])
+}
+
+// PRD Procurement §27.2 Phase 1 "Foundation" — supplier documents with
+// expiry tracking power the "Supplier Document Renewal" page; soft
+// `documentId` reference mirrors the pattern used by WorkProgressEvidence
+// rather than a hard FK into the Documents module.
+model SupplierDocument {
+  id          String    @id @default(cuid())
+  tenantId    String
+  tenant      Tenant    @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  supplierId  String
+  supplier    Supplier  @relation(fields: [supplierId], references: [id], onDelete: Cascade)
+  type        String    @default("OTHER") // REGISTRATION | INSURANCE | TAX_CERTIFICATE | ISO_CERTIFICATE | LICENSE | OTHER
+  title       String
+  documentId  String?
+  url         String?
+  issuedAt    DateTime?
+  expiresAt   DateTime?
+  status      String    @default("VALID") // VALID | EXPIRING_SOON | EXPIRED | RENEWAL_REQUIRED
+  notes       String?
+  createdById String
+  createdAt   DateTime  @default(now())
+
+  @@index([tenantId, supplierId])
+  @@index([tenantId, expiresAt])
 }
 
 model PurchaseRequest {
@@ -4544,8 +4620,8 @@ model EmploymentRelationship {
   companyId  String?
   company    Company? @relation(fields: [companyId], references: [id])
 
-  employmentType String @default("EMPLOYEE") // EMPLOYEE | CONTRACTOR | EXTERNAL
-  contractType   String @default("FULL_TIME") // FULL_TIME | PART_TIME | FIXED_TERM | SEASONAL
+  employmentType String    @default("EMPLOYEE") // EMPLOYEE | CONTRACTOR | EXTERNAL
+  contractType   String    @default("FULL_TIME") // FULL_TIME | PART_TIME | FIXED_TERM | SEASONAL
   jobTitle       String
   department     String
   reportsToId    String?
@@ -4562,7 +4638,7 @@ model EmploymentRelationship {
   transferredTo     EmploymentRelationship? @relation("EmploymentTransfer")
 
   confidentialityZone String  @default("INTERNAL_PROFESSIONAL") // PUBLIC_PROFESSIONAL | INTERNAL_PROFESSIONAL | HR_CONFIDENTIAL
-  notes                String?
+  notes               String?
 
   createdById String
   createdBy   UserIdentity @relation("EmploymentRelationshipCreatedBy", fields: [createdById], references: [id])
@@ -4822,6 +4898,165 @@ model HseActivity {
 }
 
 // ---------------------------------------------------------------------------
+// PRD_HSE_Module §49.1 "Phase 1 - Operational Foundation" rework (additive,
+// 2026-08-06) — the pieces of the new, more comprehensive PRD's own Phase 1
+// that the first HSE pass (Hazard/RiskAssessment/PermitToWork/StopWorkOrder)
+// didn't cover: Inspections & Observations, Incidents/Investigations/Actions,
+// Inductions & Toolbox Talks, Emergency contacts. Same conventions as above:
+// projectId is a plain scalar (Projects module is frozen), events land in the
+// shared HseActivity log, gated by the existing HSE_REPORTS resource.
+// ---------------------------------------------------------------------------
+
+model HseInspection {
+  id          String       @id @default(cuid())
+  tenantId    String
+  tenant      Tenant       @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  projectId   String
+  number      String
+  type        String       @default("SITE_SAFETY") // SITE_SAFETY | SCAFFOLD | EQUIPMENT | ELECTRICAL | ENVIRONMENTAL | OTHER
+  location    String?
+  outcome     String       @default("PENDING") // PENDING | PASS | CONDITIONAL | FAIL
+  findings    String?
+  status      String       @default("DRAFT") // DRAFT | COMPLETED
+  inspectedAt DateTime     @default(now())
+  inspectorId String
+  inspector   UserIdentity @relation("HseInspectionInspector", fields: [inspectorId], references: [id])
+  createdAt   DateTime     @default(now())
+
+  correctiveActions HseCorrectiveAction[]
+
+  @@unique([tenantId, number])
+  @@index([tenantId, projectId])
+  @@index([tenantId, status])
+}
+
+model HseObservation {
+  id           String       @id @default(cuid())
+  tenantId     String
+  tenant       Tenant       @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  projectId    String
+  number       String
+  type         String       @default("UNSAFE_ACT") // SAFE_ACT | UNSAFE_ACT | SAFE_CONDITION | UNSAFE_CONDITION | NEAR_MISS
+  description  String
+  location     String?
+  severity     String       @default("LOW") // LOW | MEDIUM | HIGH
+  status       String       @default("OPEN") // OPEN | ACTIONED | CLOSED
+  actionTaken  String?
+  reportedById String
+  reportedBy   UserIdentity @relation("HseObservationReportedBy", fields: [reportedById], references: [id])
+  createdAt    DateTime     @default(now())
+
+  @@unique([tenantId, number])
+  @@index([tenantId, projectId])
+  @@index([tenantId, status])
+}
+
+// Formal incident record — deliberately separate from the older, generic
+// HseReport (kept as-is, still used elsewhere): this carries the
+// classification/investigation/closure workflow the PRD's "Incidents,
+// Investigations and Actions" Phase-1 line actually needs.
+model HseIncident {
+  id               String        @id @default(cuid())
+  tenantId         String
+  tenant           Tenant        @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  projectId        String
+  number           String
+  classification   String        @default("NEAR_MISS") // NEAR_MISS | FIRST_AID | MEDICAL_TREATMENT | LOST_TIME | FATALITY | PROPERTY_DAMAGE | ENVIRONMENTAL
+  title            String
+  description      String
+  occurredAt       DateTime
+  location         String?
+  injuredPersonRef String? // free-text — no separate PII model in Phase 1
+  status           String        @default("REPORTED") // REPORTED | UNDER_INVESTIGATION | ACTION_PENDING | CLOSED
+  rootCause        String?
+  closedAt         DateTime?
+  reportedById     String
+  reportedBy       UserIdentity  @relation("HseIncidentReportedBy", fields: [reportedById], references: [id])
+  investigatorId   String?
+  investigator     UserIdentity? @relation("HseIncidentInvestigator", fields: [investigatorId], references: [id])
+  createdAt        DateTime      @default(now())
+  updatedAt        DateTime      @updatedAt
+
+  correctiveActions HseCorrectiveAction[]
+
+  @@unique([tenantId, number])
+  @@index([tenantId, projectId])
+  @@index([tenantId, status])
+}
+
+// Corrective actions can come out of an incident, an inspection or an
+// observation — exactly one parent is expected, enforced at the server layer
+// (Prisma has no cross-field XOR constraint).
+model HseCorrectiveAction {
+  id           String         @id @default(cuid())
+  tenantId     String
+  tenant       Tenant         @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  incidentId   String?
+  incident     HseIncident?   @relation(fields: [incidentId], references: [id], onDelete: Cascade)
+  inspectionId String?
+  inspection   HseInspection? @relation(fields: [inspectionId], references: [id], onDelete: Cascade)
+  description  String
+  dueDate      DateTime?
+  status       String         @default("OPEN") // OPEN | IN_PROGRESS | COMPLETED
+  completedAt  DateTime?
+  ownerId      String
+  owner        UserIdentity   @relation("HseCorrectiveActionOwner", fields: [ownerId], references: [id])
+  verifiedById String?
+  verifiedBy   UserIdentity?  @relation("HseCorrectiveActionVerifiedBy", fields: [verifiedById], references: [id])
+  createdAt    DateTime       @default(now())
+
+  @@index([tenantId, status])
+}
+
+model HseInduction {
+  id            String       @id @default(cuid())
+  tenantId      String
+  tenant        Tenant       @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  projectId     String
+  workerName    String
+  workerCompany String?
+  topicsCovered String?
+  conductedAt   DateTime     @default(now())
+  expiresAt     DateTime?
+  conductedById String
+  conductedBy   UserIdentity @relation("HseInductionConductedBy", fields: [conductedById], references: [id])
+  createdAt     DateTime     @default(now())
+
+  @@index([tenantId, projectId])
+}
+
+model HseToolboxTalk {
+  id            String       @id @default(cuid())
+  tenantId      String
+  tenant        Tenant       @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  projectId     String
+  topic         String
+  notes         String?
+  attendeeCount Int          @default(0)
+  conductedAt   DateTime     @default(now())
+  conductedById String
+  conductedBy   UserIdentity @relation("HseToolboxTalkConductedBy", fields: [conductedById], references: [id])
+  createdAt     DateTime     @default(now())
+
+  @@index([tenantId, projectId])
+}
+
+model HseEmergencyContact {
+  id        String   @id @default(cuid())
+  tenantId  String
+  tenant    Tenant   @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  projectId String
+  name      String
+  role      String?
+  phone     String
+  type      String   @default("OTHER") // AMBULANCE | FIRE | POLICE | HOSPITAL | SITE_MANAGER | CLIENT | OTHER
+  isPrimary Boolean  @default(false)
+  createdAt DateTime @default(now())
+
+  @@index([tenantId, projectId])
+}
+
+// ---------------------------------------------------------------------------
 // PRD_HR_Payroll_Workforce — Phase 2 (Payroll: locked runs, pass-through
 // calculation). Scope decision 2026-08-06: tax/contribution calculation is
 // deliberately pass-through only — gross/net are taken directly from the
@@ -4895,9 +5130,9 @@ model PayrollRunLine {
   salaryRecordId           String?
   salaryRecord             SalaryRecord?           @relation(fields: [salaryRecordId], references: [id])
 
-  grossSalary Float
-  netSalary   Float
-  currency    String @default("EUR")
+  grossSalary      Float
+  netSalary        Float
+  currency         String @default("EUR")
   // Phase 2 is intentionally trivial ("source: SalaryRecord X, formula:
   // pass-through, rounding: none") — Phase 3 would replace this with the
   // real multi-step engine (earnings/deductions/taxes/employer costs).

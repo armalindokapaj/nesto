@@ -30,6 +30,9 @@ const SERIES_CONFIG: Record<string, { prefix: string; seqLength: number; include
   WORK_DELAY: { prefix: "DLY", seqLength: 5, includeYear: true },
   MEASUREMENT_SHEET: { prefix: "MS", seqLength: 5, includeYear: true },
   PAYMENT: { prefix: "PAY", seqLength: 6, includeYear: true },
+  HSE_INSPECTION: { prefix: "INS", seqLength: 5, includeYear: true },
+  HSE_OBSERVATION: { prefix: "OBS", seqLength: 5, includeYear: true },
+  HSE_INCIDENT: { prefix: "INC", seqLength: 5, includeYear: true },
 };
 
 export async function allocateNumber(tenantId: string, entityType: keyof typeof SERIES_CONFIG): Promise<string> {

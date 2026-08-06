@@ -17,6 +17,18 @@ export function isProcurementTransitionAllowed(lifecycle: ProcurementLifecycle, 
   return (map[current] ?? []).includes(next);
 }
 
+// PRD Procurement §27.2 Phase 1 "Foundation" — supplier documents (registration,
+// insurance, tax certificates, ISO, licenses) carry an expiry the "Supplier
+// Document Renewal" page surfaces ahead of time; this derives the display
+// status purely from dates so it never drifts from a stored, staleable field.
+export function deriveDocumentStatus(expiresAt: Date | null | undefined, now = new Date()): "VALID" | "EXPIRING_SOON" | "EXPIRED" {
+  if (!expiresAt) return "VALID";
+  const daysLeft = (expiresAt.getTime() - now.getTime()) / 86400000;
+  if (daysLeft < 0) return "EXPIRED";
+  if (daysLeft <= 30) return "EXPIRING_SOON";
+  return "VALID";
+}
+
 export type CommercialLine = { quantity: number; unitPrice: number; discount?: number; tax?: number };
 
 export function calculateProcurementTotals(lines: CommercialLine[], freight = 0) {

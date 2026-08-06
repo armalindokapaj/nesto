@@ -3,12 +3,13 @@ import { redirect } from "next/navigation";
 import { AlertTriangle, ArrowUpRight, Star } from "lucide-react";
 import { getCurrentUser } from "@/lib/dal";
 import { can } from "@/lib/permissions";
-import { listSuppliers } from "@/server/procurement";
+import { listSupplierCategories, listSuppliers } from "@/server/procurement";
 import { getConfigResolver } from "@/server/platform-config";
 import { Card, CardContent } from "@/components/ui/card";
 import { Table, THead, TBody, TRow, TH, TD } from "@/components/ui/table";
 import { Badge } from "@/components/ui/badge";
 import { CreateSupplierDialog } from "@/components/procurement/create-supplier-dialog";
+import { SupplierCategoryDialog } from "@/components/procurement/supplier-category-dialog";
 import { ProcurementNav, ProcurementPageHeader } from "@/components/procurement/procurement-nav";
 
 export default async function ProcurementSuppliersPage({ searchParams }: { searchParams: Promise<{ q?: string; status?: string }> }) {
@@ -17,11 +18,13 @@ export default async function ProcurementSuppliersPage({ searchParams }: { searc
   const config = await getConfigResolver(tenantId, company?.id);
   if (!config("procurement.page.suppliers")) redirect("/dashboard/procurement");
   const { q = "", status = "" } = await searchParams;
-  const suppliers = (await listSuppliers(tenantId)).filter((s) => (!q || `${s.number} ${s.name} ${s.category}`.toLowerCase().includes(q.toLowerCase())) && (!status || s.status === status));
+  const [allSuppliers, categories] = await Promise.all([listSuppliers(tenantId), listSupplierCategories(tenantId)]);
+  const suppliers = allSuppliers.filter((s) => (!q || `${s.number} ${s.name} ${s.category}`.toLowerCase().includes(q.toLowerCase())) && (!status || s.status === status));
   const canCreate = can(role, "PROCUREMENT", "WRITE") && config("procurement.action.create_supplier");
+  const canManageCategories = can(role, "PROCUREMENT", "WRITE") && config("procurement.action.manage_categories");
 
   return <div className="space-y-6">
-    <ProcurementPageHeader title="Supplier directory" description="Qualification, commercial context, sourcing participation, risk and performance without duplicating legal or Finance records." actions={canCreate ? <CreateSupplierDialog /> : undefined} />
+    <ProcurementPageHeader title="Supplier directory" description="Qualification, commercial context, sourcing participation, risk and performance without duplicating legal or Finance records." actions={<div className="flex gap-2">{canManageCategories && <SupplierCategoryDialog categories={categories} />}{canCreate && <CreateSupplierDialog categories={categories.filter((c) => c.active).map((c) => ({ id: c.id, name: c.name }))} />}</div>} />
     <ProcurementNav active="suppliers" />
     <form className="flex flex-wrap gap-2 rounded-xl border border-border bg-surface p-3"><input name="q" defaultValue={q} placeholder="Search code, supplier or category…" className="h-9 min-w-64 flex-1 rounded-lg border border-border bg-surface px-3 text-sm" /><select name="status" defaultValue={status} className="h-9 rounded-lg border border-border bg-surface px-3 text-sm"><option value="">All statuses</option>{["PROSPECT", "UNDER_QUALIFICATION", "QUALIFIED", "PREFERRED", "SUSPENDED", "BLACKLISTED"].map((value) => <option key={value}>{value}</option>)}</select><button className="h-9 rounded-lg bg-ink px-4 text-xs font-medium text-white">Apply</button></form>
     <Card><CardContent className="p-0"><Table><THead><TRow><TH>Supplier</TH><TH>Category</TH><TH>Qualification</TH><TH>Score</TH><TH>Commercial activity</TH><TH>Risk</TH><TH>Status</TH><TH /></TRow></THead><TBody>

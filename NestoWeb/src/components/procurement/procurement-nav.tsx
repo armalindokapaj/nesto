@@ -1,11 +1,12 @@
 import Link from "next/link";
-import { LayoutDashboard, Workflow, Truck, ClipboardList, Layers3, MessagesSquare, PackageOpen, CalendarCheck2 } from "lucide-react";
+import { LayoutDashboard, Workflow, Truck, ClipboardList, Layers3, MessagesSquare, PackageOpen, CalendarCheck2, ShieldCheck } from "lucide-react";
 import { cn } from "@/lib/utils";
 
 const ITEMS = [
   ["Overview", "/dashboard/procurement", LayoutDashboard],
   ["Workspace", "/dashboard/procurement/workspace", Workflow],
   ["Suppliers", "/dashboard/procurement/suppliers", Truck],
+  ["Documents", "/dashboard/procurement/documents", ShieldCheck],
   ["Requests", "/dashboard/procurement/requests", ClipboardList],
   ["Packages", "/dashboard/procurement/packages", Layers3],
   ["Sourcing", "/dashboard/procurement/sourcing", MessagesSquare],

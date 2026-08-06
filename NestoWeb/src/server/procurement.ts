@@ -4,7 +4,7 @@ import { randomUUID } from "crypto";
 import { db } from "@/lib/db";
 import { allocateNumber } from "@/server/number-series";
 import { assertTenant, requireTenantProject, requireTenantSupplier } from "@/lib/tenant";
-import { calculateProcurementTotals, isProcurementTransitionAllowed } from "@/lib/procurement";
+import { calculateProcurementTotals, deriveDocumentStatus, isProcurementTransitionAllowed } from "@/lib/procurement";
 
 type ActivityInput = {
   tenantId: string;
@@ -117,12 +117,15 @@ export async function getSupplier(tenantId: string, supplierId: string) {
       contacts: { orderBy: [{ isPrimary: "desc" }, { createdAt: "asc" }] },
       qualifications: { orderBy: { createdAt: "desc" } },
       riskFlags: { orderBy: { createdAt: "desc" } },
+      documents: { orderBy: [{ expiresAt: "asc" }, { createdAt: "desc" }] },
+      categoryRef: true,
       quotations: { include: { rfq: true }, orderBy: { createdAt: "desc" } },
       purchaseOrders: { include: { project: true }, orderBy: { createdAt: "desc" } },
       deliveries: { include: { purchaseOrder: true }, orderBy: { createdAt: "desc" } },
     },
   });
-  return assertTenant(supplier, tenantId, "Supplier");
+  const result = assertTenant(supplier, tenantId, "Supplier");
+  return { ...result, documents: result.documents.map((d) => ({ ...d, status: d.status === "RENEWAL_REQUIRED" ? d.status : deriveDocumentStatus(d.expiresAt) })) };
 }
 
 export async function createSupplier(tenantId: string, actorId: string, input: {
@@ -131,6 +134,7 @@ export async function createSupplier(tenantId: string, actorId: string, input: {
   legalName?: string;
   supplierType?: string;
   category: string;
+  categoryId?: string;
   email?: string;
   phone?: string;
   website?: string;
@@ -142,6 +146,7 @@ export async function createSupplier(tenantId: string, actorId: string, input: {
   notes?: string;
 }) {
   if (input.companyId) await requireTenantCompany(tenantId, input.companyId);
+  if (input.categoryId) assertTenant(await db.supplierCategory.findUnique({ where: { id: input.categoryId } }), tenantId, "SupplierCategory");
   const number = await allocateNumber(tenantId, "SUPPLIER");
   const supplier = await db.supplier.create({ data: { tenantId, number, ...input } });
   if (input.email || input.phone) {
@@ -167,6 +172,45 @@ export async function addSupplierQualification(tenantId: string, actorId: string
   await db.supplier.update({ where: { id: supplierId }, data: { qualificationStatus: input.outcome, overallScore: input.score, status, version: { increment: 1 } } });
   await writeActivity({ tenantId, actorId, entityType: "SUPPLIER", entityId: supplierId, eventType: "supplier.qualification_changed", summary: `Qualification recorded: ${input.outcome}.` });
   return qualification;
+}
+
+// PRD Procurement §27.2 Phase 1 "Foundation" — dedicated category taxonomy.
+export async function listSupplierCategories(tenantId: string) {
+  return db.supplierCategory.findMany({ where: { tenantId }, include: { parent: true, _count: { select: { suppliers: true } } }, orderBy: [{ active: "desc" }, { name: "asc" }] });
+}
+
+export async function createSupplierCategory(tenantId: string, actorId: string, input: { companyId?: string; code: string; name: string; description?: string; parentId?: string }) {
+  if (input.companyId) await requireTenantCompany(tenantId, input.companyId);
+  if (input.parentId) assertTenant(await db.supplierCategory.findUnique({ where: { id: input.parentId } }), tenantId, "SupplierCategory");
+  const category = await db.supplierCategory.create({ data: { tenantId, createdById: actorId, ...input } });
+  await writeActivity({ tenantId, actorId, entityType: "SUPPLIER_CATEGORY", entityId: category.id, eventType: "supplier_category.created", summary: `${category.name} category created.` });
+  return category;
+}
+
+export async function setSupplierCategoryActive(tenantId: string, actorId: string, categoryId: string, active: boolean) {
+  const category = assertTenant(await db.supplierCategory.findUnique({ where: { id: categoryId } }), tenantId, "SupplierCategory");
+  await db.supplierCategory.update({ where: { id: category.id }, data: { active } });
+  await writeActivity({ tenantId, actorId, entityType: "SUPPLIER_CATEGORY", entityId: category.id, eventType: active ? "supplier_category.activated" : "supplier_category.deactivated", summary: `${category.name} ${active ? "activated" : "deactivated"}.` });
+}
+
+// PRD Procurement §27.2 Phase 1 "Foundation" — supplier documents and renewal.
+export async function listSupplierDocuments(tenantId: string) {
+  const rows = await db.supplierDocument.findMany({ where: { tenantId }, include: { supplier: true }, orderBy: [{ expiresAt: "asc" }, { createdAt: "desc" }] });
+  return rows.map((d) => ({ ...d, status: d.status === "RENEWAL_REQUIRED" ? d.status : deriveDocumentStatus(d.expiresAt) }));
+}
+
+export async function addSupplierDocument(tenantId: string, actorId: string, supplierId: string, input: { type?: string; title: string; documentId?: string; url?: string; issuedAt?: Date; expiresAt?: Date; notes?: string }) {
+  await requireTenantSupplier(tenantId, supplierId);
+  const status = deriveDocumentStatus(input.expiresAt);
+  const document = await db.supplierDocument.create({ data: { tenantId, supplierId, createdById: actorId, status, ...input } });
+  await writeActivity({ tenantId, actorId, entityType: "SUPPLIER", entityId: supplierId, eventType: "supplier.document_added", summary: `${document.title} attached.` });
+  return document;
+}
+
+export async function markSupplierDocumentRenewalRequired(tenantId: string, actorId: string, documentId: string, note?: string) {
+  const document = assertTenant(await db.supplierDocument.findUnique({ where: { id: documentId } }), tenantId, "SupplierDocument");
+  await db.supplierDocument.update({ where: { id: document.id }, data: { status: "RENEWAL_REQUIRED", notes: note ? `${document.notes ?? ""}\n${note}`.trim() : document.notes } });
+  await writeActivity({ tenantId, actorId, entityType: "SUPPLIER", entityId: document.supplierId, eventType: "supplier.document_renewal_flagged", summary: `${document.title} flagged for renewal.` });
 }
 
 export async function listPurchaseRequests(tenantId: string) {

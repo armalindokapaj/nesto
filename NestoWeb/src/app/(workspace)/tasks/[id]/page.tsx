@@ -18,6 +18,7 @@ import { AccessDenied } from "@/components/ui/access-denied";
 import { Card, CardHeader, CardTitle, CardContent } from "@/components/ui/card";
 import { TaskStarButton } from "@/components/tasks/task-star-button";
 import { TaskChecklist } from "@/components/tasks/task-checklist";
+import { TaskComments } from "@/components/tasks/task-comments";
 import { getT } from "@/lib/i18n/server";
 
 export default async function TaskDetailPage({ params }: { params: Promise<{ id: string }> }) {
@@ -59,7 +60,7 @@ export default async function TaskDetailPage({ params }: { params: Promise<{ id:
   );
 
   if (!task.currentStageId) {
-    const members = await listAllMembers(tenantId);
+    const [members, comments] = await Promise.all([listAllMembers(tenantId), listComments(tenantId, "Task", id)]);
     return (
       <div className="space-y-6">
         <Link href={backHref} className="inline-flex items-center gap-1.5 text-sm text-ink-muted hover:text-ink">
@@ -76,6 +77,14 @@ export default async function TaskDetailPage({ params }: { params: Promise<{ id:
           canStart={canWrite}
           members={members.map((m) => ({ id: m.user.id, displayName: m.user.displayName }))}
         />
+        <Card>
+          <CardHeader>
+            <CardTitle>{t("task.comments")}</CardTitle>
+          </CardHeader>
+          <CardContent>
+            <TaskComments taskId={id} comments={comments} />
+          </CardContent>
+        </Card>
         {checklistCard}
       </div>
     );

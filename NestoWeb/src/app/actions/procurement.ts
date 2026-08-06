@@ -6,6 +6,7 @@ import { getCurrentUser } from "@/lib/dal";
 import { can } from "@/lib/permissions";
 import { assertConfigEnabled } from "@/server/platform-config";
 import {
+  addSupplierDocument,
   addSupplierQualification,
   createDelivery,
   createProcurementPackage,
@@ -14,6 +15,9 @@ import {
   createQuotation,
   createRfq,
   createSupplier,
+  createSupplierCategory,
+  markSupplierDocumentRenewalRequired,
+  setSupplierCategoryActive,
   transitionPurchaseRequest,
   transitionRfq,
   updateDeliveryStatus,
@@ -39,6 +43,7 @@ const CreateSupplierSchema = z.object({
   legalName: z.string().trim().optional(),
   supplierType: z.string().trim().default("MATERIALS"),
   category: z.string().trim().min(2, "Enter a category"),
+  categoryId: z.string().optional(),
   email: z.string().email().optional().or(z.literal("")),
   phone: z.string().optional(),
   website: z.string().optional(),
@@ -55,7 +60,7 @@ export async function createSupplierAction(_prev: ProcurementActionState, formDa
     const { tenantId, user, company } = await procurementContext("procurement.action.create_supplier");
     const parsed = CreateSupplierSchema.safeParse(Object.fromEntries(formData));
     if (!parsed.success) return { error: parsed.error.issues[0]?.message ?? "Invalid input" };
-    await createSupplier(tenantId, user.id, { ...parsed.data, companyId: company?.id, email: parsed.data.email || undefined });
+    await createSupplier(tenantId, user.id, { ...parsed.data, companyId: company?.id, email: parsed.data.email || undefined, categoryId: parsed.data.categoryId || undefined });
     revalidatePath("/dashboard/procurement");
     revalidatePath("/dashboard/procurement/suppliers");
     return { success: "Supplier created." };
@@ -214,4 +219,44 @@ export async function updateDeliveryStatusAction(deliveryId: string, status: str
   await updateDeliveryStatus(tenantId, user.id, deliveryId, status, { exceptionType, exceptionNote });
   revalidatePath("/dashboard/procurement/deliveries");
   revalidatePath("/dashboard/procurement/workspace");
+}
+
+export async function createSupplierCategoryAction(_prev: ProcurementActionState, formData: FormData): Promise<ProcurementActionState> {
+  try {
+    const { tenantId, user, company } = await procurementContext("procurement.action.manage_categories");
+    const parsed = z.object({ code: z.string().trim().min(2, "Enter a category code"), name: z.string().trim().min(2, "Enter a category name"), description: z.string().optional(), parentId: z.string().optional() }).safeParse({ code: formData.get("code"), name: formData.get("name"), description: formData.get("description") || undefined, parentId: formData.get("parentId") || undefined });
+    if (!parsed.success) return { error: parsed.error.issues[0]?.message ?? "Invalid category" };
+    await createSupplierCategory(tenantId, user.id, { companyId: company?.id, ...parsed.data });
+    revalidatePath("/dashboard/procurement/suppliers");
+    return { success: "Supplier category created." };
+  } catch (error) {
+    return actionError(error, "Could not create category.");
+  }
+}
+
+export async function setSupplierCategoryActiveAction(categoryId: string, active: boolean) {
+  const { tenantId, user } = await procurementContext("procurement.action.manage_categories");
+  await setSupplierCategoryActive(tenantId, user.id, categoryId, active);
+  revalidatePath("/dashboard/procurement/suppliers");
+}
+
+export async function addSupplierDocumentAction(_prev: ProcurementActionState, formData: FormData): Promise<ProcurementActionState> {
+  try {
+    const { tenantId, user } = await procurementContext("procurement.action.manage_documents");
+    const parsed = z.object({ supplierId: z.string().min(1), type: z.string().default("OTHER"), title: z.string().trim().min(2), url: z.string().optional(), issuedAt: z.coerce.date().optional(), expiresAt: z.coerce.date().optional(), notes: z.string().optional() }).safeParse({ supplierId: formData.get("supplierId"), type: formData.get("type") || "OTHER", title: formData.get("title"), url: formData.get("url") || undefined, issuedAt: formData.get("issuedAt") || undefined, expiresAt: formData.get("expiresAt") || undefined, notes: formData.get("notes") || undefined });
+    if (!parsed.success) return { error: parsed.error.issues[0]?.message ?? "Invalid document" };
+    const { supplierId, ...input } = parsed.data;
+    await addSupplierDocument(tenantId, user.id, supplierId, input);
+    revalidatePath(`/dashboard/procurement/suppliers/${supplierId}`);
+    revalidatePath("/dashboard/procurement/documents");
+    return { success: "Document attached." };
+  } catch (error) {
+    return actionError(error, "Could not attach document.");
+  }
+}
+
+export async function markSupplierDocumentRenewalRequiredAction(documentId: string, note?: string) {
+  const { tenantId, user } = await procurementContext("procurement.action.manage_documents");
+  await markSupplierDocumentRenewalRequired(tenantId, user.id, documentId, note);
+  revalidatePath("/dashboard/procurement/documents");
 }

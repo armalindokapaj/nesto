@@ -8,7 +8,7 @@ import { Button } from "@/components/ui/button";
 import { Input, Label } from "@/components/ui/input";
 import { useI18n } from "@/lib/i18n/locale-provider";
 
-export function CreateSupplierDialog() {
+export function CreateSupplierDialog({ categories = [] }: { categories?: { id: string; name: string }[] }) {
   const { t } = useI18n();
   const [open, setOpen] = useState(false);
   const [state, formAction, pending] = useActionState(createSupplierAction, undefined);
@@ -38,6 +38,15 @@ export function CreateSupplierDialog() {
               <Label htmlFor="category">{t("procurement_sub.category")}</Label>
               <Input id="category" name="category" placeholder="Steel, Concrete, Electrical…" required />
             </div>
+            {categories.length > 0 && (
+              <div className="space-y-1.5">
+                <Label htmlFor="categoryId">Category taxonomy (optional)</Label>
+                <select id="categoryId" name="categoryId" defaultValue="" className="h-10 w-full rounded-lg border border-border bg-surface px-3 text-sm">
+                  <option value="">No taxonomy link</option>
+                  {categories.map((c) => <option key={c.id} value={c.id}>{c.name}</option>)}
+                </select>
+              </div>
+            )}
             <div className="grid grid-cols-2 gap-3">
               <div className="space-y-1.5"><Label htmlFor="supplierType">Supplier type</Label><select id="supplierType" name="supplierType" defaultValue="MATERIALS" className="h-10 w-full rounded-lg border border-border bg-surface px-3 text-sm"><option>MATERIALS</option><option>SERVICE</option><option>SUBCONTRACTOR</option><option>RENTAL</option><option>CONSULTANT</option></select></div>
               <div className="space-y-1.5"><Label htmlFor="countryCode">Country</Label><Input id="countryCode" name="countryCode" defaultValue="AL" maxLength={2} /></div>
