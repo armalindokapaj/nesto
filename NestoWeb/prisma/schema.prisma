@@ -1,11 +1,11 @@
 // Nesto — Phase 0/1 data model.
 //
-// Datasource is SQLite for zero-dependency local development (no Docker/Postgres
-// available in this environment). Every tenant-owned model carries a `tenantId`
-// column so switching `provider` to "postgresql" later is a config change, not a
-// schema rewrite. Status/role fields are plain strings (validated at the app layer
-// via lib/constants.ts) rather than Prisma enums, since SQLite has no native enum
-// support — this also means the same schema works unmodified on Postgres.
+// Datasource was SQLite for zero-dependency local development. Deployed to
+// Vercel + Neon Postgres on 2026-08-07; every tenant-owned model carries a
+// `tenantId` column so the switch was a config change, not a schema rewrite.
+// Status/role fields remain plain strings (validated at the app layer via
+// lib/constants.ts) rather than Prisma enums — kept as-is post-migration
+// since both DBs support the convention unmodified.
 
 generator client {
   provider = "prisma-client-js"
@@ -13,8 +13,9 @@ generator client {
 }
 
 datasource db {
-  provider = "sqlite"
-  url      = env("DATABASE_URL")
+  provider  = "postgresql"
+  url       = env("DATABASE_URL")
+  directUrl = env("DATABASE_URL_UNPOOLED")
 }
 
 // ---------------------------------------------------------------------------
