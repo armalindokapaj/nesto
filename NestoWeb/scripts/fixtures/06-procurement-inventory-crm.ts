@@ -122,7 +122,13 @@ export async function seedProcurementInventoryCrm(ctx: FixtureContext) {
   if (!(await db.opportunity.findFirst({ where: { tenantId } }))) {
     const client = await db.client.findFirst({ where: { tenantId, name: "Kastrioti Hotels Group" } });
     if (client) {
-      await createOpportunity(tenantId, { clientId: client.id, title: "New boutique hotel — 40 rooms", estimatedValue: 3_200_000, ownerId: users.gentian.id });
+      await createOpportunity(tenantId, {
+        clientId: client.id,
+        title: "New boutique hotel — 40 rooms",
+        estimatedValue: 3_200_000,
+        ownerId: users.gentian.id,
+        actorId: users.gentian.id,
+      });
       console.log("  + Opportunity: Kastrioti Hotels Group — new boutique hotel");
     }
     await createLead(tenantId, { title: "Mixed-use development inquiry", personName: "Vera Metani", personEmail: "vera.metani@example.com", source: "Website", estimatedValue: 1_800_000, ownerId: users.gentian.id });

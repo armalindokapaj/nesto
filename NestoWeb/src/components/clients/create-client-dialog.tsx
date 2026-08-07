@@ -16,9 +16,19 @@ const DRAFT_KEY = "client.create";
 // anyone; it's purely "don't lose what I typed if I navigate away," which
 // is the whole PRD rule (Manual Save vs. business consequence are distinct
 // axes). See src/hooks/use-draft.ts for why the pilot is scoped to one form.
-export function CreateClientDialog({ projects }: { projects: { id: string; name: string }[] }) {
+export function CreateClientDialog({
+  projects,
+  defaultOpen,
+  defaultClientType,
+}: {
+  projects: { id: string; name: string }[];
+  // PRD_Sales_Dashboard §18 — "Add Client Company" Quick Action opens this
+  // same dialog pre-filled, not a second create form.
+  defaultOpen?: boolean;
+  defaultClientType?: string;
+}) {
   const { t } = useI18n();
-  const [open, setOpen] = useState(false);
+  const [open, setOpen] = useState(defaultOpen ?? false);
   const [state, formAction, pending] = useActionState(createClientAction, undefined);
   const { showRestoreBanner, draftValues, onFormChange, dismissDraft, onSubmitted } = useDraft(DRAFT_KEY);
   const [restored, setRestored] = useState(false);
@@ -59,6 +69,7 @@ export function CreateClientDialog({ projects }: { projects: { id: string; name:
             }}
             className="space-y-3.5"
           >
+            {defaultClientType && <input type="hidden" name="clientType" value={defaultClientType} />}
             <div className="space-y-1.5">
               <Label htmlFor="name">{t("clients.name")}</Label>
               <Input id="name" name="name" defaultValue={values?.name} required />

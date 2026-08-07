@@ -35,6 +35,16 @@ const SERIES_CONFIG: Record<string, { prefix: string; seqLength: number; include
   HSE_INCIDENT: { prefix: "INC", seqLength: 5, includeYear: true },
   IT_TICKET: { prefix: "ITK", seqLength: 5, includeYear: true },
   LEGAL_CASE: { prefix: "CASE", seqLength: 5, includeYear: true },
+  SPENDING_BILL: { prefix: "SPD", seqLength: 5, includeYear: true },
+  SUBMITTAL: { prefix: "SUB", seqLength: 5, includeYear: true },
+  ENGINEERING_PACKAGE: { prefix: "EPK", seqLength: 5, includeYear: false },
+  SPECIFICATION: { prefix: "SPC", seqLength: 5, includeYear: false },
+  CALCULATION: { prefix: "CLC", seqLength: 5, includeYear: false },
+  INSPECTION_REQUEST: { prefix: "INR", seqLength: 5, includeYear: true },
+  PROCUREMENT_COMPARISON: { prefix: "CMP", seqLength: 5, includeYear: true },
+  AWARD_RECOMMENDATION: { prefix: "AWD", seqLength: 5, includeYear: true },
+  NCR: { prefix: "NCR", seqLength: 5, includeYear: true },
+  DEFECT: { prefix: "DEF", seqLength: 5, includeYear: true },
 };
 
 export async function allocateNumber(tenantId: string, entityType: keyof typeof SERIES_CONFIG): Promise<string> {

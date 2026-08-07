@@ -9,6 +9,7 @@ import { Table, THead, TBody, TRow, TH, TD } from "@/components/ui/table";
 import { Badge } from "@/components/ui/badge";
 import { Avatar } from "@/components/ui/avatar";
 import { MovementActions } from "@/components/inventory/movement-actions";
+import { MovementConfirmActions } from "@/components/inventory/movement-confirm-actions";
 import { formatDate } from "@/lib/utils";
 import { getT } from "@/lib/i18n/server";
 
@@ -57,9 +58,22 @@ export default async function MovementDetailPage({ params }: { params: Promise<{
                   </Link>
                 </>
               )}
+              {movement.recipient && ` · ${t("inventoryModule.recipient")}: ${movement.recipient.displayName}`}
+              {movement.project && ` · ${movement.project.name}`}
             </CardDescription>
+            {movement.confirmationStatus !== "NOT_REQUIRED" && (
+              <div className="mt-2 flex items-center gap-2">
+                <Badge tone={movement.confirmationStatus === "CONFIRMED" ? "success" : movement.confirmationStatus === "DISPUTED" ? "danger" : "warning"}>
+                  {t(`inventoryModule.confirmationStatus_${movement.confirmationStatus}`)}
+                </Badge>
+                {movement.disputeReason && <span className="text-xs text-danger">{movement.disputeReason}</span>}
+              </div>
+            )}
           </div>
-          {canManage && <MovementActions movementId={movement.id} status={movement.status} />}
+          <div className="flex flex-col items-end gap-2">
+            {canManage && <MovementActions movementId={movement.id} status={movement.status} />}
+            <MovementConfirmActions movementId={movement.id} confirmationStatus={movement.confirmationStatus} />
+          </div>
         </CardHeader>
         <CardContent className="p-0">
           <Table>

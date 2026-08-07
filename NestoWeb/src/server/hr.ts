@@ -226,6 +226,33 @@ export function canManageEmployment(role: Role) {
   return can(role, "HR", "FULL");
 }
 
+// PRD_HR_Dashboard §Offboarding — closes the current ACTIVE employment with
+// status TERMINATED, same "close, never mutate in place" rule
+// recordEmploymentChange follows above; unlike a transfer, this opens no
+// replacement relationship.
+export async function terminateEmployment(tenantId: string, actorId: string, employmentId: string, effectiveEndDate: Date, notes?: string) {
+  const employment = await db.employmentRelationship.findUnique({ where: { id: employmentId }, include: { employee: true } });
+  if (!employment || employment.tenantId !== tenantId) throw new Error("Employment relationship not found.");
+  if (employment.status !== "ACTIVE") throw new Error("Only an active employment can be terminated.");
+
+  const updated = await db.employmentRelationship.update({
+    where: { id: employmentId },
+    data: { status: "TERMINATED", effectiveEndDate, notes: notes ? `${employment.notes ? employment.notes + " " : ""}${notes}` : employment.notes },
+  });
+  await db.hrActivity.create({
+    data: { tenantId, entityType: "EmploymentRelationship", entityId: employmentId, actorId, eventType: "TERMINATED", summary: `${employment.employee.fullName} — employment terminated` },
+  });
+  return updated;
+}
+
+export async function listExternalWorkforce(tenantId: string) {
+  return db.employmentRelationship.findMany({
+    where: { tenantId, employmentType: { in: ["CONTRACTOR", "EXTERNAL"] }, status: "ACTIVE" },
+    include: { employee: { select: { id: true, fullName: true } }, company: { select: { id: true, name: true } } },
+    orderBy: { effectiveStartDate: "desc" },
+  });
+}
+
 export async function updateApprovedLeave(
   tenantId: string,
   decidedById: string,

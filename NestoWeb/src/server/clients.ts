@@ -29,7 +29,7 @@ export async function getClient(tenantId: string, clientId: string) {
 export async function createClient(
   tenantId: string,
   createdById: string,
-  input: { name: string; contactName?: string; email?: string; phone?: string; projectId?: string }
+  input: { name: string; contactName?: string; email?: string; phone?: string; projectId?: string; clientType?: string }
 ) {
   const { projectId, ...clientInput } = input;
   if (projectId) await requireTenantProject(tenantId, projectId);

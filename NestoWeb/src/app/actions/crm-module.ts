@@ -18,6 +18,13 @@ import {
   createOpportunity,
   moveOpportunityStage,
   closeOpportunity,
+  recordClientUnitInterest,
+  createReservation,
+  releaseReservation,
+  recordUnitSale,
+  logCommunication,
+  createSupportCase,
+  updateSupportCaseStatus,
 } from "@/server/crm-module";
 
 // PRD_CRM_Module — additive actions. Task/document/comment actions on a
@@ -108,7 +115,7 @@ const ContactSchema = z.object({
 });
 
 export async function addContactAction(_prev: ActionState, formData: FormData): Promise<ActionState> {
-  const { tenantId, role } = await getCurrentUser();
+  const { tenantId, role, user } = await getCurrentUser();
   const parsed = ContactSchema.safeParse({
     clientId: formData.get("clientId"),
     name: formData.get("name"),
@@ -122,7 +129,7 @@ export async function addContactAction(_prev: ActionState, formData: FormData): 
 
   try {
     assertClientsWrite(role);
-    await addContact(tenantId, parsed.data);
+    await addContact(tenantId, { ...parsed.data, actorId: user.id });
   } catch (error) {
     return { error: error instanceof Error ? error.message : "Could not add contact" };
   }
@@ -228,26 +235,201 @@ export async function createOpportunityAction(_prev: ActionState, formData: Form
 
   try {
     assertClientsWrite(role);
-    await createOpportunity(tenantId, { ...parsed.data, ownerId: user.id });
+    await createOpportunity(tenantId, { ...parsed.data, ownerId: user.id, actorId: user.id });
   } catch (error) {
     return { error: error instanceof Error ? error.message : "Could not create opportunity" };
   }
 
   revalidatePath(`/clients/${parsed.data.clientId}`);
   revalidatePath("/clients/pipeline");
+  revalidatePath("/dashboard/sales");
   return { ok: true };
 }
 
 export async function moveOpportunityStageAction(opportunityId: string, stageId: string) {
-  const { tenantId, role } = await getCurrentUser();
+  const { tenantId, role, user } = await getCurrentUser();
   assertClientsWrite(role);
-  await moveOpportunityStage(tenantId, { opportunityId, stageId });
+  await moveOpportunityStage(tenantId, { opportunityId, stageId, actorId: user.id });
   revalidatePath("/clients/pipeline");
+  revalidatePath("/dashboard/sales");
 }
 
 export async function closeOpportunityAction(opportunityId: string, status: "WON" | "LOST", lostReason?: string) {
+  const { tenantId, role, user } = await getCurrentUser();
+  assertClientsWrite(role);
+  await closeOpportunity(tenantId, { opportunityId, status, lostReason, actorId: user.id });
+  revalidatePath("/clients/pipeline");
+  revalidatePath("/dashboard/sales");
+}
+
+// ---------------------------------------------------------------------------
+// Reservations & Sales/Units (PRD_Sales_Dashboard §12/§13)
+// ---------------------------------------------------------------------------
+
+const InterestSchema = z.object({
+  clientId: z.string().min(1),
+  unitId: z.string().min(1),
+  type: z.enum(["INTERESTED", "VIEWED", "RELEASED"]),
+});
+
+export async function recordClientUnitInterestAction(_prev: ActionState, formData: FormData): Promise<ActionState> {
+  const { tenantId, role, user } = await getCurrentUser();
+  const parsed = InterestSchema.safeParse({ clientId: formData.get("clientId"), unitId: formData.get("unitId"), type: formData.get("type") });
+  if (!parsed.success) return { error: parsed.error.issues[0]?.message ?? "Invalid input" };
+  try {
+    assertClientsWrite(role);
+    await recordClientUnitInterest(tenantId, { ...parsed.data, actorId: user.id });
+  } catch (error) {
+    return { error: error instanceof Error ? error.message : "Could not record interest" };
+  }
+  revalidatePath("/clients/reservations");
+  revalidatePath("/dashboard/sales");
+  return { ok: true };
+}
+
+const CreateReservationSchema = z.object({
+  clientId: z.string().min(1),
+  unitId: z.string().min(1),
+  reservationDate: z.coerce.date(),
+  expirationDate: z.coerce.date().optional(),
+  depositAmount: z.coerce.number().optional(),
+  depositStatus: z.string().optional(),
+});
+
+export async function createReservationAction(_prev: ActionState, formData: FormData): Promise<ActionState> {
+  const { tenantId, role, user } = await getCurrentUser();
+  const parsed = CreateReservationSchema.safeParse({
+    clientId: formData.get("clientId"),
+    unitId: formData.get("unitId"),
+    reservationDate: formData.get("reservationDate") || new Date(),
+    expirationDate: formData.get("expirationDate") || undefined,
+    depositAmount: formData.get("depositAmount") || undefined,
+    depositStatus: formData.get("depositStatus") || undefined,
+  });
+  if (!parsed.success) return { error: parsed.error.issues[0]?.message ?? "Invalid input" };
+  try {
+    assertClientsWrite(role);
+    await createReservation(tenantId, { ...parsed.data, salespersonId: user.id, actorId: user.id });
+  } catch (error) {
+    return { error: error instanceof Error ? error.message : "Could not create reservation" };
+  }
+  revalidatePath("/clients/reservations");
+  revalidatePath("/dashboard/sales");
+  return { ok: true };
+}
+
+export async function releaseReservationAction(relationshipId: string) {
+  const { tenantId, role, user } = await getCurrentUser();
+  assertClientsWrite(role);
+  await releaseReservation(tenantId, { relationshipId, actorId: user.id });
+  revalidatePath("/clients/reservations");
+  revalidatePath("/dashboard/sales");
+}
+
+const RecordSaleSchema = z.object({
+  clientId: z.string().min(1),
+  unitId: z.string().min(1),
+  type: z.enum(["PURCHASED", "RENTED"]),
+  askingPrice: z.coerce.number().optional(),
+  discount: z.coerce.number().optional(),
+  finalPrice: z.coerce.number().optional(),
+  saleDate: z.coerce.date(),
+});
+
+export async function recordUnitSaleAction(_prev: ActionState, formData: FormData): Promise<ActionState> {
+  const { tenantId, role, user } = await getCurrentUser();
+  const parsed = RecordSaleSchema.safeParse({
+    clientId: formData.get("clientId"),
+    unitId: formData.get("unitId"),
+    type: formData.get("type"),
+    askingPrice: formData.get("askingPrice") || undefined,
+    discount: formData.get("discount") || undefined,
+    finalPrice: formData.get("finalPrice") || undefined,
+    saleDate: formData.get("saleDate") || new Date(),
+  });
+  if (!parsed.success) return { error: parsed.error.issues[0]?.message ?? "Invalid input" };
+  try {
+    assertClientsWrite(role);
+    await recordUnitSale(tenantId, { ...parsed.data, salespersonId: user.id, actorId: user.id });
+  } catch (error) {
+    return { error: error instanceof Error ? error.message : "Could not record sale" };
+  }
+  revalidatePath("/clients/reservations");
+  revalidatePath("/dashboard/sales");
+  return { ok: true };
+}
+
+// ---------------------------------------------------------------------------
+// Communications (PRD_Sales_Dashboard §17 sidebar item)
+// ---------------------------------------------------------------------------
+
+const LogCommunicationSchema = z.object({
+  clientId: z.string().min(1),
+  contactId: z.string().optional(),
+  channel: z.string().min(1),
+  direction: z.string().optional(),
+  subject: z.string().optional(),
+  notes: z.string().min(1, "Write what was discussed"),
+});
+
+export async function logCommunicationAction(_prev: ActionState, formData: FormData): Promise<ActionState> {
+  const { tenantId, role, user } = await getCurrentUser();
+  const parsed = LogCommunicationSchema.safeParse({
+    clientId: formData.get("clientId"),
+    contactId: formData.get("contactId") || undefined,
+    channel: formData.get("channel"),
+    direction: formData.get("direction") || undefined,
+    subject: formData.get("subject") || undefined,
+    notes: formData.get("notes"),
+  });
+  if (!parsed.success) return { error: parsed.error.issues[0]?.message ?? "Invalid input" };
+  try {
+    assertClientsWrite(role);
+    await logCommunication(tenantId, { ...parsed.data, loggedById: user.id });
+  } catch (error) {
+    return { error: error instanceof Error ? error.message : "Could not log communication" };
+  }
+  revalidatePath("/clients/communications");
+  revalidatePath("/dashboard/sales");
+  return { ok: true };
+}
+
+// ---------------------------------------------------------------------------
+// Support cases (PRD_Sales_Dashboard §6 After Sales > Support)
+// ---------------------------------------------------------------------------
+
+const CreateSupportCaseSchema = z.object({
+  clientId: z.string().min(1),
+  subject: z.string().min(1, "Enter a subject"),
+  description: z.string().optional(),
+  priority: z.string().optional(),
+  assignedToId: z.string().optional(),
+});
+
+export async function createSupportCaseAction(_prev: ActionState, formData: FormData): Promise<ActionState> {
+  const { tenantId, role, user } = await getCurrentUser();
+  const parsed = CreateSupportCaseSchema.safeParse({
+    clientId: formData.get("clientId"),
+    subject: formData.get("subject"),
+    description: formData.get("description") || undefined,
+    priority: formData.get("priority") || undefined,
+    assignedToId: formData.get("assignedToId") || undefined,
+  });
+  if (!parsed.success) return { error: parsed.error.issues[0]?.message ?? "Invalid input" };
+  try {
+    assertClientsWrite(role);
+    await createSupportCase(tenantId, { ...parsed.data, createdById: user.id });
+  } catch (error) {
+    return { error: error instanceof Error ? error.message : "Could not create support case" };
+  }
+  revalidatePath("/clients/support");
+  revalidatePath("/dashboard/sales");
+  return { ok: true };
+}
+
+export async function updateSupportCaseStatusAction(caseId: string, status: string) {
   const { tenantId, role } = await getCurrentUser();
   assertClientsWrite(role);
-  await closeOpportunity(tenantId, { opportunityId, status, lostReason });
-  revalidatePath("/clients/pipeline");
+  await updateSupportCaseStatus(tenantId, { caseId, status });
+  revalidatePath("/clients/support");
 }

@@ -13,17 +13,39 @@ type Line = { productId: string; qty: string; fromWarehouseId: string; toWarehou
 
 // §24/§25 — a movement may be saved as a Draft before it balances out
 // warehouses; only posting applies it to stock (see MovementActions).
+//
+// `allowedTypes` narrows the type picker (or fixes it to one type when it has
+// a single entry) — used by the Receiving/Goods Issues/Transfers/Returns
+// leaf pages so each only ever creates its own kind of movement.
+// `showRecipient`/`showProject` add the PRD_Inventory_Dashboard Tagged
+// Goods Issue / Transfer Receipt fields; posting the resulting movement is
+// what actually puts it into PENDING confirmation (see inventory-module.ts).
 export function MovementForm({
   products,
   warehouses,
+  allowedTypes,
+  showRecipient,
+  showProject,
+  recipients,
+  projects,
+  redirectTo,
 }: {
   products: { id: string; sku: string; name: string }[];
   warehouses: { id: string; code: string; name: string }[];
+  allowedTypes?: MovementType[];
+  showRecipient?: boolean;
+  showProject?: boolean;
+  recipients?: { id: string; displayName: string }[];
+  projects?: { id: string; name: string }[];
+  redirectTo?: string;
 }) {
   const { t } = useI18n();
   const router = useRouter();
-  const [type, setType] = useState<MovementType>("RECEIPT");
+  const types = allowedTypes && allowedTypes.length > 0 ? allowedTypes : MOVEMENT_TYPES;
+  const [type, setType] = useState<MovementType>(types[0]!);
   const [reason, setReason] = useState("");
+  const [recipientId, setRecipientId] = useState("");
+  const [projectId, setProjectId] = useState("");
   const [lines, setLines] = useState<Line[]>([{ productId: "", qty: "", fromWarehouseId: "", toWarehouseId: "" }]);
   const [error, setError] = useState<string | null>(null);
   const [isPending, startTransition] = useTransition();
@@ -40,6 +62,8 @@ export function MovementForm({
       const result = await createMovementAction(undefined, {
         type,
         reason: reason || undefined,
+        recipientId: showRecipient && recipientId ? recipientId : undefined,
+        projectId: showProject && projectId ? projectId : undefined,
         lines: lines
           .filter((l) => l.productId && l.qty)
           .map((l) => ({
@@ -53,32 +77,66 @@ export function MovementForm({
         setError(result.error);
         return;
       }
-      router.push("/dashboard/inventory/movements");
+      router.push(redirectTo ?? "/dashboard/inventory/movements");
     });
   }
 
   return (
     <div className="space-y-4">
       <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
-        <div className="space-y-1.5">
-          <Label htmlFor="mv-type">{t("inventoryModule.movementType")}</Label>
-          <select
-            id="mv-type"
-            value={type}
-            onChange={(e) => setType(e.target.value as MovementType)}
-            className="h-10 w-full rounded-lg border border-border bg-surface px-3 text-sm text-ink focus:outline-none focus:border-gold focus:ring-2 focus:ring-gold/20"
-          >
-            {MOVEMENT_TYPES.map((mt) => (
-              <option key={mt} value={mt}>
-                {t(`inventoryModule.movementType_${mt}`)}
-              </option>
-            ))}
-          </select>
-        </div>
+        {types.length > 1 && (
+          <div className="space-y-1.5">
+            <Label htmlFor="mv-type">{t("inventoryModule.movementType")}</Label>
+            <select
+              id="mv-type"
+              value={type}
+              onChange={(e) => setType(e.target.value as MovementType)}
+              className="h-10 w-full rounded-lg border border-border bg-surface px-3 text-sm text-ink focus:outline-none focus:border-gold focus:ring-2 focus:ring-gold/20"
+            >
+              {types.map((mt) => (
+                <option key={mt} value={mt}>
+                  {t(`inventoryModule.movementType_${mt}`)}
+                </option>
+              ))}
+            </select>
+          </div>
+        )}
         <div className="space-y-1.5">
           <Label htmlFor="mv-reason">{t("inventoryModule.reason")}</Label>
           <Input id="mv-reason" value={reason} onChange={(e) => setReason(e.target.value)} />
         </div>
+        {showRecipient && (
+          <div className="space-y-1.5">
+            <Label htmlFor="mv-recipient">{t("inventoryModule.recipient")}</Label>
+            <select
+              id="mv-recipient"
+              value={recipientId}
+              onChange={(e) => setRecipientId(e.target.value)}
+              className="h-10 w-full rounded-lg border border-border bg-surface px-3 text-sm text-ink focus:outline-none focus:border-gold focus:ring-2 focus:ring-gold/20"
+            >
+              <option value="">{t("common.none")}</option>
+              {(recipients ?? []).map((r) => (
+                <option key={r.id} value={r.id}>{r.displayName}</option>
+              ))}
+            </select>
+          </div>
+        )}
+        {showProject && (
+          <div className="space-y-1.5">
+            <Label htmlFor="mv-project">{t("nav.projects")}</Label>
+            <select
+              id="mv-project"
+              value={projectId}
+              onChange={(e) => setProjectId(e.target.value)}
+              className="h-10 w-full rounded-lg border border-border bg-surface px-3 text-sm text-ink focus:outline-none focus:border-gold focus:ring-2 focus:ring-gold/20"
+            >
+              <option value="">{t("common.none")}</option>
+              {(projects ?? []).map((p) => (
+                <option key={p.id} value={p.id}>{p.name}</option>
+              ))}
+            </select>
+          </div>
+        )}
       </div>
 
       <div className="space-y-2">

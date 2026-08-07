@@ -8,9 +8,20 @@ import { Button } from "@/components/ui/button";
 import { Input, Label } from "@/components/ui/input";
 import { useI18n } from "@/lib/i18n/locale-provider";
 
-export function CreateOpportunityDialog({ clientId }: { clientId: string }) {
+// `clientId` binds the dialog to one client (used from the Client Page).
+// `clients` renders a picker instead — used from the standalone Opportunities
+// register (PRD_Sales_Dashboard §11), where no single client is in context.
+export function CreateOpportunityDialog({
+  clientId,
+  clients,
+  defaultOpen,
+}: {
+  clientId?: string;
+  clients?: { id: string; name: string }[];
+  defaultOpen?: boolean;
+}) {
   const { t } = useI18n();
-  const [open, setOpen] = useState(false);
+  const [open, setOpen] = useState(defaultOpen ?? false);
   const [state, formAction, pending] = useActionState(createOpportunityAction, undefined);
 
   return (
@@ -36,7 +47,29 @@ export function CreateOpportunityDialog({ clientId }: { clientId: string }) {
             }}
             className="space-y-3.5"
           >
-            <input type="hidden" name="clientId" value={clientId} />
+            {clientId ? (
+              <input type="hidden" name="clientId" value={clientId} />
+            ) : (
+              <div className="space-y-1.5">
+                <Label htmlFor="opp-client">{t("nav.clients")}</Label>
+                <select
+                  id="opp-client"
+                  name="clientId"
+                  required
+                  defaultValue=""
+                  className="h-10 w-full rounded-lg border border-border bg-surface px-3 text-sm text-ink focus:outline-none focus:border-gold focus:ring-2 focus:ring-gold/20"
+                >
+                  <option value="" disabled>
+                    {t("common.none")}
+                  </option>
+                  {clients?.map((c) => (
+                    <option key={c.id} value={c.id}>
+                      {c.name}
+                    </option>
+                  ))}
+                </select>
+              </div>
+            )}
             <div className="space-y-1.5">
               <Label htmlFor="opp-title">{t("crm.opportunityTitle")}</Label>
               <Input id="opp-title" name="title" required />

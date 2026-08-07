@@ -59,5 +59,21 @@ export const DEFAULT_PIPELINE_STAGES = [
   { name: "Reservation", probability: 75 },
   { name: "Contract", probability: 85 },
   { name: "Deposit Paid", probability: 95 },
-  { name: "Completed", probability: 100 },
+  { name: "Completed", probability: 99 },
+  { name: "After Sales", probability: 100 },
 ] as const;
+
+// PRD_Sales_Dashboard §12/§13 — Reservations & Sales/Units widgets.
+export const CLIENT_UNIT_RELATIONSHIP_TYPES = ["INTERESTED", "VIEWED", "RESERVED", "PURCHASED", "RENTED", "RELEASED"] as const;
+export type ClientUnitRelationshipType = (typeof CLIENT_UNIT_RELATIONSHIP_TYPES)[number];
+
+export const DEPOSIT_STATUSES = ["UNPAID", "PARTIAL", "PAID", "REFUNDED"] as const;
+export const RESERVATION_STATUSES = ["ACTIVE", "EXPIRED", "CONVERTED", "RELEASED"] as const;
+
+// §17 — CRM communication log.
+export const COMMUNICATION_CHANNELS = ["CALL", "EMAIL", "WHATSAPP", "SMS", "MEETING", "IN_PERSON", "OTHER"] as const;
+export const COMMUNICATION_DIRECTIONS = ["INBOUND", "OUTBOUND"] as const;
+
+// §6 — After Sales > Support sidebar item.
+export const SUPPORT_CASE_PRIORITIES = ["LOW", "NORMAL", "HIGH", "URGENT"] as const;
+export const SUPPORT_CASE_STATUSES = ["OPEN", "IN_PROGRESS", "WAITING_ON_CLIENT", "RESOLVED", "CLOSED"] as const;

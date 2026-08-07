@@ -14,7 +14,7 @@ import { MOVEMENT_DIRECTION, type MovementType } from "@/lib/inventory-constants
 
 export { PRODUCT_TRACKING_TYPES, PRODUCT_STATUSES, MOVEMENT_TYPES, MOVEMENT_STATUSES, MOVEMENT_DIRECTION } from "@/lib/inventory-constants";
 
-async function logInventoryActivity(input: { tenantId: string; entityType: string; entityId: string; actorId?: string | null; eventType: string; summary: string }) {
+export async function logInventoryActivity(input: { tenantId: string; entityType: string; entityId: string; actorId?: string | null; eventType: string; summary: string }) {
   await db.inventoryActivity.create({
     data: {
       tenantId: input.tenantId,
@@ -150,11 +150,15 @@ export async function createWarehouse(tenantId: string, input: { code: string; n
 // Stock Movements — the append-only ledger
 // ---------------------------------------------------------------------------
 
-export async function listMovements(tenantId: string) {
+export async function listMovements(tenantId: string, filter?: { confirmationStatus?: string | string[] }) {
   return db.inventoryMovement.findMany({
-    where: { tenantId },
+    where: { tenantId, ...(filter?.confirmationStatus ? { confirmationStatus: Array.isArray(filter.confirmationStatus) ? { in: filter.confirmationStatus } : filter.confirmationStatus } : {}) },
     orderBy: { date: "desc" },
-    include: { createdBy: { select: { id: true, displayName: true } }, lines: { select: { id: true, productId: true, qty: true } } },
+    include: {
+      createdBy: { select: { id: true, displayName: true } },
+      recipient: { select: { id: true, displayName: true } },
+      lines: { select: { id: true, productId: true, qty: true } },
+    },
   });
 }
 
@@ -165,6 +169,9 @@ export async function getMovementDetail(tenantId: string, movementId: string) {
       include: {
         createdBy: { select: { id: true, displayName: true, avatarColor: true } },
         postedBy: { select: { id: true, displayName: true } },
+        recipient: { select: { id: true, displayName: true } },
+        confirmedBy: { select: { id: true, displayName: true } },
+        project: { select: { id: true, name: true } },
         reversesMovement: { select: { id: true, number: true } },
         reversedBy: { select: { id: true, number: true } },
         lines: {
@@ -194,7 +201,11 @@ export async function createMovement(
     type: MovementType;
     reason?: string;
     createdById: string;
-    lines: { productId: string; qty: number; unitCost?: number; fromWarehouseId?: string; toWarehouseId?: string }[];
+    projectId?: string;
+    // PRD_Inventory_Dashboard — Tagged Goods Issue / Transfer Receipt: naming
+    // a recipient puts the movement into PENDING confirmation on posting.
+    recipientId?: string;
+    lines: { productId: string; qty: number; unitCost?: number; fromWarehouseId?: string; toWarehouseId?: string; expiryDate?: Date }[];
   }
 ) {
   const direction = MOVEMENT_DIRECTION[input.type];
@@ -214,6 +225,8 @@ export async function createMovement(
       type: input.type,
       reason: input.reason,
       createdById: input.createdById,
+      projectId: input.projectId || null,
+      recipientId: input.recipientId || null,
       lines: {
         create: validLines.map((l) => ({
           tenantId,
@@ -222,6 +235,7 @@ export async function createMovement(
           unitCost: l.unitCost,
           fromWarehouseId: direction.requiresFrom ? l.fromWarehouseId : null,
           toWarehouseId: direction.requiresTo ? l.toWarehouseId : null,
+          expiryDate: l.expiryDate,
         })),
       },
     },
@@ -287,9 +301,18 @@ export async function postMovement(tenantId: string, input: { movementId: string
     }
   }
 
+  // PRD_Inventory_Dashboard — a recipient-tagged ISSUE/TRANSFER only enters
+  // PENDING confirmation once the goods have actually moved (posted), never
+  // at draft time; RECEIPT/ADJUSTMENT movements never need confirmation.
+  const needsConfirmation = !!movement.recipientId && (movement.type === "ISSUE" || movement.type === "TRANSFER");
   const posted = await db.inventoryMovement.update({
     where: { id: movement.id },
-    data: { status: "POSTED", postedAt: new Date(), postedById: input.actorId },
+    data: {
+      status: "POSTED",
+      postedAt: new Date(),
+      postedById: input.actorId,
+      confirmationStatus: needsConfirmation ? "PENDING" : movement.confirmationStatus,
+    },
   });
 
   const touched = new Set<string>();
@@ -363,4 +386,41 @@ export async function reverseMovement(tenantId: string, input: { movementId: str
   await logInventoryActivity({ tenantId, entityType: "InventoryMovement", entityId: movement.id, actorId: input.actorId, eventType: "REVERSED", summary: `Reversed by ${reversal.number}` });
   await logInventoryActivity({ tenantId, entityType: "InventoryMovement", entityId: reversal.id, actorId: input.actorId, eventType: "CREATED", summary: `Reversal of ${movement.number}, posted automatically` });
   return reversal;
+}
+
+// ---------------------------------------------------------------------------
+// PRD_Inventory_Dashboard — Tagged Goods Issue / Transfer Receipt confirmation.
+// A named recipient must acknowledge receipt (or dispute it); the underlying
+// posted movement is never reversed by a confirmation/dispute — disputes are
+// resolved by a human raising a separate reversing/adjustment movement, same
+// as any other posted-movement correction.
+// ---------------------------------------------------------------------------
+
+export async function confirmMovementReceipt(tenantId: string, actorId: string, movementId: string) {
+  const movement = assertTenant(await db.inventoryMovement.findUnique({ where: { id: movementId } }), tenantId, "InventoryMovement");
+  if (movement.confirmationStatus !== "PENDING" && movement.confirmationStatus !== "DISPUTED") {
+    throw new Error("This movement is not awaiting confirmation.");
+  }
+  if (movement.recipientId && movement.recipientId !== actorId) {
+    throw new Error("Only the named recipient can confirm this movement.");
+  }
+  const updated = await db.inventoryMovement.update({
+    where: { id: movementId },
+    data: { confirmationStatus: "CONFIRMED", confirmedAt: new Date(), confirmedById: actorId, disputeReason: null },
+  });
+  await logInventoryActivity({ tenantId, entityType: "InventoryMovement", entityId: movementId, actorId, eventType: "CONFIRMED", summary: `${movement.number} receipt confirmed` });
+  return updated;
+}
+
+export async function disputeMovementReceipt(tenantId: string, actorId: string, movementId: string, reason: string) {
+  const movement = assertTenant(await db.inventoryMovement.findUnique({ where: { id: movementId } }), tenantId, "InventoryMovement");
+  if (movement.confirmationStatus !== "PENDING") throw new Error("This movement is not awaiting confirmation.");
+  if (movement.recipientId && movement.recipientId !== actorId) throw new Error("Only the named recipient can dispute this movement.");
+  if (!reason.trim()) throw new Error("A dispute reason is required.");
+  const updated = await db.inventoryMovement.update({
+    where: { id: movementId },
+    data: { confirmationStatus: "DISPUTED", disputeReason: reason.trim() },
+  });
+  await logInventoryActivity({ tenantId, entityType: "InventoryMovement", entityId: movementId, actorId, eventType: "DISPUTED", summary: `${movement.number} disputed: ${reason.trim()}` });
+  return updated;
 }

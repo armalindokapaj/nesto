@@ -13,9 +13,8 @@ generator client {
 }
 
 datasource db {
-  provider  = "postgresql"
-  url       = env("DATABASE_URL")
-  directUrl = env("DATABASE_URL_UNPOOLED")
+  provider = "sqlite"
+  url      = env("DATABASE_URL")
 }
 
 // ---------------------------------------------------------------------------
@@ -139,13 +138,34 @@ model Tenant {
   taskChecklistItems TaskChecklistItem[]
 
   // --- PRD_CRM_Module (additive) -----------------------------------------
-  contacts       Contact[]
-  clientNotes    ClientNote[]
-  pipelines      Pipeline[]
-  pipelineStages PipelineStage[]
-  opportunities  Opportunity[]
-  leads          Lead[]
-  clientStars    ClientStar[]
+  contacts                Contact[]
+  clientNotes             ClientNote[]
+  pipelines               Pipeline[]
+  pipelineStages          PipelineStage[]
+  opportunities           Opportunity[]
+  leads                   Lead[]
+  clientStars             ClientStar[]
+  clientUnitRelationships ClientUnitRelationship[]
+  crmCommunications       CrmCommunication[]
+  supportCases            SupportCase[]
+  crmActivityEvents       CrmActivityEvent[]
+
+  // --- PRD_Finance_Dashboard (additive) -----------------------------------
+  spendingBills   SpendingBill[]
+  budgets         Budget[]
+  budgetRevisions BudgetRevision[]
+  loans           Loan[]
+  investments     Investment[]
+
+  // --- PRD_Architect_Dashboard / PRD_Engineer_Dashboard (additive) --------
+  drawingRevisions    DrawingRevision[]
+  submittals          Submittal[]
+  engineeringPackages EngineeringPackage[]
+  specifications      Specification[]
+  calculations        Calculation[]
+  inspectionRequests  InspectionRequest[]
+  coordinationIssues  CoordinationIssue[]
+  clientRequests      ClientRequest[]
 
   // --- PRD_Contracts_Module (additive) -----------------------------------
   contractParties     ContractParty[]
@@ -163,15 +183,19 @@ model Tenant {
   financeActivity FinanceActivity[]
 
   // --- PRD_Inventory_Module (additive) ------------------------------------
-  productCategories  ProductCategory[]
-  unitsOfMeasure     UnitOfMeasure[]
-  products           Product[]
-  warehouses         Warehouse[]
-  inventoryLocations InventoryLocation[]
-  inventoryMovements InventoryMovement[]
-  movementLines      MovementLine[]
-  stockBalances      StockBalance[]
-  inventoryActivity  InventoryActivity[]
+  productCategories   ProductCategory[]
+  unitsOfMeasure      UnitOfMeasure[]
+  products            Product[]
+  warehouses          Warehouse[]
+  inventoryLocations  InventoryLocation[]
+  inventoryMovements  InventoryMovement[]
+  movementLines       MovementLine[]
+  stockBalances       StockBalance[]
+  stockReservations   StockReservation[]
+  inventoryCounts     InventoryCount[]
+  inventoryCountLines InventoryCountLine[]
+  dailyCloses         DailyClose[]
+  inventoryActivity   InventoryActivity[]
 
   // --- PRD_6 Public Sign-Up / Platform Approval -------------------------
   profileInvitations ProfileInvitation[]
@@ -224,6 +248,10 @@ model Tenant {
   payrollRuns       PayrollRun[]
   payrollRunLines   PayrollRunLine[]
   payrollActivities PayrollActivity[]
+
+  // --- PRD_HR_Dashboard Timesheets / Project Labour (additive) -------------
+  timesheets     Timesheet[]
+  timesheetLines TimesheetLine[]
 
   // --- PRD_Reporting_Analytics Phase 1 (additive) ---------------------------
   metricDefinitions   MetricDefinition[]
@@ -294,6 +322,16 @@ model Tenant {
 
   // --- Universal Draft Mode (additive) --------------------------------------
   recordDrafts RecordDraft[]
+
+  // --- PRD_Procurement_Dashboard (additive) ---------------------------------
+  procurementComparisons      ProcurementComparison[]
+  procurementComparisonScores ProcurementComparisonScore[]
+  awardRecommendations        AwardRecommendation[]
+
+  // --- PRD_QAQC_Dashboard (additive) ------------------------------------
+  ncrs           Ncr[]
+  defects        Defect[]
+  qaqcActivities QaqcActivity[]
 }
 
 model Company {
@@ -324,12 +362,19 @@ model Company {
   supplierQuotations        SupplierQuotation[]
   procurementPurchaseOrders PurchaseOrder[]
   procurementDeliveries     ProcurementDelivery[]
+  procurementComparisons    ProcurementComparison[]
   workPackages              WorkPackage[]
   scheduleVersions          WorkScheduleVersion[]
   dailySiteReports          DailySiteReport[]
   workConstraints           WorkConstraint[]
   workDelayEvents           WorkDelayEvent[]
   measurementSheets         WorkMeasurementSheet[]
+
+  // --- PRD_Finance_Dashboard (additive) -----------------------------------
+  spendingBills SpendingBill[]
+  budgets       Budget[]
+  loans         Loan[]
+  investments   Investment[]
 
   // --- PRD_HR_Payroll_Workforce (additive) ---------------------------------
   employmentRelationships EmploymentRelationship[]
@@ -422,12 +467,45 @@ model UserIdentity {
   teamsLed Team[] @relation("TeamLead")
 
   // --- PRD_CRM_Module (additive) -----------------------------------------
-  clientsOwned        Client[]      @relation("ClientOwner")
-  contactsOwned       Contact[]     @relation("ContactOwner")
-  clientNotesAuthored ClientNote[]  @relation("ClientNoteAuthor")
-  opportunitiesOwned  Opportunity[] @relation("OpportunityOwner")
-  leadsOwned          Lead[]        @relation("LeadOwner")
-  clientStars         ClientStar[]  @relation("ClientStarUser")
+  clientsOwned                   Client[]                 @relation("ClientOwner")
+  contactsOwned                  Contact[]                @relation("ContactOwner")
+  clientNotesAuthored            ClientNote[]             @relation("ClientNoteAuthor")
+  opportunitiesOwned             Opportunity[]            @relation("OpportunityOwner")
+  leadsOwned                     Lead[]                   @relation("LeadOwner")
+  clientStars                    ClientStar[]             @relation("ClientStarUser")
+  unitRelationshipsAsSalesperson ClientUnitRelationship[] @relation("ClientUnitRelationshipSalesperson")
+  unitRelationshipsCreated       ClientUnitRelationship[] @relation("ClientUnitRelationshipCreatedBy")
+  crmCommunicationsLogged        CrmCommunication[]       @relation("CrmCommunicationLoggedBy")
+  supportCasesAssigned           SupportCase[]            @relation("SupportCaseAssignedTo")
+  supportCasesCreated            SupportCase[]            @relation("SupportCaseCreatedBy")
+  crmActivityEventsActed         CrmActivityEvent[]       @relation("CrmActivityEventActor")
+
+  // --- PRD_Finance_Dashboard (additive) -----------------------------------
+  spendingBillsSubmitted        SpendingBill[]   @relation("SpendingBillSubmitter")
+  spendingBillsSuperiorApproved SpendingBill[]   @relation("SpendingBillSuperiorApprover")
+  spendingBillsFinanceApproved  SpendingBill[]   @relation("SpendingBillFinanceApprover")
+  budgetsCreated                Budget[]         @relation("BudgetCreatedBy")
+  budgetRevisionsMade           BudgetRevision[] @relation("BudgetRevisionRevisedBy")
+  loansCreated                  Loan[]           @relation("LoanCreatedBy")
+  investmentsCreated            Investment[]     @relation("InvestmentCreatedBy")
+
+  // --- PRD_Architect_Dashboard / PRD_Engineer_Dashboard (additive) --------
+  drawingsAuthored           Drawing[]            @relation("DrawingAuthor")
+  drawingRevisionsAuthored   DrawingRevision[]    @relation("DrawingRevisionAuthor")
+  rfisResponded              RFI[]                @relation("RfiRespondedBy")
+  submittalsSubmitted        Submittal[]          @relation("SubmittalSubmitter")
+  submittalsReviewed         Submittal[]          @relation("SubmittalReviewer")
+  engineeringPackagesOwned   EngineeringPackage[] @relation("EngineeringPackageOwner")
+  specificationsAuthored     Specification[]      @relation("SpecificationAuthor")
+  calculationsAuthored       Calculation[]        @relation("CalculationAuthor")
+  calculationsChecked        Calculation[]        @relation("CalculationChecker")
+  inspectionsRequested       InspectionRequest[]  @relation("InspectionRequester")
+  inspectionsAssigned        InspectionRequest[]  @relation("InspectionInspector")
+  inspectionResultsIssued    InspectionRequest[]  @relation("InspectionResultBy")
+  coordinationIssuesCreated  CoordinationIssue[]  @relation("CoordinationIssueCreatedBy")
+  coordinationIssuesAssigned CoordinationIssue[]  @relation("CoordinationIssueAssignedTo")
+  clientRequestsAssigned     ClientRequest[]      @relation("ClientRequestAssignedArchitect")
+  clientRequestsCreated      ClientRequest[]      @relation("ClientRequestCreatedBy")
 
   // --- PRD_Contracts_Module (additive) -----------------------------------
   contractsResponsibleFor  Contract[]           @relation("ContractResponsible")
@@ -444,7 +522,16 @@ model UserIdentity {
   warehousesManaged         Warehouse[]         @relation("WarehouseManager")
   inventoryMovementsPosted  InventoryMovement[] @relation("InventoryMovementPostedBy")
   inventoryMovementsCreated InventoryMovement[] @relation("InventoryMovementCreatedBy")
-  inventoryActivityActed    InventoryActivity[] @relation("InventoryActivityActor")
+
+  // --- PRD_Inventory_Dashboard (additive) ---------------------------------
+  inventoryMovementsRecipient   InventoryMovement[]  @relation("InventoryMovementRecipient")
+  inventoryMovementsConfirmedBy InventoryMovement[]  @relation("InventoryMovementConfirmedBy")
+  stockReservationsRequested    StockReservation[]   @relation("StockReservationRequestedBy")
+  inventoryCountsCreated        InventoryCount[]     @relation("InventoryCountCreatedBy")
+  inventoryCountsApproved       InventoryCount[]     @relation("InventoryCountApprovedBy")
+  inventoryCountLinesCounted    InventoryCountLine[] @relation("InventoryCountLineCountedBy")
+  dailyClosesConfirmed          DailyClose[]         @relation("DailyCloseConfirmedBy")
+  inventoryActivityActed        InventoryActivity[]  @relation("InventoryActivityActor")
 
   // --- PRD_6 Public Sign-Up / Platform Approval -------------------------
   // A single flag on the existing company-scoped identity, not a separate
@@ -534,6 +621,23 @@ model UserIdentity {
   payrollRunsLocked    PayrollRun[]      @relation("PayrollRunLockedBy")
   payrollActivityActed PayrollActivity[] @relation("PayrollActivityActor")
 
+  // --- PRD_HR_Dashboard Timesheets (additive) -------------------------------
+  timesheetsVerified Timesheet[] @relation("TimesheetVerifiedBy")
+
+  // --- PRD_Procurement_Dashboard (additive) ---------------------------------
+  comparisonsCreated        ProcurementComparison[]      @relation("ComparisonCreatedBy")
+  comparisonScoresEvaluated ProcurementComparisonScore[] @relation("ComparisonScoreEvaluatedBy")
+  awardsPrepared            AwardRecommendation[]        @relation("AwardPreparedBy")
+  awardsDecided             AwardRecommendation[]        @relation("AwardDecidedBy")
+
+  // --- PRD_QAQC_Dashboard (additive) ------------------------------------
+  ncrsRaised        Ncr[]          @relation("NcrRaisedBy")
+  ncrsVerified      Ncr[]          @relation("NcrVerifiedBy")
+  defectsRaised     Defect[]       @relation("DefectRaisedBy")
+  defectsAssigned   Defect[]       @relation("DefectAssignedTo")
+  defectsVerified   Defect[]       @relation("DefectVerifiedBy")
+  qaqcActivityActed QaqcActivity[] @relation("QaqcActivityActor")
+
   // --- PRD_Approvals_Workflow_Engine Phase 1 (additive) --------------------
   workflowInstancesSubmitted WorkflowInstance[] @relation("WorkflowInstanceSubmittedBy")
   workflowDecisionsMade      WorkflowDecision[] @relation("WorkflowDecisionDecidedBy")
@@ -622,6 +726,15 @@ model Project {
   purchaseOrders         PurchaseOrder[]
   purchaseRequests       PurchaseRequest[]
   procurementPackages    ProcurementPackage[]
+  spendingBills          SpendingBill[]
+  budgets                Budget[]
+  submittals             Submittal[]
+  engineeringPackages    EngineeringPackage[]
+  specifications         Specification[]
+  calculations           Calculation[]
+  inspectionRequests     InspectionRequest[]
+  coordinationIssues     CoordinationIssue[]
+  clientRequests         ClientRequest[]
   procurementRfqs        ProcurementRfq[]
   supplierQuotations     SupplierQuotation[]
   procurementDeliveries  ProcurementDelivery[]
@@ -651,6 +764,20 @@ model Project {
   // frozen (read/link only); this is solely the required Prisma back-relation
   // for BusinessAccessRelationship, no Projects business logic touched.
   businessAccessRelationships BusinessAccessRelationship[]
+
+  // PRD_Inventory_Dashboard (additive) — same frozen-module exception: pure
+  // Prisma back-relation wiring, no Projects business logic touched.
+  inventoryMovements InventoryMovement[]
+  stockReservations  StockReservation[]
+
+  // PRD_HR_Dashboard (additive) — same frozen-module exception.
+  timesheetLines TimesheetLine[]
+
+  // PRD_Procurement_Dashboard / PRD_QAQC_Dashboard (additive) — same frozen-
+  // module exception: pure Prisma back-relation wiring.
+  procurementComparisons ProcurementComparison[]
+  ncrs                   Ncr[]
+  defects                Defect[]
 
   @@unique([tenantId, code])
   @@index([tenantId, status])
@@ -868,10 +995,11 @@ model Unit {
   createdAt  DateTime  @default(now())
   archivedAt DateTime?
 
-  areaComponents UnitAreaComponent[]
-  renders        UnitRender[]        @relation("UnitRenderGallery")
-  documentFiles  DocumentFile[]
-  activityEvents UnitActivityEvent[]
+  areaComponents      UnitAreaComponent[]
+  renders             UnitRender[]             @relation("UnitRenderGallery")
+  documentFiles       DocumentFile[]
+  activityEvents      UnitActivityEvent[]
+  clientRelationships ClientUnitRelationship[]
 
   @@unique([projectId, code])
   @@index([tenantId, projectId])
@@ -1726,10 +1854,178 @@ model Invoice {
   postedById  String?
 
   ledgerEntries FinancialLedgerEntry[]
+  spendingBill  SpendingBill?
 
   @@index([tenantId, type])
   @@index([tenantId, status])
   @@index([tenantId, contractId])
+}
+
+// ---------------------------------------------------------------------------
+// PRD_Finance_Dashboard — additive layer. §46-ish Data Ownership: Finance
+// owns Spending Bill (the operational request/approval/payment-preparation
+// workflow) and Budget (baseline/actual/committed/variance); Projects,
+// Contracts, Procurement and Units stay source-linked by bare id, never
+// duplicated. Spending Bill is deliberately a distinct record type from
+// Invoice/Expense (§12 "Spendings vs Expenses" — must not be merged).
+// ---------------------------------------------------------------------------
+
+// §11.2/§11.3 — the Spending Bill lifecycle. `status` drives the workflow;
+// FinanceActivity (existing polymorphic entityType/entityId audit table)
+// carries the audit trail rather than a dedicated table, same pattern as
+// JournalEntry/Account/FiscalPeriod already use.
+model SpendingBill {
+  id        String   @id @default(cuid())
+  tenantId  String
+  tenant    Tenant   @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  companyId String
+  company   Company  @relation(fields: [companyId], references: [id], onDelete: Cascade)
+  projectId String?
+  project   Project? @relation(fields: [projectId], references: [id])
+
+  number          String // Number Series: SPD-{YYYY}-{SEQ5}
+  category        String
+  amount          Float
+  currency        String    @default("EUR")
+  supplierId      String?
+  supplier        Supplier? @relation(fields: [supplierId], references: [id])
+  description     String?
+  // Base64 data URL — same "no object storage anywhere" convention as the
+  // Employee Profile CV/certification fields; §11.2 "Evidence attachment
+  // required unless approved policy exception."
+  evidenceDataUrl String?
+  evidenceWaived  Boolean   @default(false)
+
+  costCenter String?
+  budgetId   String?
+  budget     Budget? @relation(fields: [budgetId], references: [id])
+  overBudget Boolean @default(false)
+
+  status String @default("DRAFT")
+  // DRAFT | SUBMITTED | PENDING_SUPERIOR | PENDING_FINANCE |
+  // APPROVED_FOR_PAYMENT | PAID | REJECTED
+
+  submitterId String
+  submitter   UserIdentity @relation("SpendingBillSubmitter", fields: [submitterId], references: [id])
+
+  superiorApproverId String?
+  superiorApprover   UserIdentity? @relation("SpendingBillSuperiorApprover", fields: [superiorApproverId], references: [id])
+  superiorDecidedAt  DateTime?
+
+  financeApproverId String?
+  financeApprover   UserIdentity? @relation("SpendingBillFinanceApprover", fields: [financeApproverId], references: [id])
+  financeDecidedAt  DateTime?
+
+  rejectionReason String?
+
+  paidAt            DateTime?
+  transferReference String?
+  paymentId         String?   @unique
+  payment           Invoice?  @relation(fields: [paymentId], references: [id])
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @default(now()) @updatedAt
+
+  @@index([tenantId, companyId, status])
+  @@index([tenantId, projectId])
+}
+
+// §13 Budget Integration. One row per (scope, period) — projectId null means
+// a company-level budget. Revisions preserve the prior baseline (FIN-DASH-009)
+// rather than overwriting `baselineAmount` in place.
+model Budget {
+  id        String   @id @default(cuid())
+  tenantId  String
+  tenant    Tenant   @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  companyId String
+  company   Company  @relation(fields: [companyId], references: [id], onDelete: Cascade)
+  projectId String?
+  project   Project? @relation(fields: [projectId], references: [id])
+
+  period         String // e.g. "2026" or "2026-Q3" — configurable label, not a date-range engine in v1
+  baselineAmount Float
+  currency       String  @default("EUR")
+  costCenter     String?
+
+  status String @default("ACTIVE") // ACTIVE | CLOSED
+
+  createdById String
+  createdBy   UserIdentity @relation("BudgetCreatedBy", fields: [createdById], references: [id])
+  createdAt   DateTime     @default(now())
+
+  revisions     BudgetRevision[]
+  spendingBills SpendingBill[]
+
+  @@index([tenantId, companyId])
+  @@index([tenantId, projectId])
+}
+
+model BudgetRevision {
+  id       String @id @default(cuid())
+  tenantId String
+  tenant   Tenant @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  budgetId String
+  budget   Budget @relation(fields: [budgetId], references: [id], onDelete: Cascade)
+
+  previousAmount Float
+  newAmount      Float
+  reason         String?
+
+  revisedById String
+  revisedBy   UserIdentity @relation("BudgetRevisionRevisedBy", fields: [revisedById], references: [id])
+  revisedAt   DateTime     @default(now())
+
+  @@index([tenantId, budgetId])
+}
+
+// §14 "Other" sidebar group — kept intentionally minimal (list + record,
+// no amortization schedule engine) so the sidebar item isn't a dead link.
+model Loan {
+  id        String  @id @default(cuid())
+  tenantId  String
+  tenant    Tenant  @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  companyId String
+  company   Company @relation(fields: [companyId], references: [id], onDelete: Cascade)
+
+  lender       String
+  principal    Float
+  currency     String    @default("EUR")
+  interestRate Float?
+  outstanding  Float
+  startDate    DateTime
+  maturityDate DateTime?
+  status       String    @default("ACTIVE") // ACTIVE | PAID_OFF | DEFAULTED
+  notes        String?
+
+  createdById String
+  createdBy   UserIdentity @relation("LoanCreatedBy", fields: [createdById], references: [id])
+  createdAt   DateTime     @default(now())
+
+  @@index([tenantId, companyId])
+}
+
+model Investment {
+  id        String  @id @default(cuid())
+  tenantId  String
+  tenant    Tenant  @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  companyId String
+  company   Company @relation(fields: [companyId], references: [id], onDelete: Cascade)
+
+  name         String
+  type         String // EQUITY | BOND | DEPOSIT | REAL_ESTATE | OTHER
+  amount       Float
+  currency     String    @default("EUR")
+  currentValue Float?
+  startDate    DateTime
+  maturityDate DateTime?
+  status       String    @default("ACTIVE") // ACTIVE | MATURED | LIQUIDATED
+  notes        String?
+
+  createdById String
+  createdBy   UserIdentity @relation("InvestmentCreatedBy", fields: [createdById], references: [id])
+  createdAt   DateTime     @default(now())
+
+  @@index([tenantId, companyId])
 }
 
 model Employee {
@@ -1886,6 +2182,11 @@ model HrAppointment {
   createdAt     DateTime     @default(now())
 }
 
+// PRD_Architect_Dashboard / PRD_Engineer_Dashboard — additive enrichment.
+// `packageName`/`revisionCode`/`status` stay as the original current-state
+// columns (existing pages depend on them); DrawingRevision below adds the
+// real history/comparison/supersession trail §17/§15.2 require, without
+// touching those columns' meaning.
 model Drawing {
   id           String   @id @default(cuid())
   tenantId     String
@@ -1897,6 +2198,38 @@ model Drawing {
   revisionCode String
   status       String   @default("DRAFT") // DRAFT | IN_REVIEW | APPROVED | NEEDS_REVISION
   updatedAt    DateTime @updatedAt
+
+  // --- additive ---
+  drawingType     String? // FLOOR_PLAN | ELEVATION | SECTION | DETAIL | MATERIAL_SCHEDULE | RENDER | OTHER
+  locationContext String? // building/floor/zone/unit free text
+  authorId        String?
+  author          UserIdentity? @relation("DrawingAuthor", fields: [authorId], references: [id])
+  fileDataUrl     String?
+  createdAt       DateTime      @default(now())
+
+  revisions DrawingRevision[]
+
+  @@index([tenantId, projectId])
+}
+
+model DrawingRevision {
+  id        String  @id @default(cuid())
+  tenantId  String
+  tenant    Tenant  @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  drawingId String
+  drawing   Drawing @relation(fields: [drawingId], references: [id], onDelete: Cascade)
+
+  code        String
+  description String?
+  status      String  @default("DRAFT") // DRAFT | SUBMITTED | RETURNED | APPROVED | SUPERSEDED
+  fileDataUrl String?
+
+  authorId String
+  author   UserIdentity @relation("DrawingRevisionAuthor", fields: [authorId], references: [id])
+
+  createdAt DateTime @default(now())
+
+  @@index([tenantId, drawingId])
 }
 
 model RFI {
@@ -1911,6 +2244,328 @@ model RFI {
   assignedToId String?
   dueDate      DateTime?
   createdAt    DateTime  @default(now())
+
+  // --- additive: §18 RFI element requirements ---
+  discipline    String?
+  contextType   String? // DRAWING | SPECIFICATION | LOCATION | MODEL_OBJECT
+  contextId     String?
+  response      String?
+  respondedById String?
+  respondedBy   UserIdentity? @relation("RfiRespondedBy", fields: [respondedById], references: [id])
+  respondedAt   DateTime?
+
+  @@index([tenantId, projectId])
+}
+
+// ---------------------------------------------------------------------------
+// PRD_Architect_Dashboard / PRD_Engineer_Dashboard — additive layer.
+// Submittal is shared by both roles; Engineering Package/Specification/
+// Calculation/InspectionRequest/CoordinationIssue are Engineer-side;
+// ClientRequest is Architect-side. Every model here stays a thin
+// project-linked record (bare Project/UserIdentity FKs only) — no
+// duplication of Documents/Tasks/Workflow/BIM truth per both PRDs'
+// "one source of truth" rule.
+// ---------------------------------------------------------------------------
+
+model Submittal {
+  id        String  @id @default(cuid())
+  tenantId  String
+  tenant    Tenant  @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  projectId String
+  project   Project @relation(fields: [projectId], references: [id], onDelete: Cascade)
+
+  number      String
+  type        String // MATERIAL | TECHNICAL_DATA | CERTIFICATION | DESIGN | OTHER
+  title       String
+  discipline  String?
+  description String?
+  fileDataUrl String?
+
+  submitterId String
+  submitter   UserIdentity  @relation("SubmittalSubmitter", fields: [submitterId], references: [id])
+  reviewerId  String?
+  reviewer    UserIdentity? @relation("SubmittalReviewer", fields: [reviewerId], references: [id])
+
+  status    String    @default("OPEN") // OPEN | IN_REVIEW | APPROVED | REJECTED | RETURNED
+  dueDate   DateTime?
+  decidedAt DateTime?
+  comment   String?
+
+  createdAt DateTime @default(now())
+
+  @@index([tenantId, projectId])
+  @@index([tenantId, status])
+}
+
+model EngineeringPackage {
+  id        String  @id @default(cuid())
+  tenantId  String
+  tenant    Tenant  @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  projectId String
+  project   Project @relation(fields: [projectId], references: [id], onDelete: Cascade)
+
+  code       String
+  title      String
+  discipline String?
+  scope      String?
+  status     String    @default("OPEN") // OPEN | IN_PREPARATION | IN_REVIEW | APPROVED
+  dueDate    DateTime?
+
+  ownerId String?
+  owner   UserIdentity? @relation("EngineeringPackageOwner", fields: [ownerId], references: [id])
+
+  createdAt DateTime @default(now())
+
+  specifications Specification[]
+  calculations   Calculation[]
+
+  @@index([tenantId, projectId])
+}
+
+model Specification {
+  id        String              @id @default(cuid())
+  tenantId  String
+  tenant    Tenant              @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  projectId String
+  project   Project             @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  packageId String?
+  package   EngineeringPackage? @relation(fields: [packageId], references: [id])
+
+  code            String
+  title           String
+  discipline      String?
+  category        String?
+  scope           String?
+  currentRevision String  @default("A")
+  status          String  @default("DRAFT") // DRAFT | CURRENT | IN_REVIEW | RETURNED
+
+  authorId    String?
+  author      UserIdentity? @relation("SpecificationAuthor", fields: [authorId], references: [id])
+  fileDataUrl String?
+
+  createdAt DateTime @default(now())
+
+  @@index([tenantId, projectId])
+}
+
+model Calculation {
+  id        String              @id @default(cuid())
+  tenantId  String
+  tenant    Tenant              @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  projectId String
+  project   Project             @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  packageId String?
+  package   EngineeringPackage? @relation(fields: [packageId], references: [id])
+
+  code           String
+  title          String
+  discipline     String?
+  type           String?
+  technicalScope String?
+  assumptions    String?
+  revision       String  @default("A")
+  status         String  @default("DRAFT") // DRAFT | UNDER_REVIEW | RETURNED | APPROVED
+
+  authorId    String?
+  author      UserIdentity? @relation("CalculationAuthor", fields: [authorId], references: [id])
+  checkerId   String?
+  checker     UserIdentity? @relation("CalculationChecker", fields: [checkerId], references: [id])
+  fileDataUrl String?
+
+  createdAt DateTime @default(now())
+
+  @@index([tenantId, projectId])
+}
+
+// §20 — a genuine, intentionally minimal QA/QC module: this is the source
+// of truth PRD_Engineer_Dashboard requires Inspections to defer to. Not the
+// full PRD_HSE_Module-style QA/QC & Handover PRD referenced as an authority
+// document — request -> schedule -> execute -> result only.
+model InspectionRequest {
+  id        String  @id @default(cuid())
+  tenantId  String
+  tenant    Tenant  @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  projectId String
+  project   Project @relation(fields: [projectId], references: [id], onDelete: Cascade)
+
+  number         String
+  workPackage    String?
+  discipline     String?
+  inspectionType String?
+  location       String?
+  quantity       String?
+
+  requestedDate DateTime?
+  plannedDate   DateTime?
+
+  requesterId String
+  requester   UserIdentity  @relation("InspectionRequester", fields: [requesterId], references: [id])
+  inspectorId String?
+  inspector   UserIdentity? @relation("InspectionInspector", fields: [inspectorId], references: [id])
+
+  status String @default("REQUESTED") // REQUESTED | SCHEDULED | READY | IN_INSPECTION | RESULT_ISSUED | REINSPECTION_REQUIRED
+
+  result        String? // PASS | PASS_WITH_COMMENTS | CONDITIONAL_ACCEPTANCE | PARTIAL_PASS | FAIL
+  resultAt      DateTime?
+  resultById    String?
+  resultBy      UserIdentity? @relation("InspectionResultBy", fields: [resultById], references: [id])
+  evidenceNotes String?
+
+  correctiveTaskId String?
+
+  createdAt DateTime @default(now())
+
+  ncrs Ncr[]
+
+  @@index([tenantId, projectId])
+  @@index([tenantId, status])
+}
+
+// PRD_QAQC_Dashboard §11 — Non-Conformance Report. Canonical lifecycle Draft
+// -> Issued -> Containment -> Root Cause -> Corrective Plan -> Implementation
+// -> Verification -> Closed; a Closed NCR is never edited in place — reopen
+// creates a new open cycle on the same record with prior state preserved via
+// QaqcActivity, same "close, never rewrite" pattern as issueInspectionResult.
+model Ncr {
+  id                   String             @id @default(cuid())
+  tenantId             String
+  tenant               Tenant             @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  number               String
+  projectId            String
+  project              Project            @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  inspectionRequestId  String?
+  inspectionRequest    InspectionRequest? @relation(fields: [inspectionRequestId], references: [id])
+  discipline           String?
+  location             String?
+  description          String
+  requirement          String? // the requirement/spec violated
+  severity             String             @default("MEDIUM") // LOW | MEDIUM | HIGH | CRITICAL
+  status               String             @default("DRAFT") // DRAFT | ISSUED | CONTAINMENT | ROOT_CAUSE | CORRECTIVE_PLAN | IMPLEMENTATION | VERIFICATION | CLOSED | REOPENED
+  containmentAction    String?
+  rootCause            String?
+  correctiveActionPlan String?
+  dueDate              DateTime?
+  raisedById           String
+  raisedBy             UserIdentity       @relation("NcrRaisedBy", fields: [raisedById], references: [id])
+  verifiedById         String?
+  verifiedBy           UserIdentity?      @relation("NcrVerifiedBy", fields: [verifiedById], references: [id])
+  verifiedAt           DateTime?
+  closedAt             DateTime?
+  createdAt            DateTime           @default(now())
+
+  @@unique([tenantId, number])
+  @@index([tenantId, projectId, status])
+}
+
+// PRD_QAQC_Dashboard §13 — Defects/Snags/Punch share one lifecycle (Open ->
+// Assigned -> In Correction -> Ready for Review -> Verified -> Closed) and
+// one canonical record shape; `type` is the only thing distinguishing a
+// Defect from a Snag/Punch item, matching the PRD's shared "Quality Issues"
+// family rather than three parallel schemas.
+model Defect {
+  id               String        @id @default(cuid())
+  tenantId         String
+  tenant           Tenant        @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  number           String
+  projectId        String
+  project          Project       @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  type             String        @default("DEFECT") // DEFECT | SNAG | PUNCH
+  location         String?
+  description      String
+  severity         String        @default("MEDIUM") // LOW | MEDIUM | HIGH | CRITICAL
+  status           String        @default("OPEN") // OPEN | ASSIGNED | IN_CORRECTION | READY_FOR_REVIEW | VERIFIED | CLOSED | REOPENED
+  assignedToId     String?
+  assignedTo       UserIdentity? @relation("DefectAssignedTo", fields: [assignedToId], references: [id])
+  correctiveTaskId String?
+  verifiedById     String?
+  verifiedBy       UserIdentity? @relation("DefectVerifiedBy", fields: [verifiedById], references: [id])
+  verifiedAt       DateTime?
+  rejectionReason  String?
+  closedAt         DateTime?
+  raisedById       String
+  raisedBy         UserIdentity  @relation("DefectRaisedBy", fields: [raisedById], references: [id])
+  createdAt        DateTime      @default(now())
+
+  @@unique([tenantId, number])
+  @@index([tenantId, projectId, status])
+  @@index([tenantId, type])
+}
+
+// Audit timeline for NCR/Defect — same pattern as every other module's
+// Activity model this session (InventoryActivity, HrActivity, ...).
+model QaqcActivity {
+  id         String        @id @default(cuid())
+  tenantId   String
+  tenant     Tenant        @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  entityType String // "Ncr" | "Defect" | "InspectionRequest"
+  entityId   String
+  actorId    String?
+  actor      UserIdentity? @relation("QaqcActivityActor", fields: [actorId], references: [id])
+  eventType  String
+  summary    String
+  createdAt  DateTime      @default(now())
+
+  @@index([tenantId, entityType, entityId])
+}
+
+// BIM-owned coordination issue (§21/§24). BCF-shaped but v1-minimal —
+// viewpoint is a bare text/JSON reference, not a full BCF file exchange.
+model CoordinationIssue {
+  id         String    @id @default(cuid())
+  tenantId   String
+  tenant     Tenant    @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  projectId  String
+  project    Project   @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  bimModelId String?
+  bimModel   BimModel? @relation(fields: [bimModelId], references: [id])
+
+  title        String
+  discipline   String?
+  priority     String  @default("NORMAL") // LOW | NORMAL | HIGH | CRITICAL
+  status       String  @default("OPEN") // OPEN | IN_PROGRESS | RESOLVED | CLOSED
+  viewpointRef String?
+
+  createdById  String
+  createdBy    UserIdentity  @relation("CoordinationIssueCreatedBy", fields: [createdById], references: [id])
+  assignedToId String?
+  assignedTo   UserIdentity? @relation("CoordinationIssueAssignedTo", fields: [assignedToId], references: [id])
+  linkedTaskId String?
+
+  createdAt DateTime @default(now())
+
+  @@index([tenantId, projectId])
+  @@index([tenantId, status])
+}
+
+// §20 Client Requests — Architect-side. Sales/CRM creates it (bare
+// clientId/unitId refs, same "source-linked not owned" pattern as
+// ClientUnitRelationship); Architecture owns the design work state.
+model ClientRequest {
+  id        String  @id @default(cuid())
+  tenantId  String
+  tenant    Tenant  @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  projectId String
+  project   Project @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  clientId  String
+  client    Client  @relation(fields: [clientId], references: [id])
+  unitId    String?
+
+  requestType      String    @default("FLOOR_PLAN") // FLOOR_PLAN | CUSTOMISATION
+  description      String?
+  deliverablesNote String?
+  dueDate          DateTime?
+
+  assignedArchitectId String?
+  assignedArchitect   UserIdentity? @relation("ClientRequestAssignedArchitect", fields: [assignedArchitectId], references: [id])
+
+  status String @default("REQUESTED") // REQUESTED | IN_PROGRESS | SUBMITTED | UNDER_REVIEW | APPROVED | REJECTED
+
+  createdById String
+  createdBy   UserIdentity @relation("ClientRequestCreatedBy", fields: [createdById], references: [id])
+  createdAt   DateTime     @default(now())
+
+  @@index([tenantId, projectId])
+  @@index([tenantId, status])
 }
 
 model HseReport {
@@ -1969,14 +2624,16 @@ model Supplier {
   updatedAt           DateTime          @default(now()) @updatedAt
   archivedAt          DateTime?
 
-  contacts       SupplierContact[]
-  qualifications SupplierQualification[]
-  riskFlags      SupplierRiskFlag[]
-  documents      SupplierDocument[]
-  rfqInvitations ProcurementRfqSupplier[]
-  quotations     SupplierQuotation[]
-  purchaseOrders PurchaseOrder[]
-  deliveries     ProcurementDelivery[]
+  contacts             SupplierContact[]
+  qualifications       SupplierQualification[]
+  riskFlags            SupplierRiskFlag[]
+  documents            SupplierDocument[]
+  rfqInvitations       ProcurementRfqSupplier[]
+  quotations           SupplierQuotation[]
+  purchaseOrders       PurchaseOrder[]
+  deliveries           ProcurementDelivery[]
+  awardRecommendations AwardRecommendation[]
+  spendingBills        SpendingBill[]
 
   @@unique([tenantId, number])
   @@index([tenantId, status])
@@ -2203,10 +2860,12 @@ model ProcurementRfq {
   createdAt      DateTime            @default(now())
   updatedAt      DateTime            @updatedAt
 
-  lines          ProcurementRfqLine[]
-  suppliers      ProcurementRfqSupplier[]
-  quotations     SupplierQuotation[]
-  purchaseOrders PurchaseOrder[]
+  lines                ProcurementRfqLine[]
+  suppliers            ProcurementRfqSupplier[]
+  quotations           SupplierQuotation[]
+  purchaseOrders       PurchaseOrder[]
+  comparisons          ProcurementComparison[]
+  awardRecommendations AwardRecommendation[]
 
   @@unique([tenantId, number])
   @@index([tenantId, status, deadline])
@@ -2278,8 +2937,10 @@ model SupplierQuotation {
   createdBy         UserIdentity   @relation(fields: [createdById], references: [id])
   createdAt         DateTime       @default(now())
 
-  lines          SupplierQuotationLine[]
-  purchaseOrders PurchaseOrder[]
+  lines              SupplierQuotationLine[]
+  purchaseOrders     PurchaseOrder[]
+  comparisonScores   ProcurementComparisonScore[]
+  recommendedByAward AwardRecommendation[]        @relation("RecommendedByAward")
 
   @@unique([tenantId, number])
   @@index([tenantId, rfqId, supplierId])
@@ -2305,35 +2966,37 @@ model SupplierQuotationLine {
 }
 
 model PurchaseOrder {
-  id                    String              @id @default(cuid())
+  id                    String               @id @default(cuid())
   tenantId              String
-  tenant                Tenant              @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  tenant                Tenant               @relation(fields: [tenantId], references: [id], onDelete: Cascade)
   companyId             String?
-  company               Company?            @relation(fields: [companyId], references: [id])
+  company               Company?             @relation(fields: [companyId], references: [id])
   number                String // Number Series: PO-{YYYY}-{SEQ5}
   projectId             String?
-  project               Project?            @relation(fields: [projectId], references: [id])
+  project               Project?             @relation(fields: [projectId], references: [id])
   supplierId            String
-  supplier              Supplier            @relation(fields: [supplierId], references: [id])
+  supplier              Supplier             @relation(fields: [supplierId], references: [id])
   requestId             String?
-  request               PurchaseRequest?    @relation(fields: [requestId], references: [id])
+  request               PurchaseRequest?     @relation(fields: [requestId], references: [id])
   packageId             String?
-  package               ProcurementPackage? @relation(fields: [packageId], references: [id])
+  package               ProcurementPackage?  @relation(fields: [packageId], references: [id])
   rfqId                 String?
-  rfq                   ProcurementRfq?     @relation(fields: [rfqId], references: [id])
+  rfq                   ProcurementRfq?      @relation(fields: [rfqId], references: [id])
   quotationId           String?
-  quotation             SupplierQuotation?  @relation(fields: [quotationId], references: [id])
+  quotation             SupplierQuotation?   @relation(fields: [quotationId], references: [id])
+  awardRecommendationId String?
+  awardRecommendation   AwardRecommendation? @relation(fields: [awardRecommendationId], references: [id])
   title                 String?
-  type                  String              @default("STANDARD")
+  type                  String               @default("STANDARD")
   description           String
   amount                Float
-  currency              String              @default("EUR")
-  subtotal              Float               @default(0)
-  discount              Float               @default(0)
-  tax                   Float               @default(0)
-  freight               Float               @default(0)
-  status                String              @default("DRAFT") // DRAFT | ISSUED | ACKNOWLEDGED | PARTIALLY_FULFILLED | FULFILLED | CLOSED | ON_HOLD | CANCELLED | SUPERSEDED | ARCHIVED
-  version               Int                 @default(1)
+  currency              String               @default("EUR")
+  subtotal              Float                @default(0)
+  discount              Float                @default(0)
+  tax                   Float                @default(0)
+  freight               Float                @default(0)
+  status                String               @default("DRAFT") // DRAFT | ISSUED | ACKNOWLEDGED | PARTIALLY_FULFILLED | FULFILLED | CLOSED | ON_HOLD | CANCELLED | SUPERSEDED | ARCHIVED
+  version               Int                  @default(1)
   issueDate             DateTime?
   requestedDeliveryDate DateTime?
   confirmedDeliveryDate DateTime?
@@ -2343,9 +3006,9 @@ model PurchaseOrder {
   acknowledgedAt        DateTime?
   issuedSnapshot        String?
   requestedById         String
-  requestedBy           UserIdentity        @relation(fields: [requestedById], references: [id])
-  createdAt             DateTime            @default(now())
-  updatedAt             DateTime            @default(now()) @updatedAt
+  requestedBy           UserIdentity         @relation(fields: [requestedById], references: [id])
+  createdAt             DateTime             @default(now())
+  updatedAt             DateTime             @default(now()) @updatedAt
   archivedAt            DateTime?
 
   lines      PurchaseOrderLine[]
@@ -2444,6 +3107,96 @@ model ProcurementDeliveryLine {
   notes               String?
 
   @@index([tenantId, deliveryId])
+}
+
+// PRD_Procurement_Dashboard §10/§11 — Supplier Comparison + Award
+// Recommendation, the dashboard's actual differentiator over the existing
+// RFQ/Quotation module. A comparison scores every received quotation on the
+// same PRD-fixed criteria set (§10.1); the recommendation is a separate
+// record from the comparison so "prepare" and "decide" stay distinct roles
+// (§10.3 separation of duties — the preparer is never forced to also be the
+// decider, though nothing here stops the same person by policy choice).
+model ProcurementComparison {
+  id          String         @id @default(cuid())
+  tenantId    String
+  tenant      Tenant         @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  number      String
+  rfqId       String
+  rfq         ProcurementRfq @relation(fields: [rfqId], references: [id])
+  companyId   String
+  company     Company        @relation(fields: [companyId], references: [id])
+  projectId   String?
+  project     Project?       @relation(fields: [projectId], references: [id])
+  status      String         @default("DRAFT") // DRAFT | SCORING | COMPLETED
+  createdById String
+  createdBy   UserIdentity   @relation("ComparisonCreatedBy", fields: [createdById], references: [id])
+  completedAt DateTime?
+  createdAt   DateTime       @default(now())
+
+  scores ProcurementComparisonScore[]
+  awards AwardRecommendation[]
+
+  @@unique([tenantId, number])
+  @@index([tenantId, rfqId])
+}
+
+// One row per supplier-quotation x criterion. Weight is fixed per criterion
+// at 100/8 by default (PRD §10.2 "weights total 100% when weighted scoring
+// is enabled") — Phase-1 keeps the 8-criterion set from §10.1 fixed rather
+// than configurable.
+model ProcurementComparisonScore {
+  id            String                @id @default(cuid())
+  tenantId      String
+  tenant        Tenant                @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  comparisonId  String
+  comparison    ProcurementComparison @relation(fields: [comparisonId], references: [id], onDelete: Cascade)
+  quotationId   String
+  quotation     SupplierQuotation     @relation(fields: [quotationId], references: [id])
+  criterion     String // PRICE | LEAD_TIME | COMPLIANCE | QUALITY | HSE | WARRANTY | PERFORMANCE | RISK
+  weight        Float                 @default(12.5)
+  score         Float // 0-100, evaluator-entered
+  evaluatedById String
+  evaluatedBy   UserIdentity          @relation("ComparisonScoreEvaluatedBy", fields: [evaluatedById], references: [id])
+  evaluatedAt   DateTime              @default(now())
+
+  @@unique([comparisonId, quotationId, criterion])
+  @@index([tenantId, comparisonId])
+}
+
+// §11 Award lifecycle: Comparison -> Evaluation Complete -> Award
+// Recommendation -> Workflow/direct Decision -> Selected/Returned/Rejected.
+// Award content stays Procurement-owned even though decision routing may
+// later go through the Workflow Engine (§11.2 boundary) — Phase-1 decides
+// directly with a SoD guard (preparer cannot also decide) rather than a full
+// Workflow instance, same simplification Finance's earlier build used before
+// wiring Workflow in.
+model AwardRecommendation {
+  id                     String                @id @default(cuid())
+  tenantId               String
+  tenant                 Tenant                @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  number                 String
+  comparisonId           String
+  comparison             ProcurementComparison @relation(fields: [comparisonId], references: [id])
+  rfqId                  String
+  rfq                    ProcurementRfq        @relation(fields: [rfqId], references: [id])
+  recommendedSupplierId  String
+  recommendedSupplier    Supplier              @relation(fields: [recommendedSupplierId], references: [id])
+  recommendedQuotationId String
+  recommendedQuotation   SupplierQuotation     @relation("RecommendedByAward", fields: [recommendedQuotationId], references: [id])
+  justification          String?
+  status                 String                @default("DRAFT") // DRAFT | SUBMITTED | APPROVED | REJECTED | SUPERSEDED
+  preparedById           String
+  preparedBy             UserIdentity          @relation("AwardPreparedBy", fields: [preparedById], references: [id])
+  preparedAt             DateTime              @default(now())
+  decidedById            String?
+  decidedBy              UserIdentity?         @relation("AwardDecidedBy", fields: [decidedById], references: [id])
+  decidedAt              DateTime?
+  decisionNote           String?
+
+  purchaseOrders PurchaseOrder[]
+
+  @@unique([tenantId, number])
+  @@index([tenantId, rfqId, status])
 }
 
 model ProcurementActivity {
@@ -2861,11 +3614,16 @@ model Client {
   preferredContactMethod String?
   archivedAt             DateTime?
 
-  contacts      Contact[]
-  notes         ClientNote[]
-  opportunities Opportunity[]
-  leads         Lead[]
-  stars         ClientStar[]
+  contacts          Contact[]
+  notes             ClientNote[]
+  opportunities     Opportunity[]
+  leads             Lead[]
+  stars             ClientStar[]
+  unitRelationships ClientUnitRelationship[]
+  communications    CrmCommunication[]
+  supportCases      SupportCase[]
+  activityEvents    CrmActivityEvent[]
+  clientRequests    ClientRequest[]
 
   @@index([tenantId, status])
 }
@@ -2906,7 +3664,8 @@ model Contact {
   relationshipOwner      UserIdentity? @relation("ContactOwner", fields: [relationshipOwnerId], references: [id])
   createdAt              DateTime      @default(now())
 
-  opportunities Opportunity[]
+  opportunities  Opportunity[]
+  communications CrmCommunication[]
 
   @@index([tenantId, clientId])
 }
@@ -3042,6 +3801,127 @@ model ClientStar {
 
   @@unique([clientId, userId])
   @@index([tenantId, userId])
+}
+
+// PRD_Sales_Dashboard §12/§13 — the Reservations and Sales & Units widgets
+// need one real client-unit relationship record; this is the "Reservation/
+// ClientPurchase" deferred slice the CRM module's Phase-1 comment above
+// flagged. One row per relationship stage (a client can be INTERESTED then
+// later RESERVED then PURCHASED — each transition is a new row, not an
+// overwrite, so the Sales & Units widget can count each stage historically).
+// Reservation-specific fields are populated only when type is RESERVED;
+// sale fields only when PURCHASED/RENTED. Unit availability/pricing truth
+// stays owned by Unit — this never becomes a second source of it.
+model ClientUnitRelationship {
+  id       String @id @default(cuid())
+  tenantId String
+  tenant   Tenant @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  clientId String
+  client   Client @relation(fields: [clientId], references: [id], onDelete: Cascade)
+  unitId   String
+  unit     Unit   @relation(fields: [unitId], references: [id], onDelete: Cascade)
+
+  type              String // INTERESTED | VIEWED | RESERVED | PURCHASED | RENTED | RELEASED
+  // Populated for RESERVED rows.
+  reservationDate   DateTime?
+  expirationDate    DateTime?
+  depositAmount     Float?
+  depositStatus     String? // UNPAID | PARTIAL | PAID | REFUNDED
+  reservationStatus String? // ACTIVE | EXPIRED | CONVERTED | RELEASED
+  // Populated for PURCHASED/RENTED rows.
+  askingPrice       Float?
+  discount          Float?
+  finalPrice        Float?
+  saleDate          DateTime?
+
+  salespersonId String?
+  salesperson   UserIdentity? @relation("ClientUnitRelationshipSalesperson", fields: [salespersonId], references: [id])
+  createdById   String
+  createdBy     UserIdentity  @relation("ClientUnitRelationshipCreatedBy", fields: [createdById], references: [id])
+  createdAt     DateTime      @default(now())
+
+  @@index([tenantId, clientId])
+  @@index([tenantId, unitId])
+  @@index([tenantId, type])
+}
+
+// PRD_Sales_Dashboard §17 — CRM communication log (Work > Communications
+// sidebar item). Distinct from ClientNote (an internal note); this records
+// an actual contact touchpoint with the client.
+model CrmCommunication {
+  id        String   @id @default(cuid())
+  tenantId  String
+  tenant    Tenant   @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  clientId  String
+  client    Client   @relation(fields: [clientId], references: [id], onDelete: Cascade)
+  contactId String?
+  contact   Contact? @relation(fields: [contactId], references: [id])
+
+  channel    String // CALL | EMAIL | WHATSAPP | SMS | MEETING | IN_PERSON | OTHER
+  direction  String   @default("OUTBOUND") // INBOUND | OUTBOUND
+  subject    String?
+  notes      String
+  occurredAt DateTime @default(now())
+
+  loggedById String
+  loggedBy   UserIdentity @relation("CrmCommunicationLoggedBy", fields: [loggedById], references: [id])
+  createdAt  DateTime     @default(now())
+
+  @@index([tenantId, clientId])
+}
+
+// PRD_Sales_Dashboard §6 — After Sales > Support sidebar item.
+model SupportCase {
+  id       String @id @default(cuid())
+  tenantId String
+  tenant   Tenant @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  clientId String
+  client   Client @relation(fields: [clientId], references: [id], onDelete: Cascade)
+
+  subject     String
+  description String?
+  priority    String  @default("NORMAL") // LOW | NORMAL | HIGH | URGENT
+  status      String  @default("OPEN") // OPEN | IN_PROGRESS | WAITING_ON_CLIENT | RESOLVED | CLOSED
+
+  assignedToId String?
+  assignedTo   UserIdentity? @relation("SupportCaseAssignedTo", fields: [assignedToId], references: [id])
+  createdById  String
+  createdBy    UserIdentity  @relation("SupportCaseCreatedBy", fields: [createdById], references: [id])
+  createdAt    DateTime      @default(now())
+  resolvedAt   DateTime?
+
+  @@index([tenantId, clientId])
+  @@index([tenantId, status])
+}
+
+// PRD_Sales_Dashboard §17 — Recent Activity widget. Per-module activity
+// table, same pattern as UnitActivityEvent/ContractActivity rather than the
+// DomainEvent outbox (which is reserved for cross-module reactions like
+// ContractApproved -> Finance Structure; this feed has no reactions, it's
+// pure read history).
+model CrmActivityEvent {
+  id       String @id @default(cuid())
+  tenantId String
+  tenant   Tenant @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  clientId String
+  client   Client @relation(fields: [clientId], references: [id], onDelete: Cascade)
+
+  // LEAD_CREATED | CONTACT_ADDED | MEETING_SCHEDULED | SITE_VISIT |
+  // OPPORTUNITY_CREATED | OPPORTUNITY_STAGE_CHANGED | OPPORTUNITY_WON |
+  // OPPORTUNITY_LOST | RESERVATION_CREATED | CONTRACT_LINKED |
+  // PAYMENT_RECORDED | UNIT_SALE | DOCUMENT_UPLOADED | APPROVAL |
+  // SUPPORT_CASE_OPENED | CLIENT_STATUS_CHANGED | COMMUNICATION_LOGGED
+  eventType  String
+  summary    String
+  entityType String? // LEAD | OPPORTUNITY | UNIT | CONTRACT | SUPPORT_CASE | ...
+  entityId   String?
+
+  actorId   String
+  actor     UserIdentity @relation("CrmActivityEventActor", fields: [actorId], references: [id])
+  createdAt DateTime     @default(now())
+
+  @@index([tenantId, clientId])
+  @@index([tenantId, createdAt])
 }
 
 model Contractor {
@@ -4562,8 +5442,10 @@ model Product {
   status       String           @default("ACTIVE") // ACTIVE | INACTIVE | DISCONTINUED
   createdAt    DateTime         @default(now())
 
-  movementLines MovementLine[]
-  stockBalances StockBalance[]
+  movementLines       MovementLine[]
+  stockBalances       StockBalance[]
+  stockReservations   StockReservation[]
+  inventoryCountLines InventoryCountLine[]
 
   @@unique([tenantId, sku])
   @@index([tenantId, status])
@@ -4586,6 +5468,9 @@ model Warehouse {
   stockBalances     StockBalance[]
   movementLinesFrom MovementLine[]      @relation("MovementLineFromWarehouse")
   movementLinesTo   MovementLine[]      @relation("MovementLineToWarehouse")
+  stockReservations StockReservation[]
+  inventoryCounts   InventoryCount[]
+  dailyCloses       DailyClose[]
 
   @@unique([tenantId, code])
 }
@@ -4640,10 +5525,28 @@ model InventoryMovement {
   createdBy          UserIdentity       @relation("InventoryMovementCreatedBy", fields: [createdById], references: [id])
   createdAt          DateTime           @default(now())
 
-  lines MovementLine[]
+  // PRD_Inventory_Dashboard — Tagged Goods Issue / Transfer Receipt
+  // confirmation. Only ISSUE and TRANSFER movements addressed to a named
+  // recipient use this; RECEIPT/ADJUSTMENT movements leave it NOT_REQUIRED.
+  // Posting still happens the normal way — confirmation is a downstream
+  // acknowledgement by the receiving party, never a gate on posting itself.
+  projectId          String?
+  project            Project?      @relation(fields: [projectId], references: [id])
+  recipientId        String?
+  recipient          UserIdentity? @relation("InventoryMovementRecipient", fields: [recipientId], references: [id])
+  confirmationStatus String        @default("NOT_REQUIRED") // NOT_REQUIRED | PENDING | CONFIRMED | DISPUTED
+  confirmedAt        DateTime?
+  confirmedById      String?
+  confirmedBy        UserIdentity? @relation("InventoryMovementConfirmedBy", fields: [confirmedById], references: [id])
+  disputeReason      String?
+
+  lines                 MovementLine[]
+  fulfilledReservations StockReservation[]
+  adjustmentForCounts   InventoryCount[]
 
   @@unique([tenantId, number])
   @@index([tenantId, status])
+  @@index([tenantId, confirmationStatus])
 }
 
 // §24 MovementLine — one product quantity moving between warehouses (or
@@ -4664,6 +5567,10 @@ model MovementLine {
   fromWarehouse   Warehouse?        @relation("MovementLineFromWarehouse", fields: [fromWarehouseId], references: [id])
   toWarehouseId   String?
   toWarehouse     Warehouse?        @relation("MovementLineToWarehouse", fields: [toWarehouseId], references: [id])
+  // PRD_Inventory_Dashboard §Expiration — recorded at receipt when the
+  // product's trackingType calls for it; Phase-1 has no BatchLot model, so
+  // this lives directly on the line rather than a lot record.
+  expiryDate      DateTime?
 
   @@index([tenantId, movementId])
   @@index([tenantId, productId])
@@ -4673,17 +5580,21 @@ model MovementLine {
 // posted movements (see recomputeStockBalance() in inventory-module.ts);
 // never the source of truth, only a read-optimized projection of it.
 model StockBalance {
-  id          String    @id @default(cuid())
-  tenantId    String
-  tenant      Tenant    @relation(fields: [tenantId], references: [id], onDelete: Cascade)
-  productId   String
-  product     Product   @relation(fields: [productId], references: [id], onDelete: Cascade)
-  warehouseId String
-  warehouse   Warehouse @relation(fields: [warehouseId], references: [id], onDelete: Cascade)
-  onHand      Float     @default(0)
-  reserved    Float     @default(0)
-  blocked     Float     @default(0)
-  updatedAt   DateTime  @updatedAt
+  id           String    @id @default(cuid())
+  tenantId     String
+  tenant       Tenant    @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  productId    String
+  product      Product   @relation(fields: [productId], references: [id], onDelete: Cascade)
+  warehouseId  String
+  warehouse    Warehouse @relation(fields: [warehouseId], references: [id], onDelete: Cascade)
+  onHand       Float     @default(0)
+  reserved     Float     @default(0)
+  blocked      Float     @default(0)
+  updatedAt    DateTime  @updatedAt
+  // PRD_Inventory_Dashboard §Reorder — per product/warehouse; null means the
+  // pair is not reorder-managed and never appears on the Reorder page.
+  reorderPoint Float?
+  reorderQty   Float?
 
   @@unique([productId, warehouseId])
   @@index([tenantId, warehouseId])
@@ -4703,6 +5614,107 @@ model InventoryActivity {
   createdAt  DateTime      @default(now())
 
   @@index([tenantId, entityType, entityId])
+}
+
+// PRD_Inventory_Dashboard §Reservations — soft-holds a quantity against a
+// project/purpose before any movement exists; StockBalance.reserved is the
+// running total this drives. Never itself moves stock — only ever released
+// (cancelled/expired) or fulfilled by a real posted movement.
+model StockReservation {
+  id                  String             @id @default(cuid())
+  tenantId            String
+  tenant              Tenant             @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  warehouseId         String
+  warehouse           Warehouse          @relation(fields: [warehouseId], references: [id])
+  productId           String
+  product             Product            @relation(fields: [productId], references: [id])
+  qty                 Float
+  projectId           String?
+  project             Project?           @relation(fields: [projectId], references: [id])
+  purpose             String?
+  status              String             @default("ACTIVE") // ACTIVE | FULFILLED | CANCELLED | EXPIRED
+  expiresAt           DateTime?
+  fulfilledMovementId String?
+  fulfilledMovement   InventoryMovement? @relation(fields: [fulfilledMovementId], references: [id])
+  requestedById       String
+  requestedBy         UserIdentity       @relation("StockReservationRequestedBy", fields: [requestedById], references: [id])
+  createdAt           DateTime           @default(now())
+
+  @@index([tenantId, status])
+  @@index([tenantId, productId, warehouseId])
+}
+
+// PRD_Inventory_Dashboard §Counts (Control) — a cycle or full physical count.
+// Blind by default (counters don't see the system quantity while entering
+// counts); variances are only posted to stock via a real ADJUSTMENT
+// movement created at approval, never by editing StockBalance directly.
+model InventoryCount {
+  id                   String             @id @default(cuid())
+  tenantId             String
+  tenant               Tenant             @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  warehouseId          String
+  warehouse            Warehouse          @relation(fields: [warehouseId], references: [id])
+  type                 String             @default("CYCLE") // CYCLE | PHYSICAL
+  blind                Boolean            @default(true)
+  status               String             @default("PLANNED") // PLANNED | IN_PROGRESS | SUBMITTED | APPROVED | CANCELLED
+  scheduledDate        DateTime?
+  startedAt            DateTime?
+  submittedAt          DateTime?
+  approvedAt           DateTime?
+  createdById          String
+  createdBy            UserIdentity       @relation("InventoryCountCreatedBy", fields: [createdById], references: [id])
+  approvedById         String?
+  approvedBy           UserIdentity?      @relation("InventoryCountApprovedBy", fields: [approvedById], references: [id])
+  adjustmentMovementId String?
+  adjustmentMovement   InventoryMovement? @relation(fields: [adjustmentMovementId], references: [id])
+  createdAt            DateTime           @default(now())
+
+  lines InventoryCountLine[]
+
+  @@index([tenantId, status])
+  @@index([tenantId, warehouseId])
+}
+
+model InventoryCountLine {
+  id             String         @id @default(cuid())
+  tenantId       String
+  tenant         Tenant         @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  countId        String
+  count          InventoryCount @relation(fields: [countId], references: [id], onDelete: Cascade)
+  productId      String
+  product        Product        @relation(fields: [productId], references: [id])
+  systemQty      Float
+  countedQty     Float?
+  varianceReason String?
+  countedById    String?
+  countedBy      UserIdentity?  @relation("InventoryCountLineCountedBy", fields: [countedById], references: [id])
+  countedAt      DateTime?
+
+  @@index([tenantId, countId])
+}
+
+// PRD_Inventory_Dashboard §Daily Close — one row per warehouse per work date;
+// a lightweight end-of-day attestation, not a ledger period lock (Finance
+// already owns period closing). ATTENTION_REQUIRED covers unconfirmed
+// deliveries/unresolved disputes/open counts still outstanding at close.
+model DailyClose {
+  id                 String        @id @default(cuid())
+  tenantId           String
+  tenant             Tenant        @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  warehouseId        String
+  warehouse          Warehouse     @relation(fields: [warehouseId], references: [id])
+  workDate           DateTime
+  status             String        @default("DUE") // DUE | NO_MOVEMENT | COMPLETE | ATTENTION_REQUIRED
+  movementsCount     Int           @default(0)
+  discrepanciesCount Int           @default(0)
+  notes              String?
+  confirmedById      String?
+  confirmedBy        UserIdentity? @relation("DailyCloseConfirmedBy", fields: [confirmedById], references: [id])
+  confirmedAt        DateTime?
+  createdAt          DateTime      @default(now())
+
+  @@unique([warehouseId, workDate])
+  @@index([tenantId, status])
 }
 
 // ---------------------------------------------------------------------------
@@ -4752,6 +5764,7 @@ model EmploymentRelationship {
   updatedAt   DateTime     @updatedAt
 
   payrollRunLines PayrollRunLine[]
+  timesheets      Timesheet[]
 
   @@index([tenantId, employeeId])
   @@index([tenantId, status])
@@ -4908,21 +5921,21 @@ model LegalActivity {
 // ---------------------------------------------------------------------------
 
 model LegalCase {
-  id                 String    @id @default(cuid())
-  tenantId           String
-  tenant             Tenant    @relation(fields: [tenantId], references: [id], onDelete: Cascade)
-  caseNumber         String
-  title              String
-  caseType           String // LITIGATION | CLAIM | DISPUTE | REGULATORY | OTHER
-  status             String    @default("OPEN") // OPEN | IN_PROGRESS | ON_HOLD | RESOLVED | CLOSED
+  id                  String    @id @default(cuid())
+  tenantId            String
+  tenant              Tenant    @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  caseNumber          String
+  title               String
+  caseType            String // LITIGATION | CLAIM | DISPUTE | REGULATORY | OTHER
+  status              String    @default("OPEN") // OPEN | IN_PROGRESS | ON_HOLD | RESOLVED | CLOSED
   // Soft reference — Projects module is FROZEN, never a Prisma relation.
-  projectId          String?
-  counterparty       String?
-  summary            String?
-  confidentialityTier String   @default("STANDARD") // STANDARD | RESTRICTED | CONFIDENTIAL | LEGAL_PRIVILEGED | EXECUTIVE | LITIGATION_RESTRICTED | EXTERNAL_COUNSEL_ONLY
-  openedById         String
-  openedAt           DateTime  @default(now())
-  closedAt           DateTime?
+  projectId           String?
+  counterparty        String?
+  summary             String?
+  confidentialityTier String    @default("STANDARD") // STANDARD | RESTRICTED | CONFIDENTIAL | LEGAL_PRIVILEGED | EXECUTIVE | LITIGATION_RESTRICTED | EXTERNAL_COUNSEL_ONLY
+  openedById          String
+  openedAt            DateTime  @default(now())
+  closedAt            DateTime?
 
   accessGrants LegalCaseAccess[]
   holds        LegalHold[]
@@ -4936,31 +5949,31 @@ model LegalCase {
 // COMPANY_SETTINGS/USER_MANAGEMENT — it is checked in addition to, not
 // instead of, the LEGAL role gate in canViewLegalCase().
 model LegalCaseAccess {
-  id          String       @id @default(cuid())
+  id          String    @id @default(cuid())
   tenantId    String
-  tenant      Tenant       @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  tenant      Tenant    @relation(fields: [tenantId], references: [id], onDelete: Cascade)
   caseId      String
-  legalCase   LegalCase    @relation(fields: [caseId], references: [id], onDelete: Cascade)
+  legalCase   LegalCase @relation(fields: [caseId], references: [id], onDelete: Cascade)
   userId      String
   grantedById String
-  grantedAt   DateTime     @default(now())
+  grantedAt   DateTime  @default(now())
   revokedAt   DateTime?
 
   @@unique([caseId, userId])
 }
 
 model LegalHold {
-  id           String    @id @default(cuid())
+  id           String     @id @default(cuid())
   tenantId     String
-  tenant       Tenant    @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  tenant       Tenant     @relation(fields: [tenantId], references: [id], onDelete: Cascade)
   caseId       String?
   legalCase    LegalCase? @relation(fields: [caseId], references: [id])
   scope        String // free-text description of what the hold covers
   targetType   String? // soft reference, e.g. "Document" — no FK, see schema note above
   targetId     String?
-  status       String    @default("ACTIVE") // ACTIVE | RELEASED
+  status       String     @default("ACTIVE") // ACTIVE | RELEASED
   placedById   String
-  placedAt     DateTime  @default(now())
+  placedAt     DateTime   @default(now())
   releasedById String?
   releasedAt   DateTime?
 
@@ -5347,6 +6360,57 @@ model PayrollActivity {
 }
 
 // ---------------------------------------------------------------------------
+// PRD_HR_Dashboard — Timesheets / Project Labour (additive). Bridges
+// Workforce (Attendance/Shifts) and Payroll/Finance without ever treating
+// project physical progress as proof of payable time — hours are entered
+// and verified here independently of Work Progress module reporting.
+// ---------------------------------------------------------------------------
+
+model Timesheet {
+  id              String                 @id @default(cuid())
+  tenantId        String
+  tenant          Tenant                 @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  employmentId    String
+  employment      EmploymentRelationship @relation(fields: [employmentId], references: [id], onDelete: Cascade)
+  weekStartDate   DateTime
+  status          String                 @default("DRAFT") // DRAFT | SUBMITTED | VERIFIED | REJECTED | LOCKED
+  totalHours      Float                  @default(0)
+  submittedAt     DateTime?
+  verifiedById    String?
+  verifiedBy      UserIdentity?          @relation("TimesheetVerifiedBy", fields: [verifiedById], references: [id])
+  verifiedAt      DateTime?
+  rejectionReason String?
+  createdAt       DateTime               @default(now())
+  updatedAt       DateTime               @updatedAt
+
+  lines TimesheetLine[]
+
+  @@unique([employmentId, weekStartDate])
+  @@index([tenantId, status])
+}
+
+// One row per day/project/task split within a Timesheet — this is the grain
+// Project Labour (Hours/Allocation/Capacity) aggregates over; a line with no
+// projectId is non-billable/internal time, excluded from Project Labour.
+model TimesheetLine {
+  id          String    @id @default(cuid())
+  tenantId    String
+  tenant      Tenant    @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  timesheetId String
+  timesheet   Timesheet @relation(fields: [timesheetId], references: [id], onDelete: Cascade)
+  date        DateTime
+  projectId   String?
+  project     Project?  @relation(fields: [projectId], references: [id])
+  taskId      String?
+  costCode    String?
+  hours       Float
+  description String?
+
+  @@index([tenantId, timesheetId])
+  @@index([tenantId, projectId])
+}
+
+// ---------------------------------------------------------------------------
 // PRD_Reporting_Analytics — Phase 1. Scope simplification decided 2026-08-06:
 // live Prisma queries against the operational tables, no separate CDC
 // warehouse. These four models are the module's own bookkeeping (what
@@ -5516,8 +6580,9 @@ model BimModel {
   createdAt   DateTime @default(now())
   updatedAt   DateTime @updatedAt
 
-  versions BimModelVersion[]
-  links    BimObjectLink[]
+  versions           BimModelVersion[]
+  links              BimObjectLink[]
+  coordinationIssues CoordinationIssue[]
 
   @@index([tenantId, projectId])
 }
@@ -5910,16 +6975,16 @@ model BusinessAccessRelationship {
 // ---------------------------------------------------------------------------
 
 model Vacancy {
-  id          String   @id @default(cuid())
-  tenantId    String
-  tenant      Tenant   @relation(fields: [tenantId], references: [id], onDelete: Cascade)
-  title       String
-  department  String?
-  position    String?
-  headcount   Int      @default(1)
-  status      String   @default("OPEN") // OPEN | ON_HOLD | FILLED | CANCELLED
-  openedById  String
-  createdAt   DateTime @default(now())
+  id         String   @id @default(cuid())
+  tenantId   String
+  tenant     Tenant   @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  title      String
+  department String?
+  position   String?
+  headcount  Int      @default(1)
+  status     String   @default("OPEN") // OPEN | ON_HOLD | FILLED | CANCELLED
+  openedById String
+  createdAt  DateTime @default(now())
 
   candidates Candidate[]
 
@@ -5927,21 +6992,21 @@ model Vacancy {
 }
 
 model Candidate {
-  id               String   @id @default(cuid())
-  tenantId         String
-  tenant           Tenant   @relation(fields: [tenantId], references: [id], onDelete: Cascade)
-  vacancyId        String
-  vacancy          Vacancy  @relation(fields: [vacancyId], references: [id], onDelete: Cascade)
-  fullName         String
-  email            String?
-  phone            String?
-  source           String?
+  id        String   @id @default(cuid())
+  tenantId  String
+  tenant    Tenant   @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  vacancyId String
+  vacancy   Vacancy  @relation(fields: [vacancyId], references: [id], onDelete: Cascade)
+  fullName  String
+  email     String?
+  phone     String?
+  source    String?
   // APPLIED | SCREENING | INTERVIEW | OFFER | HIRED | REJECTED
-  stage            String   @default("APPLIED")
-  notes            String?
-  addedById        String
-  createdAt        DateTime @default(now())
-  updatedAt        DateTime @updatedAt
+  stage     String   @default("APPLIED")
+  notes     String?
+  addedById String
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
 
   stageEvents CandidateStageEvent[]
   offers      Offer[]
@@ -5969,18 +7034,18 @@ model CandidateStageEvent {
 }
 
 model Offer {
-  id            String    @id @default(cuid())
-  tenantId      String
-  tenant        Tenant    @relation(fields: [tenantId], references: [id], onDelete: Cascade)
-  candidateId   String
-  candidate     Candidate @relation(fields: [candidateId], references: [id], onDelete: Cascade)
-  position      String
-  compensation  Float?
-  currency      String    @default("EUR")
-  status        String    @default("DRAFT") // DRAFT | SENT | ACCEPTED | DECLINED | WITHDRAWN
-  extendedById  String
-  extendedAt    DateTime  @default(now())
-  respondedAt   DateTime?
+  id           String    @id @default(cuid())
+  tenantId     String
+  tenant       Tenant    @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  candidateId  String
+  candidate    Candidate @relation(fields: [candidateId], references: [id], onDelete: Cascade)
+  position     String
+  compensation Float?
+  currency     String    @default("EUR")
+  status       String    @default("DRAFT") // DRAFT | SENT | ACCEPTED | DECLINED | WITHDRAWN
+  extendedById String
+  extendedAt   DateTime  @default(now())
+  respondedAt  DateTime?
 
   @@index([tenantId, candidateId])
 }
@@ -6039,15 +7104,15 @@ model ScheduleAssignment {
 // mistaken clock event is corrected by recording the matching counter-event,
 // never by editing history.
 model AttendanceEvent {
-  id          String   @id @default(cuid())
-  tenantId    String
-  tenant      Tenant   @relation(fields: [tenantId], references: [id], onDelete: Cascade)
-  employeeId  String
-  employee    Employee @relation(fields: [employeeId], references: [id], onDelete: Cascade)
-  type        String // CLOCK_IN | CLOCK_OUT
-  occurredAt  DateTime @default(now())
+  id           String   @id @default(cuid())
+  tenantId     String
+  tenant       Tenant   @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  employeeId   String
+  employee     Employee @relation(fields: [employeeId], references: [id], onDelete: Cascade)
+  type         String // CLOCK_IN | CLOCK_OUT
+  occurredAt   DateTime @default(now())
   recordedById String
-  createdAt   DateTime @default(now())
+  createdAt    DateTime @default(now())
 
   @@index([tenantId, employeeId, occurredAt])
 }

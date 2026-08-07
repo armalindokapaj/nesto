@@ -5,7 +5,7 @@ import { revalidatePath } from "next/cache";
 import { db } from "@/lib/db";
 import { getCurrentUser } from "@/lib/dal";
 import { can } from "@/lib/permissions";
-import { createLeaveRequest, decideLeaveRequest, cancelApprovedLeave, updateApprovedLeave, recordEmploymentChange } from "@/server/hr";
+import { createLeaveRequest, decideLeaveRequest, cancelApprovedLeave, updateApprovedLeave, recordEmploymentChange, terminateEmployment } from "@/server/hr";
 
 const CreateEmployeeSchema = z.object({
   fullName: z.string().min(2),
@@ -251,4 +251,13 @@ export async function updateApprovedLeaveAction(_prev: UpdateLeaveState, formDat
   revalidatePath("/dashboard/hr");
   revalidatePath("/calendar");
   return undefined;
+}
+
+export async function terminateEmploymentAction(employmentId: string, effectiveEndDate: string, notes?: string) {
+  const { tenantId, role, user } = await getCurrentUser();
+  if (!can(role, "HR", "FULL")) throw new Error("Not authorized");
+  await terminateEmployment(tenantId, user.id, employmentId, new Date(effectiveEndDate), notes);
+  revalidatePath("/dashboard/hr/offboarding");
+  revalidatePath("/dashboard/hr/contracts");
+  revalidatePath("/dashboard/hr");
 }

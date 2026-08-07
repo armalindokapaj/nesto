@@ -10,10 +10,11 @@ import { Badge } from "@/components/ui/badge";
 import { CreateClientDialog } from "@/components/clients/create-client-dialog";
 import { getT } from "@/lib/i18n/server";
 
-export default async function ClientsPage() {
+export default async function ClientsPage({ searchParams }: { searchParams: Promise<{ open?: string; clientType?: string }> }) {
   const { tenantId, role } = await getCurrentUser();
   if (!can(role, "CLIENTS", "READ")) redirect("/dashboard/executive");
   const canCreate = can(role, "CLIENTS", "FULL");
+  const params = await searchParams;
 
   const [clients, projects] = await Promise.all([listClients(tenantId), listProjects(tenantId)]);
   const { t } = await getT();
@@ -41,7 +42,13 @@ export default async function ClientsPage() {
             <CardTitle>{t("clients.title")}</CardTitle>
             <CardDescription>{t("clients.subtitle")}</CardDescription>
           </div>
-          {canCreate && <CreateClientDialog projects={projects.map((p) => ({ id: p.id, name: p.name }))} />}
+          {canCreate && (
+            <CreateClientDialog
+              projects={projects.map((p) => ({ id: p.id, name: p.name }))}
+              defaultOpen={params.open === "create"}
+              defaultClientType={params.clientType}
+            />
+          )}
         </CardHeader>
         <CardContent className="p-0">
           <Table>

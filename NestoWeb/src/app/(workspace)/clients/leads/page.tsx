@@ -13,10 +13,11 @@ import { LeadRowActions } from "@/components/clients/lead-row-actions";
 import { formatDate } from "@/lib/utils";
 import { getT } from "@/lib/i18n/server";
 
-export default async function LeadsPage() {
+export default async function LeadsPage({ searchParams }: { searchParams: Promise<{ open?: string }> }) {
   const { tenantId, role } = await getCurrentUser();
   if (!can(role, "CLIENTS", "READ")) redirect("/dashboard/executive");
   const canWrite = can(role, "CLIENTS", "WRITE");
+  const params = await searchParams;
 
   const leads = await listLeads(tenantId);
   const { t } = await getT();
@@ -33,7 +34,7 @@ export default async function LeadsPage() {
             <CardTitle>{t("crm.leadsTitle")}</CardTitle>
             <CardDescription>{t("crm.leadsSubtitle")}</CardDescription>
           </div>
-          {canWrite && <CreateLeadDialog />}
+          {canWrite && <CreateLeadDialog defaultOpen={params.open === "create"} />}
         </CardHeader>
         <CardContent className="p-0">
           <Table>

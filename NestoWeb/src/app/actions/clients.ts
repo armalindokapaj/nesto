@@ -14,6 +14,9 @@ const CreateClientSchema = z.object({
   email: z.string().email().optional().or(z.literal("")),
   phone: z.string().optional(),
   projectId: z.string().optional(),
+  // PRD_Sales_Dashboard §18 — "Add Client Company" Quick Action is the same
+  // create-client flow with clientType pre-filled, not a second create form.
+  clientType: z.string().optional(),
 });
 
 export type CreateClientState = { error: string } | undefined;
@@ -30,6 +33,7 @@ export async function createClientAction(_prev: CreateClientState, formData: For
     email: formData.get("email") || undefined,
     phone: formData.get("phone") || undefined,
     projectId: formData.get("projectId") || undefined,
+    clientType: formData.get("clientType") || undefined,
   });
   if (!parsed.success) {
     return { error: parsed.error.issues[0]?.message ?? "Invalid input" };
@@ -37,6 +41,7 @@ export async function createClientAction(_prev: CreateClientState, formData: For
 
   await createClient(tenantId, user.id, { ...parsed.data, email: parsed.data.email || undefined });
   revalidatePath("/clients");
+  revalidatePath("/dashboard/sales");
   return undefined;
 }
 

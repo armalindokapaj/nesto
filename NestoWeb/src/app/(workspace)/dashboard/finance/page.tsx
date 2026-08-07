@@ -1,196 +1,178 @@
 import { redirect } from "next/navigation";
 import Link from "next/link";
-import { TrendingUp, TrendingDown, Layers, Wallet, FileText, Users } from "lucide-react";
+import {
+  Wallet,
+  TrendingUp,
+  TrendingDown,
+  Layers,
+  BarChart3,
+  Receipt,
+  AlertOctagon,
+  CalendarClock,
+  PieChart,
+  Percent,
+} from "lucide-react";
 import { getCurrentUser } from "@/lib/dal";
 import { can } from "@/lib/permissions";
-import { getFinanceDashboardData } from "@/server/finance";
-import { getPayrollSummary } from "@/server/finance-payroll";
+import { getCompanyFinanceOverview } from "@/server/finance-dashboard";
 import { StatTile } from "@/components/ui/stat-tile";
 import { Card, CardHeader, CardTitle, CardContent } from "@/components/ui/card";
 import { Table, THead, TBody, TRow, TH, TD } from "@/components/ui/table";
-import { Badge } from "@/components/ui/badge";
-import { DonutChart } from "@/components/ui/charts/donut-chart";
-import { TrendLineChart } from "@/components/ui/charts/line-chart";
 import { DashboardGreeting } from "@/components/dashboards/dashboard-greeting";
-import { formatCurrency, formatDate, formatSalaryAmount } from "@/lib/utils";
+import { FinanceScopeBar } from "@/components/dashboards/finance-scope-bar";
+import { formatCurrency, formatDate } from "@/lib/utils";
 import { getT } from "@/lib/i18n/server";
 
+// PRD_Finance_Dashboard §6 — Company Overview, the default Finance scope
+// mode. §5 "Company Overview / All Projects / Single Project" are separate
+// routes (this one, /dashboard/finance/projects, /dashboard/finance/projects/[id])
+// rather than client-side tab state — a deep link into any of them still
+// resolves inside the Finance shell (§16).
 export default async function FinanceDashboardPage() {
   const { tenantId, role } = await getCurrentUser();
   if (!can(role, "FINANCE", "READ")) redirect("/dashboard/executive");
 
-  const data = await getFinanceDashboardData(tenantId);
-  const payroll = await getPayrollSummary(tenantId);
+  const data = await getCompanyFinanceOverview(tenantId);
   const { t } = await getT();
 
   return (
     <div className="space-y-6">
       <DashboardGreeting greetingRole="FINANCE" />
+      <FinanceScopeBar mode="company" />
 
+      {/* §6.1 — exactly twelve company KPI cards */}
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
-        <StatTile label={t("dashboards.finance.totalRevenue")} value={formatCurrency(data.revenue)} icon={TrendingUp} iconColor="#2457C5" iconBg="#E4ECFB" href="/dashboard/finance/invoices" />
-        <StatTile label={t("dashboards.finance.totalExpenses")} value={formatCurrency(data.expenses)} icon={TrendingDown} iconColor="#1A7F4E" iconBg="#E2F4EA" href="/dashboard/finance/bills" />
-        <StatTile label={t("dashboards.finance.netProfit")} value={formatCurrency(data.netProfit)} icon={Layers} iconColor="#4a3aa7" iconBg="#EEEAFB" />
-        <StatTile label={t("dashboards.finance.cashBalance")} value={formatCurrency(data.cashBalance)} icon={Wallet} iconColor="#B76E00" iconBg="#FBECD2" />
+        <StatTile label={t("dashboards.finance.cashPosition")} value={formatCurrency(data.kpis.cashPosition)} icon={Wallet} iconColor="#B76E00" iconBg="#FBECD2" href="/dashboard/finance/banking" />
+        <StatTile label={t("dashboards.finance.totalRevenue")} value={formatCurrency(data.kpis.revenue)} icon={TrendingUp} iconColor="#2457C5" iconBg="#E4ECFB" href="/dashboard/finance/revenue" />
+        <StatTile label={t("dashboards.finance.totalExpenses")} value={formatCurrency(data.kpis.expenses)} icon={TrendingDown} iconColor="#1A7F4E" iconBg="#E2F4EA" href="/dashboard/finance/expenses" />
+        <StatTile label={t("dashboards.finance.grossProfit")} value={formatCurrency(data.kpis.grossProfit)} icon={Layers} iconColor="#4a3aa7" iconBg="#EEEAFB" href="/dashboard/finance/statements" />
+        <StatTile label={t("dashboards.finance.netProfit")} value={formatCurrency(data.kpis.netProfit)} icon={Layers} iconColor="#4a3aa7" iconBg="#EEEAFB" href="/dashboard/finance/statements" />
+        <StatTile label={t("dashboards.finance.ebitda")} value={formatCurrency(data.kpis.ebitda)} icon={BarChart3} iconColor="#4a3aa7" iconBg="#EEEAFB" href="/dashboard/finance/statements" />
+        <StatTile label={t("dashboards.finance.receivables")} value={formatCurrency(data.kpis.receivables)} icon={TrendingUp} iconColor="#2457C5" iconBg="#E4ECFB" href="/dashboard/finance/receivables" />
+        <StatTile label={t("dashboards.finance.payables")} value={formatCurrency(data.kpis.payables)} icon={TrendingDown} iconColor="#B76E00" iconBg="#FBECD2" href="/dashboard/finance/payables" />
+        <StatTile
+          label={t("dashboards.finance.overdueInvoices")}
+          value={String(data.kpis.overdueInvoices.count)}
+          helper={formatCurrency(data.kpis.overdueInvoices.amount)}
+          icon={AlertOctagon}
+          iconColor="#c0392b"
+          iconBg="#FBE4E1"
+          href="/dashboard/finance/receivables"
+        />
+        <StatTile label={t("dashboards.finance.upcomingPayments")} value={String(data.kpis.upcomingPayments.length)} icon={CalendarClock} iconColor="#B76E00" iconBg="#FBECD2" href="/dashboard/finance/payables" />
+        <StatTile
+          label={t("dashboards.finance.budgetUsage")}
+          value={data.kpis.budgetUsagePct === null ? "—" : `${data.kpis.budgetUsagePct}%`}
+          icon={PieChart}
+          iconColor="#4a3aa7"
+          iconBg="#EEEAFB"
+          href="/dashboard/finance/budgets"
+        />
+        <StatTile label={t("dashboards.finance.forecastVariance")} value={formatCurrency(data.kpis.forecastVariance)} icon={TrendingUp} iconColor="#1A7F4E" iconBg="#E2F4EA" href="/dashboard/finance/forecast" />
+        <StatTile label={t("dashboards.finance.taxLiabilities")} value={formatCurrency(data.kpis.taxLiabilities)} icon={Percent} iconColor="#B76E00" iconBg="#FBECD2" href="/dashboard/finance/tax" />
       </div>
 
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
-        <Card className="lg:col-span-2">
-          <CardHeader>
-            <CardTitle>{t("dashboards.finance.cashFlowOverview")}</CardTitle>
-          </CardHeader>
-          <CardContent>
-            {data.cashFlowSeries.length > 0 ? (
-              <TrendLineChart
-                data={data.cashFlowSeries}
-                series={[
-                  { key: "revenue", label: t("dashboards.finance.totalRevenue") },
-                  { key: "expenses", label: t("dashboards.finance.totalExpenses") },
-                ]}
-                format="currency"
-              />
-            ) : (
-              <p className="text-sm text-ink-faint py-8 text-center">{t("dashboards.finance.noCashFlow")}</p>
-            )}
-          </CardContent>
-        </Card>
-
-        <Card>
-          <CardHeader>
-            <CardTitle>{t("dashboards.finance.revenueByProject")}</CardTitle>
-          </CardHeader>
-          <CardContent>
-            {data.revenueByProject.length > 0 ? (
-              <DonutChart
-                data={data.revenueByProject}
-                centerLabel={t("dashboards.finance.total")}
-                centerValue={formatCurrency(data.revenueByProject.reduce((s, p) => s + p.value, 0))}
-                format="currency"
-              />
-            ) : (
-              <p className="text-sm text-ink-faint py-8 text-center">{t("dashboards.finance.noRevenue")}</p>
-            )}
-          </CardContent>
-        </Card>
-      </div>
-
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
-        <Card className="lg:col-span-2">
-          <CardHeader>
-            <CardTitle>{t("dashboards.finance.recentTransactions")}</CardTitle>
-          </CardHeader>
-          <CardContent>
-            <Table>
-              <THead>
-                <TRow>
-                  <TH>{t("common.date")}</TH>
-                  <TH>{t("common.description")}</TH>
-                  <TH>{t("common.project")}</TH>
-                  <TH>{t("common.amount")}</TH>
-                  <TH>{t("common.status")}</TH>
-                </TRow>
-              </THead>
-              <TBody>
-                {data.recentTransactions.map((tx) => (
-                  <TRow key={tx.id}>
-                    <TD className="text-ink-muted whitespace-nowrap">{formatDate(tx.issuedDate)}</TD>
-                    <TD>
-                      <p className="font-medium text-ink">{tx.number}</p>
-                      <p className="text-xs text-ink-muted">{tx.description}</p>
-                    </TD>
-                    <TD className="text-ink-muted">
-                      {tx.project ? (
-                        <Link href={`/projects/${tx.project.id}`} className="hover:text-gold hover:underline">
-                          {tx.project.name}
-                        </Link>
-                      ) : (
-                        "—"
-                      )}
-                    </TD>
-                    <TD className={tx.type === "INVOICE" ? "text-success font-medium" : "text-danger font-medium"}>
-                      {tx.type === "INVOICE" ? "+" : "-"}{formatCurrency(Math.abs(tx.amount))}
-                    </TD>
-                    <TD>
-                      <Badge status={tx.status}>{tx.status}</Badge>
-                    </TD>
-                  </TRow>
-                ))}
-                {data.recentTransactions.length === 0 && (
-                  <TRow>
-                    <TD colSpan={5} className="text-center text-ink-faint py-8">
-                      {t("dashboards.finance.noTransactions")}
-                    </TD>
-                  </TRow>
-                )}
-              </TBody>
-            </Table>
-          </CardContent>
-        </Card>
-
-        <Card>
-          <CardHeader>
-            <CardTitle>{t("dashboards.finance.upcomingPayments")}</CardTitle>
-          </CardHeader>
-          <CardContent>
-            {data.upcomingPayments.length === 0 ? (
-              <p className="text-sm text-ink-faint py-6 text-center">{t("dashboards.finance.nothingDue")}</p>
-            ) : (
-              <ul className="space-y-3">
-                {data.upcomingPayments.map((p) => (
-                  <li key={p.id} className="flex items-center justify-between gap-3 text-sm">
-                    <div className="flex items-center gap-2.5 min-w-0">
-                      <span className="flex h-8 w-8 items-center justify-center rounded-lg bg-surface-sunken shrink-0">
-                        <FileText size={14} className="text-ink-muted" />
-                      </span>
-                      <div className="min-w-0">
-                        <p className="font-medium text-ink truncate">{p.description ?? p.number}</p>
-                        <p className="text-xs text-ink-muted">{p.dueDate ? formatDate(p.dueDate) : "—"}</p>
-                      </div>
-                    </div>
-                    <span className="font-medium text-ink shrink-0">{formatCurrency(Math.abs(p.amount))}</span>
-                  </li>
-                ))}
-              </ul>
-            )}
-          </CardContent>
-        </Card>
-      </div>
-
+      {/* §6.2 Spending Control */}
       <Card>
         <CardHeader>
-          <CardTitle>{t("dashboards.finance.payrollSummary")}</CardTitle>
+          <CardTitle>{t("dashboards.finance.spendingControl")}</CardTitle>
         </CardHeader>
         <CardContent>
-          {payroll.length === 0 ? (
-            <p className="text-sm text-ink-faint py-6 text-center">{t("dashboards.finance.noPayroll")}</p>
-          ) : (
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-              {payroll.map((p) => (
-                <div key={p.currency} className="rounded-lg border border-border p-4 space-y-2">
-                  <div className="flex items-center gap-2 text-sm text-ink-muted">
-                    <Users size={14} /> {p.headcount} {t("dashboards.finance.employees")} · {p.currency}
-                  </div>
-                  <div className="grid grid-cols-2 gap-3">
-                    <div>
-                      <p className="text-xs text-ink-muted">{t("dashboards.finance.monthlyGross")}</p>
-                      <p className="text-lg font-semibold text-ink">{formatSalaryAmount(p.monthlyGross, p.currency as "EUR" | "ALL")}</p>
-                    </div>
-                    <div>
-                      <p className="text-xs text-ink-muted">{t("dashboards.finance.monthlyNet")}</p>
-                      <p className="text-lg font-semibold text-ink">{formatSalaryAmount(p.monthlyNet, p.currency as "EUR" | "ALL")}</p>
-                    </div>
-                    <div>
-                      <p className="text-xs text-ink-muted">{t("dashboards.finance.annualGross")}</p>
-                      <p className="text-sm font-medium text-ink-muted">{formatSalaryAmount(p.annualGross, p.currency as "EUR" | "ALL")}</p>
-                    </div>
-                    <div>
-                      <p className="text-xs text-ink-muted">{t("dashboards.finance.annualNet")}</p>
-                      <p className="text-sm font-medium text-ink-muted">{formatSalaryAmount(p.annualNet, p.currency as "EUR" | "ALL")}</p>
-                    </div>
-                  </div>
-                </div>
+          <div className="grid grid-cols-2 sm:grid-cols-5 gap-3 text-center">
+            <Link href="/dashboard/finance/spendings?status=PENDING" className="rounded-lg border border-border p-3 hover:border-gold/60 transition-colors">
+              <p className="text-lg font-semibold text-ink">{data.spendingControl.pendingApprovalCount}</p>
+              <p className="text-xs text-ink-muted mt-0.5">{t("dashboards.finance.pendingApproval")}</p>
+              <p className="text-xs text-ink-faint">{formatCurrency(data.spendingControl.pendingApprovalAmount)}</p>
+            </Link>
+            <Link href="/dashboard/finance/spendings?status=APPROVED_FOR_PAYMENT" className="rounded-lg border border-border p-3 hover:border-gold/60 transition-colors">
+              <p className="text-lg font-semibold text-ink">{data.spendingControl.approvedForPaymentCount}</p>
+              <p className="text-xs text-ink-muted mt-0.5">{t("dashboards.finance.approvedForPayment")}</p>
+              <p className="text-xs text-ink-faint">{formatCurrency(data.spendingControl.approvedForPaymentAmount)}</p>
+            </Link>
+            <Link href="/dashboard/finance/spendings?status=PAID" className="rounded-lg border border-border p-3 hover:border-gold/60 transition-colors">
+              <p className="text-lg font-semibold text-ink">{data.spendingControl.paidCount}</p>
+              <p className="text-xs text-ink-muted mt-0.5">{t("dashboards.finance.paidThisPeriod")}</p>
+              <p className="text-xs text-ink-faint">{formatCurrency(data.spendingControl.paidAmount)}</p>
+            </Link>
+            <Link href="/dashboard/finance/spendings?overBudget=true" className="rounded-lg border border-border p-3 hover:border-gold/60 transition-colors">
+              <p className="text-lg font-semibold text-ink">{data.spendingControl.overBudgetCount}</p>
+              <p className="text-xs text-ink-muted mt-0.5">{t("dashboards.finance.overBudget")}</p>
+            </Link>
+            <Link href="/dashboard/finance/spendings?status=DRAFT" className="rounded-lg border border-border p-3 hover:border-gold/60 transition-colors">
+              <Receipt size={16} className="mx-auto text-ink-muted" />
+              <p className="text-xs text-ink-muted mt-0.5">{t("dashboards.finance.drafts")}</p>
+            </Link>
+          </div>
+        </CardContent>
+      </Card>
+
+      {/* §7 Project Financial Portfolio — permanent section */}
+      <Card>
+        <CardHeader>
+          <CardTitle>{t("dashboards.finance.projectPortfolio")}</CardTitle>
+        </CardHeader>
+        <CardContent className="p-0 overflow-x-auto">
+          <Table>
+            <THead>
+              <TRow>
+                <TH>{t("nav.projects")}</TH>
+                <TH>{t("dashboards.finance.budget")}</TH>
+                <TH>{t("dashboards.finance.committed")}</TH>
+                <TH>{t("dashboards.finance.actual")}</TH>
+                <TH>{t("nav.spendings")}</TH>
+                <TH>{t("dashboards.finance.revenue")}</TH>
+                <TH>{t("dashboards.finance.profit")}</TH>
+                <TH>{t("dashboards.finance.forecast")}</TH>
+              </TRow>
+            </THead>
+            <TBody>
+              {data.projectPortfolio.map((p) => (
+                <TRow key={p.project.id}>
+                  <TD className="font-medium text-ink whitespace-nowrap">
+                    <Link href={`/dashboard/finance/projects/${p.project.id}`} className="hover:text-gold hover:underline">
+                      {p.project.name}
+                    </Link>
+                  </TD>
+                  <TD className="text-ink-muted">{formatCurrency(p.budget)}</TD>
+                  <TD className="text-ink-muted">{formatCurrency(p.committed)}</TD>
+                  <TD className="text-ink-muted">{formatCurrency(p.actual)}</TD>
+                  <TD className="text-ink-muted">{formatCurrency(p.spendings)}</TD>
+                  <TD className="text-ink-muted">{formatCurrency(p.revenue)}</TD>
+                  <TD className={p.profit >= 0 ? "text-success font-medium" : "text-danger font-medium"}>{formatCurrency(p.profit)}</TD>
+                  <TD className="text-ink-muted">{formatCurrency(p.forecast)}</TD>
+                </TRow>
               ))}
-            </div>
+              {data.projectPortfolio.length === 0 && (
+                <TRow>
+                  <TD colSpan={8} className="py-8 text-center text-ink-faint">
+                    {t("dashboards.finance.noProjectsAccessible")}
+                  </TD>
+                </TRow>
+              )}
+            </TBody>
+          </Table>
+        </CardContent>
+      </Card>
+
+      {/* Recent financial activity */}
+      <Card>
+        <CardHeader>
+          <CardTitle>{t("dashboards.admin.recentActivity")}</CardTitle>
+        </CardHeader>
+        <CardContent className="p-0">
+          {data.recentActivity.length === 0 ? (
+            <p className="text-sm text-ink-faint py-8 text-center">{t("dashboards.finance.noActivity")}</p>
+          ) : (
+            <ul className="divide-y divide-border">
+              {data.recentActivity.map((a) => (
+                <li key={a.id} className="flex items-center justify-between gap-3 px-4 py-2.5 text-sm">
+                  <span className="text-ink truncate">{a.summary}</span>
+                  <span className="text-xs text-ink-muted shrink-0">
+                    {a.actor?.displayName ?? "—"} · {formatDate(a.createdAt)}
+                  </span>
+                </li>
+              ))}
+            </ul>
           )}
         </CardContent>
       </Card>

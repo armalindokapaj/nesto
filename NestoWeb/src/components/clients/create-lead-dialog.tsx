@@ -10,9 +10,9 @@ import { SuggestInput } from "@/components/ui/suggest-input";
 import { LEAD_SOURCE_SUGGESTIONS } from "@/lib/crm-constants";
 import { useI18n } from "@/lib/i18n/locale-provider";
 
-export function CreateLeadDialog() {
+export function CreateLeadDialog({ defaultOpen }: { defaultOpen?: boolean } = {}) {
   const { t } = useI18n();
-  const [open, setOpen] = useState(false);
+  const [open, setOpen] = useState(defaultOpen ?? false);
   const [state, formAction, pending] = useActionState(createLeadAction, undefined);
 
   return (

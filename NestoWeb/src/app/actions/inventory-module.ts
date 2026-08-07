@@ -12,6 +12,8 @@ import {
   createMovement,
   postMovement,
   reverseMovement,
+  confirmMovementReceipt,
+  disputeMovementReceipt,
 } from "@/server/inventory-module";
 import type { MovementType } from "@/lib/inventory-constants";
 
@@ -123,6 +125,8 @@ export async function createWarehouseAction(_prev: ActionState, formData: FormDa
 const MovementSchema = z.object({
   type: z.string().min(1),
   reason: z.string().optional(),
+  projectId: z.string().optional(),
+  recipientId: z.string().optional(),
   lines: z
     .array(
       z.object({
@@ -131,6 +135,7 @@ const MovementSchema = z.object({
         unitCost: z.coerce.number().optional(),
         fromWarehouseId: z.string().optional(),
         toWarehouseId: z.string().optional(),
+        expiryDate: z.coerce.date().optional(),
       })
     )
     .min(1, "Add at least one line"),
@@ -138,7 +143,13 @@ const MovementSchema = z.object({
 
 export async function createMovementAction(
   _prev: ActionState,
-  input: { type: string; reason?: string; lines: { productId: string; qty: number; unitCost?: number; fromWarehouseId?: string; toWarehouseId?: string }[] }
+  input: {
+    type: string;
+    reason?: string;
+    projectId?: string;
+    recipientId?: string;
+    lines: { productId: string; qty: number; unitCost?: number; fromWarehouseId?: string; toWarehouseId?: string; expiryDate?: Date }[];
+  }
 ): Promise<ActionState> {
   const { tenantId, role, user } = await getCurrentUser();
   const parsed = MovementSchema.safeParse(input);
@@ -151,6 +162,10 @@ export async function createMovementAction(
     return { error: error instanceof Error ? error.message : "Could not create movement" };
   }
   revalidatePath("/dashboard/inventory/movements");
+  revalidatePath("/dashboard/inventory/receiving");
+  revalidatePath("/dashboard/inventory/issues");
+  revalidatePath("/dashboard/inventory/transfers");
+  revalidatePath("/dashboard/inventory/returns");
   return { ok: true };
 }
 
@@ -167,5 +182,26 @@ export async function reverseMovementAction(movementId: string) {
   assertInventoryFull(role);
   await reverseMovement(tenantId, { movementId, actorId: user.id });
   revalidatePath("/dashboard/inventory/movements");
+  revalidatePath(`/dashboard/inventory/movements/${movementId}`);
+}
+
+// PRD_Inventory_Dashboard — confirmation is the named recipient's own act,
+// not gated on PROCUREMENT:WRITE the way drafting/posting is; any signed-in
+// user can confirm/dispute a movement addressed to them.
+export async function confirmMovementReceiptAction(movementId: string) {
+  const { tenantId, user } = await getCurrentUser();
+  await confirmMovementReceipt(tenantId, user.id, movementId);
+  revalidatePath("/dashboard/inventory");
+  revalidatePath("/dashboard/inventory/issues");
+  revalidatePath("/dashboard/inventory/transfers");
+  revalidatePath(`/dashboard/inventory/movements/${movementId}`);
+}
+
+export async function disputeMovementReceiptAction(movementId: string, reason: string) {
+  const { tenantId, user } = await getCurrentUser();
+  await disputeMovementReceipt(tenantId, user.id, movementId, reason);
+  revalidatePath("/dashboard/inventory");
+  revalidatePath("/dashboard/inventory/issues");
+  revalidatePath("/dashboard/inventory/transfers");
   revalidatePath(`/dashboard/inventory/movements/${movementId}`);
 }
