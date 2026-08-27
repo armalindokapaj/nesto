@@ -39,21 +39,21 @@ describe("contract lifecycle reference workflow (audit 2)", () => {
 
   it("rejects approval of a contract with no assigned contractor", async () => {
     const contract = await db.contract.create({
-      data: { tenantId, number: `CON-WF-${Date.now()}-1`, title: "No Contractor", value: 500 },
+      data: { tenantId, number: `CON-WF-${Date.now()}-1`, title: "No Contractor", valueMinor: 500 },
     });
     await expect(approveContract(tenantId, userId, contract.id)).rejects.toThrow(ContractLifecycleError);
   });
 
   it("rejects approving a contract that is already ACTIVE", async () => {
     const contract = await db.contract.create({
-      data: { tenantId, number: `CON-WF-${Date.now()}-2`, title: "Already Active", value: 500, contractorId, status: "ACTIVE" },
+      data: { tenantId, number: `CON-WF-${Date.now()}-2`, title: "Already Active", valueMinor: 500, contractorId, status: "ACTIVE" },
     });
     await expect(approveContract(tenantId, userId, contract.id)).rejects.toThrow(ContractLifecycleError);
   });
 
   it("approving a contract transitions it to ACTIVE and the ContractApproved reaction creates the Finance Structure payment", async () => {
     const contract = await db.contract.create({
-      data: { tenantId, number: `CON-WF-${Date.now()}-3`, title: "Approvable", value: 1000, contractorId, status: "DRAFT" },
+      data: { tenantId, number: `CON-WF-${Date.now()}-3`, title: "Approvable", valueMinor: 1000, contractorId, status: "DRAFT" },
     });
 
     await approveContract(tenantId, userId, contract.id);
@@ -87,7 +87,7 @@ describe("contract lifecycle reference workflow (audit 2)", () => {
 
   it("reconcileContractCompletion (the PaymentRecorded reaction) only completes a contract once it is paid in full, derived from posted payments", async () => {
     const contract = await db.contract.create({
-      data: { tenantId, number: `CON-WF-${Date.now()}-4`, title: "Reconciliation", value: 2000, contractorId, status: "ACTIVE" },
+      data: { tenantId, number: `CON-WF-${Date.now()}-4`, title: "Reconciliation", valueMinor: 2000, contractorId, status: "ACTIVE" },
     });
     const invoice = await db.invoice.create({
       data: {

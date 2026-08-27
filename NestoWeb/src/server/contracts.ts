@@ -2,6 +2,7 @@ import "server-only";
 import { db } from "@/lib/db";
 import { allocateNumber } from "@/server/number-series";
 import { assertTenant, requireTenantProject, requireTenantContractor } from "@/lib/tenant";
+import { toMinorUnits } from "@/lib/money";
 
 // Contracts — the single server surface for the domain, consolidated from the
 // former contracts.ts (list/create) and contracts-module.ts (multi-party,
@@ -56,7 +57,8 @@ export async function createContract(
       tenantId,
       number,
       title: input.title,
-      value: input.value,
+      // Form collects a decimal; this is the conversion boundary.
+      valueMinor: toMinorUnits(input.value, input.currency ?? "EUR"),
       currency: input.currency ?? "EUR",
       projectId: input.projectId,
       contractorId: input.contractorId,

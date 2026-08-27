@@ -6,8 +6,8 @@ import { db } from "@/lib/db";
 import { Card, CardHeader, CardTitle, CardContent } from "@/components/ui/card";
 import { Table, THead, TBody, TRow, TH, TD } from "@/components/ui/table";
 import { Badge } from "@/components/ui/badge";
-import { formatCurrency } from "@/lib/utils";
 import { getT } from "@/lib/i18n/server";
+import { formatMinor } from "@/lib/money";
 
 export default async function ContractFinancePage() {
   const { tenantId, role } = await getCurrentUser();
@@ -45,7 +45,7 @@ export default async function ContractFinancePage() {
                     <p className="text-xs text-ink-muted">{c.title}</p>
                   </TD>
                   <TD className="text-ink-muted">{c.project?.name ?? "—"}</TD>
-                  <TD className="text-ink-muted">{formatCurrency(c.value, c.currency)}</TD>
+                  <TD className="text-ink-muted">{formatMinor(c.valueMinor, c.currency)}</TD>
                   <TD>
                     <Badge status={c.status}>{c.status}</Badge>
                   </TD>

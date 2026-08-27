@@ -5,7 +5,8 @@ import { db } from "@/lib/db";
 import { logAudit } from "@/lib/audit";
 import { allocateNumber } from "@/server/number-series";
 import { assertTenant, requireTenantProject, requireTenantSupplier } from "@/lib/tenant";
-import { calculateProcurementTotals, deriveDocumentStatus, isProcurementTransitionAllowed } from "@/lib/procurement";
+import { calculateProcurementTotalsMinor, deriveDocumentStatus, isProcurementTransitionAllowed } from "@/lib/procurement";
+import { toMinorUnits, sumMinor } from "@/lib/money";
 
 // Procurement — the core write surface: suppliers and their qualifications,
 // purchase requests, packages, RFQs and quotations, purchase orders and
@@ -77,7 +78,7 @@ export async function getProcurementDashboardData(tenantId: string) {
 
   const openOrders = purchaseOrders.filter((po) => !["CLOSED", "CANCELLED", "ARCHIVED"].includes(po.status));
   const openRequests = requests.filter((r) => !["CLOSED", "REJECTED", "CANCELLED", "ARCHIVED"].includes(r.status));
-  const committedSpend = purchaseOrders.filter((po) => !["DRAFT", "CANCELLED", "ARCHIVED"].includes(po.status)).reduce((sum, po) => sum + po.amount, 0);
+  const committedSpend = purchaseOrders.filter((po) => !["DRAFT", "CANCELLED", "ARCHIVED"].includes(po.status)).reduce((sum, po) => sum + po.amountMinor, 0);
   const dueDeliveries = deliveries.filter((d) => d.expectedAt && d.expectedAt >= now && d.expectedAt <= inSevenDays && !["ACCEPTED", "REJECTED", "CLOSED"].includes(d.status));
   const delayedDeliveries = deliveries.filter((d) => d.status === "DELAYED" || (d.expectedAt && d.expectedAt < now && !["ARRIVED", "ACCEPTED", "REJECTED", "CLOSED"].includes(d.status)));
   const openRfqs = rfqs.filter((r) => !["AWARDED", "CLOSED", "CANCELLED", "ARCHIVED"].includes(r.status));
@@ -342,9 +343,17 @@ export async function createQuotation(tenantId: string, actorId: string, input: 
   const rfq = assertTenant(await db.procurementRfq.findUnique({ where: { id: input.rfqId }, include: { suppliers: true } }), tenantId, "ProcurementRfq");
   if (!rfq.suppliers.some((s) => s.supplierId === input.supplierId)) throw new Error("This supplier was not invited to the RFQ.");
   const number = await allocateNumber(tenantId, "SUPPLIER_QUOTATION");
-  const subtotal = input.lines.reduce((sum, line) => sum + line.quantity * line.unitPrice, 0);
-  const total = subtotal - (input.discount ?? 0) + (input.tax ?? 0) + (input.freight ?? 0);
-  const quotation = await db.supplierQuotation.create({ data: { tenantId, companyId: input.companyId, projectId: input.projectId, rfqId: input.rfqId, supplierId: input.supplierId, number, supplierReference: input.supplierReference, currency: input.currency ?? "EUR", subtotal, discount: input.discount ?? 0, tax: input.tax ?? 0, freight: input.freight ?? 0, total, validityDate: input.validityDate, leadTimeDays: input.leadTimeDays, paymentTerms: input.paymentTerms, notes: input.notes, createdById: actorId, lines: { create: input.lines.map((line) => ({ tenantId, ...line, lineTotal: line.quantity * line.unitPrice })) } } });
+  // Phase 15 — totals computed in integer minor units. quantity stays a real
+  // measured value, so each line is rounded to the nearest cent once, here,
+  // rather than accumulating float error across the sum.
+  const currency = input.currency ?? "EUR";
+  const lineTotalsMinor = input.lines.map((line) => Math.round(line.quantity * toMinorUnits(line.unitPrice, currency)));
+  const subtotalMinor = sumMinor(lineTotalsMinor);
+  const discountMinor = toMinorUnits(input.discount ?? 0, currency);
+  const taxMinor = toMinorUnits(input.tax ?? 0, currency);
+  const freightMinor = toMinorUnits(input.freight ?? 0, currency);
+  const totalMinor = subtotalMinor - discountMinor + taxMinor + freightMinor;
+  const quotation = await db.supplierQuotation.create({ data: { tenantId, companyId: input.companyId, projectId: input.projectId, rfqId: input.rfqId, supplierId: input.supplierId, number, supplierReference: input.supplierReference, currency, subtotalMinor, discountMinor, taxMinor, freightMinor, totalMinor, validityDate: input.validityDate, leadTimeDays: input.leadTimeDays, paymentTerms: input.paymentTerms, notes: input.notes, createdById: actorId, lines: { create: input.lines.map((line, i) => ({ tenantId, ...line, unitPriceMinor: toMinorUnits(line.unitPrice, currency), unitPrice: undefined, lineTotalMinor: lineTotalsMinor[i] })) } } });
   await db.procurementRfqSupplier.updateMany({ where: { rfqId: input.rfqId, supplierId: input.supplierId }, data: { status: "RESPONSE_RECEIVED", respondedAt: new Date() } });
   await writeActivity({ tenantId, actorId, entityType: "QUOTATION", entityId: quotation.id, eventType: "quotation.received", summary: `${number} received.` });
   return quotation;
@@ -366,10 +375,16 @@ export async function createPurchaseOrder(tenantId: string, requestedById: strin
     if (award.status !== "APPROVED") throw new Error("A purchase order can only be created from an approved award recommendation.");
   }
   const lines = input.lines ?? [];
-  const totals = lines.length ? calculateProcurementTotals(lines) : { subtotal: input.amount ?? 0, discount: 0, tax: 0, total: input.amount ?? 0 };
-  const { subtotal, discount, tax, total: amount } = totals;
+  const poCurrency = input.currency ?? "EUR";
+  const totals = lines.length
+    ? calculateProcurementTotalsMinor(lines, poCurrency)
+    : (() => {
+        const flat = toMinorUnits(input.amount ?? 0, poCurrency);
+        return { lineTotalsMinor: [] as number[], subtotalMinor: flat, discountMinor: 0, taxMinor: 0, freightMinor: 0, totalMinor: flat };
+      })();
+  const { subtotalMinor, discountMinor, taxMinor, totalMinor: amountMinor, lineTotalsMinor } = totals;
   const number = await allocateNumber(tenantId, "PURCHASE_ORDER");
-  const order = await db.purchaseOrder.create({ data: { tenantId, number, requestedById, companyId: input.companyId, supplierId: input.supplierId, projectId: input.projectId, requestId: input.requestId, packageId: input.packageId, rfqId: input.rfqId, quotationId: input.quotationId, awardRecommendationId: input.awardRecommendationId, title: input.title, description: input.description, amount, subtotal, discount, tax, currency: input.currency ?? "EUR", requestedDeliveryDate: input.requestedDeliveryDate, deliveryAddress: input.deliveryAddress, paymentTerms: input.paymentTerms, lines: lines.length ? { create: lines.map((line, index) => ({ tenantId, lineNumber: index + 1, ...line, discount: line.discount ?? 0, tax: line.tax ?? 0, lineTotal: line.quantity * line.unitPrice - (line.discount ?? 0) + (line.tax ?? 0) })) } : undefined } });
+  const order = await db.purchaseOrder.create({ data: { tenantId, number, requestedById, companyId: input.companyId, supplierId: input.supplierId, projectId: input.projectId, requestId: input.requestId, packageId: input.packageId, rfqId: input.rfqId, quotationId: input.quotationId, awardRecommendationId: input.awardRecommendationId, title: input.title, description: input.description, amountMinor, subtotalMinor, discountMinor, taxMinor, currency: poCurrency, requestedDeliveryDate: input.requestedDeliveryDate, deliveryAddress: input.deliveryAddress, paymentTerms: input.paymentTerms, lines: lines.length ? { create: lines.map((line, index) => ({ tenantId, lineNumber: index + 1, ...line, unitPrice: undefined, unitPriceMinor: toMinorUnits(line.unitPrice, poCurrency), discountMinor: toMinorUnits(line.discount ?? 0, poCurrency), taxMinor: toMinorUnits(line.tax ?? 0, poCurrency), discount: undefined, tax: undefined, lineTotalMinor: lineTotalsMinor[index] - toMinorUnits(line.discount ?? 0, poCurrency) + toMinorUnits(line.tax ?? 0, poCurrency) })) } : undefined } });
   await writeActivity({ tenantId, actorId: requestedById, entityType: "PURCHASE_ORDER", entityId: order.id, eventType: "purchase_order.created", summary: `${number} created.` });
   return order;
 }
@@ -378,7 +393,7 @@ export async function updatePurchaseOrderStatus(tenantId: string, actorId: strin
   const po = assertTenant(await db.purchaseOrder.findUnique({ where: { id: purchaseOrderId }, include: { lines: true } }), tenantId, "PurchaseOrder");
   const legacyTransitions: Record<string, string[]> = { SUBMITTED: ["ISSUED", "CANCELLED"], APPROVED: ["ISSUED", "CANCELLED"], ORDERED: ["ACKNOWLEDGED", "PARTIALLY_FULFILLED", "FULFILLED", "CANCELLED"], RECEIVED: ["CLOSED"] };
   if (!isProcurementTransitionAllowed("purchaseOrder", po.status, status) && !(legacyTransitions[po.status] ?? []).includes(status)) throw new Error(`Cannot move a purchase order from ${po.status} to ${status}.`);
-  if (status === "ISSUED" && po.amount <= 0) throw new Error("Purchase order total must be greater than zero before issue.");
+  if (status === "ISSUED" && po.amountMinor <= 0) throw new Error("Purchase order total must be greater than zero before issue.");
   const issuedSnapshot = status === "ISSUED" ? JSON.stringify({ ...po, issuedAt: new Date().toISOString() }) : undefined;
   await db.purchaseOrder.update({ where: { id: po.id }, data: { status, issueDate: status === "ISSUED" ? new Date() : undefined, acknowledgedAt: status === "ACKNOWLEDGED" ? new Date() : undefined, issuedSnapshot, version: { increment: 1 } } });
   await writeActivity({ tenantId, actorId, entityType: "PURCHASE_ORDER", entityId: po.id, eventType: `purchase_order.${status.toLowerCase()}`, summary: reason || `Purchase order moved to ${status}.`, previousStatus: po.status, nextStatus: status });

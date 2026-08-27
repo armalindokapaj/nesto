@@ -20,7 +20,7 @@ export async function getProjectFinanceDashboardData(tenantId: string, projectId
   const expenses = invoices.filter((i) => i.type === "EXPENSE" || i.type === "BILL").reduce((s, i) => s + Math.abs(i.amountMinor), 0);
   const committed = purchaseOrders
     .filter((po) => po.status !== "CANCELLED" && po.status !== "DRAFT")
-    .reduce((s, po) => s + po.amount, 0);
+    .reduce((s, po) => s + po.amountMinor, 0);
   const budget = project?.budget ?? 0;
   const remaining = budget - committed - expenses;
 

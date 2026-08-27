@@ -1037,7 +1037,7 @@ export async function getCeoOrchestrationSummary(tenantId: string) {
     const blockingDeliverable = task.departments.find(
       (d) => d.deliverable && DELIVERABLE_STATUSES_BLOCKING_COMPLETION.includes(d.deliverable.status as DeliverableStatus)
     );
-    const contractValue = task.contractLinks[0]?.contract?.value ?? null;
+    const contractValue = task.contractLinks[0]?.contract?.valueMinor ?? null;
 
     return {
       task,

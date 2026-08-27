@@ -12,8 +12,9 @@ import { CreateContractDialog } from "@/components/contracts/create-contract-dia
 import { ContractActions } from "@/components/contracts/contract-actions";
 import { ContractStarButton } from "@/components/contracts/contract-star-button";
 import { CreateContractorDialog } from "@/components/contractors/create-contractor-dialog";
-import { formatCurrency, formatDate } from "@/lib/utils";
+import { formatDate } from "@/lib/utils";
 import { getT } from "@/lib/i18n/server";
+import { formatMinor } from "@/lib/money";
 
 export default async function ContractsPage() {
   const { tenantId, role, user } = await getCurrentUser();
@@ -96,7 +97,7 @@ export default async function ContractsPage() {
                       "—"
                     )}
                   </TD>
-                  <TD className="text-ink-muted">{formatCurrency(contract.value, contract.currency)}</TD>
+                  <TD className="text-ink-muted">{formatMinor(contract.valueMinor, contract.currency)}</TD>
                   <TD>
                     <Badge status={contract.status}>{t(`contracts.${contract.status.toLowerCase()}`)}</Badge>
                   </TD>

@@ -17,8 +17,9 @@ import { ContractPartyManager } from "@/components/contracts/contract-party-mana
 import { ContractObligations } from "@/components/contracts/contract-obligations";
 import { ContractMilestones } from "@/components/contracts/contract-milestones";
 import { ContractDetailsForm } from "@/components/contracts/contract-details-form";
-import { formatCurrency, formatDate } from "@/lib/utils";
+import { formatDate } from "@/lib/utils";
 import { getT } from "@/lib/i18n/server";
+import { formatMinor } from "@/lib/money";
 
 const TIMELINE_LABELS: Record<string, string> = {
   PARTY_ADDED: "Party added",
@@ -63,7 +64,7 @@ export default async function ContractDetailPage({ params }: { params: Promise<{
                 {contract.contractType && <Badge tone="neutral">{contract.contractType}</Badge>}
               </div>
               <CardDescription>
-                {formatCurrency(contract.value, contract.currency)}
+                {formatMinor(contract.valueMinor, contract.currency)}
                 {contract.project && (
                   <>
                     {" · "}

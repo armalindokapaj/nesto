@@ -10,6 +10,7 @@ import { Badge } from "@/components/ui/badge";
 import { ProjectFinanceTabHeader } from "@/components/dashboards/project-finance-tab-header";
 import { formatCurrency } from "@/lib/utils";
 import { getT } from "@/lib/i18n/server";
+import { formatMinor } from "@/lib/money";
 
 // §10 Contracts tab — "Finance view of contract obligations, receivables/
 // payables ... value impact." Contracts stays owned by the Contracts module
@@ -53,7 +54,7 @@ export default async function ProjectContractsTabPage({ params }: { params: Prom
                       <p className="font-medium text-ink">{c.number}</p>
                       <p className="text-xs text-ink-muted">{c.title}</p>
                     </TD>
-                    <TD className="text-ink-muted">{formatCurrency(c.value, c.currency)}</TD>
+                    <TD className="text-ink-muted">{formatMinor(c.valueMinor, c.currency)}</TD>
                     <TD className="text-ink-muted">{formatCurrency(paid, c.currency)}</TD>
                     <TD>
                       <Badge status={c.status}>{c.status}</Badge>

@@ -39,7 +39,7 @@ export default async function SpendingBillDetailPage({ params }: { params: Promi
           <div className="grid grid-cols-2 sm:grid-cols-4 gap-4 text-sm">
             <div>
               <p className="text-xs text-ink-muted">{t("common.amount")}</p>
-              <p className={bill.overBudget ? "text-danger font-medium" : "font-medium text-ink"}>{formatMinor(bill.amount, bill.currency)}</p>
+              <p className={bill.overBudget ? "text-danger font-medium" : "font-medium text-ink"}>{formatMinor(bill.amountMinor, bill.currency)}</p>
             </div>
             <div>
               <p className="text-xs text-ink-muted">{t("nav.projects")}</p>

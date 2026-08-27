@@ -23,14 +23,14 @@ async function projectPortfolioRow(tenantId: string, project: { id: string; name
   const payablesFromInvoices = invoices
     .filter((i) => (i.type === "EXPENSE" || i.type === "BILL") && i.status !== "PAID" && i.status !== "COMPLETED")
     .reduce((s, i) => s + Math.abs(i.amountMinor), 0);
-  const paidSpendingAmount = spendingBills.filter((b) => b.status === "PAID").reduce((s, b) => s + b.amount, 0);
-  const approvedNotPaidAmount = spendingBills.filter((b) => b.status === "APPROVED_FOR_PAYMENT").reduce((s, b) => s + b.amount, 0);
+  const paidSpendingAmount = spendingBills.filter((b) => b.status === "PAID").reduce((s, b) => s + b.amountMinor, 0);
+  const approvedNotPaidAmount = spendingBills.filter((b) => b.status === "APPROVED_FOR_PAYMENT").reduce((s, b) => s + b.amountMinor, 0);
   // Spendings (§6.2): Finance-approved OR Paid only — draft/rejected/pending excluded.
   const spendingsAmount = paidSpendingAmount + approvedNotPaidAmount;
-  const poCommitted = purchaseOrders.filter((po) => po.status !== "CANCELLED" && po.status !== "DRAFT").reduce((s, po) => s + po.amount, 0);
+  const poCommitted = purchaseOrders.filter((po) => po.status !== "CANCELLED" && po.status !== "DRAFT").reduce((s, po) => s + po.amountMinor, 0);
   const pendingSpendingCommitted = spendingBills
     .filter((b) => b.status === "PENDING_SUPERIOR" || b.status === "PENDING_FINANCE")
-    .reduce((s, b) => s + b.amount, 0);
+    .reduce((s, b) => s + b.amountMinor, 0);
   const committed = poCommitted + pendingSpendingCommitted + approvedNotPaidAmount;
   // Actual (§9.2 "Posted Finance transactions"): posted expense invoices + paid Spending Bills.
   const actual = invoiceExpenses + paidSpendingAmount;
@@ -189,18 +189,18 @@ export async function getSingleProjectFinanceOverview(tenantId: string, projectI
 export async function getSpendingsSummary(tenantId: string, companyId?: string) {
   const where = { tenantId, companyId };
   const [pending, approved, paid, overBudget] = await Promise.all([
-    db.spendingBill.aggregate({ where: { ...where, status: { in: ["PENDING_SUPERIOR", "PENDING_FINANCE"] } }, _sum: { amount: true }, _count: true }),
-    db.spendingBill.aggregate({ where: { ...where, status: "APPROVED_FOR_PAYMENT" }, _sum: { amount: true }, _count: true }),
-    db.spendingBill.aggregate({ where: { ...where, status: "PAID" }, _sum: { amount: true }, _count: true }),
+    db.spendingBill.aggregate({ where: { ...where, status: { in: ["PENDING_SUPERIOR", "PENDING_FINANCE"] } }, _sum: { amountMinor: true }, _count: true }),
+    db.spendingBill.aggregate({ where: { ...where, status: "APPROVED_FOR_PAYMENT" }, _sum: { amountMinor: true }, _count: true }),
+    db.spendingBill.aggregate({ where: { ...where, status: "PAID" }, _sum: { amountMinor: true }, _count: true }),
     db.spendingBill.count({ where: { ...where, overBudget: true, status: { notIn: ["PAID", "REJECTED", "DRAFT"] } } }),
   ]);
   return {
     pendingApprovalCount: pending._count,
-    pendingApprovalAmount: pending._sum.amount ?? 0,
+    pendingApprovalAmount: pending._sum.amountMinor ?? 0,
     approvedForPaymentCount: approved._count,
-    approvedForPaymentAmount: approved._sum.amount ?? 0,
+    approvedForPaymentAmount: approved._sum.amountMinor ?? 0,
     paidCount: paid._count,
-    paidAmount: paid._sum.amount ?? 0,
+    paidAmount: paid._sum.amountMinor ?? 0,
     overBudgetCount: overBudget,
   };
 }

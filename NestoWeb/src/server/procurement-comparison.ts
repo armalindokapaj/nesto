@@ -182,7 +182,7 @@ export async function createPurchaseOrderFromAward(tenantId: string, actorId: st
     awardRecommendationId: award.id,
     description: `Award ${award.number} — ${award.rfq.title}`,
     currency: quotation.currency,
-    lines: quotation.lines.map((l) => ({ lineType: "MATERIAL", description: l.description, quantity: l.quantity, unit: l.unit, unitPrice: l.unitPrice })),
+    lines: quotation.lines.map((l) => ({ lineType: "MATERIAL", description: l.description, quantity: l.quantity, unit: l.unit, unitPrice: l.unitPriceMinor })),
   });
   await logProcurementActivity(tenantId, actorId, "AWARD_RECOMMENDATION", awardId, "award.converted_to_po", `${award.number} converted to ${order.number}.`);
   return order;

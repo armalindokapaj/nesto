@@ -110,7 +110,7 @@ export async function getCrmOverview(tenantId: string, viewer: CrmOverviewViewer
       outstandingPayments = 0;
     } else {
       const [contractValueAgg, invoices] = await Promise.all([
-        db.contract.aggregate({ where: { tenantId, id: { in: clientContractIds } }, _sum: { value: true } }),
+        db.contract.aggregate({ where: { tenantId, id: { in: clientContractIds } }, _sum: { valueMinor: true } }),
         db.invoice.findMany({
           where: { tenantId, contractId: { in: clientContractIds } },
           select: { amountMinor: true, status: true, dueDate: true },
@@ -120,7 +120,7 @@ export async function getCrmOverview(tenantId: string, viewer: CrmOverviewViewer
       const outstanding = invoices.filter((i) => i.status === "PENDING" || i.status === "SENT" || i.status === "OVERDUE" || i.status === "SUBMITTED");
       const amountPaid = paid.reduce((sum, i) => sum + i.amountMinor, 0);
       const outstandingAmount = outstanding.reduce((sum, i) => sum + i.amountMinor, 0);
-      const contractValue = contractValueAgg._sum.value ?? 0;
+      const contractValue = contractValueAgg._sum.valueMinor ?? 0;
       const nextDue = outstanding
         .filter((i) => i.dueDate)
         .sort((a, b) => (a.dueDate!.getTime() ?? 0) - (b.dueDate!.getTime() ?? 0))[0]?.dueDate ?? null;

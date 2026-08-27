@@ -58,7 +58,7 @@ export async function approveContract(tenantId: string, actorId: string, contrac
         projectId: contract.projectId,
         contractorId: contract.contractorId,
         number: contract.number,
-        value: contract.value,
+        value: contract.valueMinor,
         currency: contract.currency,
       },
       {
@@ -94,7 +94,7 @@ export async function reconcileContractCompletion(tenantId: string, contractId: 
     // Contract.value is Priority 2 and still a decimal Float, so bring it
     // into minor units for the comparison rather than the reverse — comparing
     // in minor units keeps this exact.
-    if ((paid._sum.amountMinor ?? 0) < toMinorUnits(contract.value, contract.currency)) return;
+    if ((paid._sum.amountMinor ?? 0) < toMinorUnits(contract.valueMinor, contract.currency)) return;
 
     assertTransition(contract.status, "COMPLETED");
     await tx.contract.update({ where: { id: contractId }, data: { status: "COMPLETED" } });
@@ -104,7 +104,7 @@ export async function reconcileContractCompletion(tenantId: string, contractId: 
         action: "CONTRACT_COMPLETED",
         targetType: "Contract",
         targetId: contractId,
-        metadata: JSON.stringify({ totalPaidMinor: paid._sum.amountMinor, contractValue: contract.value }),
+        metadata: JSON.stringify({ totalPaidMinor: paid._sum.amountMinor, contractValue: contract.valueMinor }),
       },
     });
   });

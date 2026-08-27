@@ -7,7 +7,8 @@ import { ProcurementNav, ProcurementPageHeader } from "@/components/procurement/
 import { Card, CardContent } from "@/components/ui/card";
 import { Table, TBody, TD, TH, THead, TRow } from "@/components/ui/table";
 import { Badge } from "@/components/ui/badge";
-import { formatCurrency, formatDate } from "@/lib/utils";
+import { formatDate } from "@/lib/utils";
+import { formatMinor } from "@/lib/money";
 
 export default async function QuotationsPage() {
   const { tenantId, role } = await getCurrentUser();
@@ -19,7 +20,7 @@ export default async function QuotationsPage() {
       <ProcurementPageHeader title="Quotations" description="Supplier offers received against issued RFQs. Original and revised quotations remain linked." />
       <ProcurementNav active="sourcing" />
       <Card><CardContent className="p-0"><Table><THead><TRow><TH>Quotation</TH><TH>Supplier</TH><TH>RFQ</TH><TH>Total</TH><TH>Validity</TH><TH>Status</TH></TRow></THead><TBody>
-        {quotations.map((q) => <TRow key={q.id}><TD className="font-medium text-ink">{q.number} {q.revision > 1 && <span className="text-ink-faint">rev.{q.revision}</span>}</TD><TD className="text-ink-muted">{q.supplier.name}</TD><TD className="text-ink-muted"><Link href={`/dashboard/procurement/sourcing/${q.rfqId}`} className="hover:text-gold hover:underline">{q.rfq.number}</Link></TD><TD className="font-medium text-ink">{formatCurrency(q.total, q.currency)}</TD><TD className="text-ink-muted">{q.validityDate ? formatDate(q.validityDate) : "—"}</TD><TD><Badge status={q.status}>{q.status}</Badge></TD></TRow>)}
+        {quotations.map((q) => <TRow key={q.id}><TD className="font-medium text-ink">{q.number} {q.revision > 1 && <span className="text-ink-faint">rev.{q.revision}</span>}</TD><TD className="text-ink-muted">{q.supplier.name}</TD><TD className="text-ink-muted"><Link href={`/dashboard/procurement/sourcing/${q.rfqId}`} className="hover:text-gold hover:underline">{q.rfq.number}</Link></TD><TD className="font-medium text-ink">{formatMinor(q.totalMinor, q.currency)}</TD><TD className="text-ink-muted">{q.validityDate ? formatDate(q.validityDate) : "—"}</TD><TD><Badge status={q.status}>{q.status}</Badge></TD></TRow>)}
         {!quotations.length && <TRow><TD colSpan={6} className="py-12 text-center text-ink-faint">No quotations received yet.</TD></TRow>}
       </TBody></Table></CardContent></Card>
     </div>

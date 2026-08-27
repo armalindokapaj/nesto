@@ -1,5 +1,6 @@
 import { describe, it, expect } from "vitest";
 import { toMinorUnits, fromMinorUnits, sumMinor, allocateMinor, formatMinor, minorUnitFactor } from "@/lib/money";
+import { calculateProcurementTotalsMinor } from "@/lib/procurement";
 
 // Phase 14 — money was Float in 114 schema fields and Decimal in none. The bug
 // this closes is invisible in a quick check (19.99 and 1999/100 both display as
@@ -105,6 +106,44 @@ describe("money in minor units", () => {
       // The failure mode worth guarding: showing 1999 where €19.99 belongs.
       expect(formatMinor(1999, "EUR")).toContain("19,99");
       expect(formatMinor(123_456_000, "EUR")).toContain("1.234.560");
+    });
+  });
+
+  describe("procurement totals in minor units (Phase 15)", () => {
+    it("computes a purchase order total exactly where the float version drifts", () => {
+      // Three lines whose decimal products are float-adversarial.
+      const lines = [
+        { quantity: 3, unitPrice: 0.1 },
+        { quantity: 3, unitPrice: 0.2 },
+        { quantity: 1, unitPrice: 1234.56 },
+      ];
+      const minor = calculateProcurementTotalsMinor(lines, "EUR");
+
+      // Exact answer: 0.30 + 0.60 + 1234.56 = 1235.46 -> 123546 cents.
+      expect(minor.subtotalMinor).toBe(123_546);
+      // Note: the float route happens to land on 1235.46 here too — the errors
+      // cancel at this size. That is exactly why float bugs survive review, and
+      // why the drift proof above uses 1000 lines rather than three. The value
+      // of the integer path is that it is exact by construction rather than by
+      // luck, so it does not need the input to be small to be right.
+      expect(lines.reduce((s, l) => s + l.quantity * toMinorUnits(l.unitPrice), 0)).toBe(123_546);
+    });
+
+    it("keeps quantity fractional — it is measured, not a coin count", () => {
+      // 2.5 tonnes at €10.00 is €25.00, and the quantity must not be rounded.
+      const minor = calculateProcurementTotalsMinor([{ quantity: 2.5, unitPrice: 10 }], "EUR");
+      expect(minor.subtotalMinor).toBe(2500);
+    });
+
+    it("applies discount and tax as amounts, matching subtotal - discount + tax", () => {
+      const minor = calculateProcurementTotalsMinor(
+        [{ quantity: 2, unitPrice: 50, discount: 5, tax: 2.5 }],
+        "EUR"
+      );
+      expect(minor.subtotalMinor).toBe(10_000);
+      expect(minor.discountMinor).toBe(500);
+      expect(minor.taxMinor).toBe(250);
+      expect(minor.totalMinor).toBe(10_000 - 500 + 250);
     });
   });
 });

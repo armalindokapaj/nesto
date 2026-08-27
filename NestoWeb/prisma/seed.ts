@@ -409,7 +409,7 @@ async function main() {
   ];
   for (const c of contractSeeds) {
     const number = await allocateSeedNumber(tenant.id, "CONTRACT");
-    await db.contract.create({ data: { tenantId: tenant.id, number, currency: "EUR", ...c } });
+    await db.contract.create({ data: { tenantId: tenant.id, number, currency: "EUR", ...c, value: undefined, valueMinor: Math.round(c.value * 100) } as never });
   }
 
   // --- Clients ---------------------------------------------------------------
@@ -523,7 +523,7 @@ async function main() {
   ];
   for (const po of purchaseOrderSeeds) {
     const number = await allocateSeedNumber(tenant.id, "PURCHASE_ORDER");
-    await db.purchaseOrder.create({ data: { tenantId: tenant.id, companyId: company.id, number, currency: "EUR", requestedById: gentian.id, subtotal: po.amount, ...po } });
+    await db.purchaseOrder.create({ data: { tenantId: tenant.id, companyId: company.id, number, currency: "EUR", requestedById: gentian.id, ...po, amount: undefined, amountMinor: Math.round(po.amount * 100), subtotalMinor: Math.round(po.amount * 100) } as never });
   }
 
   // --- Suggestions -----------------------------------------------------------

@@ -9,7 +9,7 @@ import { toActionError } from "@/lib/errors";
 
 const CRITERIA = ["PRICE", "LEAD_TIME", "COMPLIANCE", "QUALITY", "HSE", "WARRANTY", "PERFORMANCE", "RISK"] as const;
 
-type Quotation = { id: string; supplierId: string; supplierName: string; total: number; currency: string; leadTimeDays: number | null };
+type Quotation = { id: string; supplierId: string; supplierName: string; totalMinor: number; currency: string; leadTimeDays: number | null };
 type ExistingScore = { quotationId: string; criterion: string; score: number };
 
 // §10.1 Comparison workspace — one column per supplier/quotation, one row
@@ -60,7 +60,7 @@ export function ComparisonScoreGrid({
               {quotations.map((q) => (
                 <th key={q.id} className="p-2 text-left text-xs font-medium text-ink-faint">
                   {q.supplierName}
-                  <div className="text-[0.65rem] font-normal text-ink-faint">{q.total} {q.currency}</div>
+                  <div className="text-[0.65rem] font-normal text-ink-faint">{q.totalMinor} {q.currency}</div>
                 </th>
               ))}
             </tr>

@@ -428,11 +428,11 @@ export async function getBudget(tenantId: string, budgetId: string) {
   );
   const committed = await db.spendingBill.aggregate({
     where: { tenantId, budgetId, status: { in: ["PENDING_SUPERIOR", "PENDING_FINANCE", "APPROVED_FOR_PAYMENT"] } },
-    _sum: { amount: true },
+    _sum: { amountMinor: true },
   });
-  const actual = await db.spendingBill.aggregate({ where: { tenantId, budgetId, status: "PAID" }, _sum: { amount: true } });
-  const committedAmount = committed._sum.amount ?? 0;
-  const actualAmount = actual._sum.amount ?? 0;
+  const actual = await db.spendingBill.aggregate({ where: { tenantId, budgetId, status: "PAID" }, _sum: { amountMinor: true } });
+  const committedAmount = committed._sum.amountMinor ?? 0;
+  const actualAmount = actual._sum.amountMinor ?? 0;
   return {
     ...budget,
     committed: committedAmount,
@@ -540,9 +540,9 @@ async function computeOverBudget(tenantId: string, budgetId: string, additionalA
   const budget = await db.budget.findUniqueOrThrow({ where: { id: budgetId } });
   const committed = await db.spendingBill.aggregate({
     where: { tenantId, budgetId, status: { in: ["PENDING_SUPERIOR", "PENDING_FINANCE", "APPROVED_FOR_PAYMENT", "PAID"] } },
-    _sum: { amount: true },
+    _sum: { amountMinor: true },
   });
-  const used = (committed._sum.amount ?? 0) + additionalAmount;
+  const used = (committed._sum.amountMinor ?? 0) + additionalAmount;
   return used > budget.baselineAmount;
 }
 
@@ -580,7 +580,7 @@ export async function createSpendingBill(
       companyId: input.companyId,
       projectId: input.projectId ?? null,
       category: input.category,
-      amount: input.amount,
+      amountMinor: toMinorUnits(input.amount, input.currency),
       currency: input.currency,
       supplierId: input.supplierId ?? null,
       description: input.description,
@@ -600,7 +600,7 @@ export async function submitSpendingBill(tenantId: string, actorId: string, spen
   const bill = assertTenant(await db.spendingBill.findUnique({ where: { id: spendingBillId } }), tenantId, "SpendingBill");
   if (bill.status !== "DRAFT") throw new Error("Only a draft Spending Bill can be submitted.");
 
-  const overBudget = bill.budgetId ? await computeOverBudget(tenantId, bill.budgetId, bill.amount) : false;
+  const overBudget = bill.budgetId ? await computeOverBudget(tenantId, bill.budgetId, bill.amountMinor) : false;
   await ensureSpendingWorkflowDefinition(tenantId, actorId);
   await startWorkflow(tenantId, actorId, { workflowDefinitionKey: WORKFLOW_KEY, sourceEntityId: bill.id });
 
@@ -684,7 +684,7 @@ export async function markSpendingBillPaid(
         number,
         type: "PAYMENT",
         description: `Spending Bill ${bill.number} — ${bill.category}`,
-        amountMinor: toMinorUnits(bill.amount, bill.currency),
+        amountMinor: toMinorUnits(bill.amountMinor, bill.currency),
         currency: bill.currency,
         status: "COMPLETED",
         postedAt: new Date(),

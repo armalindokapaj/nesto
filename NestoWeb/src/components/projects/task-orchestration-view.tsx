@@ -34,8 +34,9 @@ import {
   ReopenTaskDialog,
 } from "@/components/projects/task-orchestration-dialogs";
 import { DEPARTMENT_LABELS, APPROVAL_ACTIONS } from "@/lib/constants";
-import { formatDate, formatCurrency } from "@/lib/utils";
+import { formatDate } from "@/lib/utils";
 import { useI18n } from "@/lib/i18n/locale-provider";
+import { formatMinor } from "@/lib/money";
 
 type Member = { id: string; displayName: string; role: string };
 type Contractor = { id: string; name: string; tradeType: string };
@@ -288,7 +289,7 @@ export function TaskOrchestrationView({
                     <p className="font-medium text-ink">{link.decision.replace(/_/g, " ")}</p>
                     {link.contract && (
                       <p className="text-xs text-ink-muted">
-                        {link.contract.number} — {formatCurrency(link.contract.value, link.contract.currency)}
+                        {link.contract.number} — {formatMinor(link.contract.valueMinor, link.contract.currency)}
                       </p>
                     )}
                     {link.reason && <p className="text-xs text-ink-faint">{link.reason}</p>}

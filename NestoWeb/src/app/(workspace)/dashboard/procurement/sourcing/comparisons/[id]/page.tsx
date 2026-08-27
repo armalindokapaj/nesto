@@ -36,7 +36,7 @@ export default async function ComparisonDetailPage({ params }: { params: Promise
               comparisonId={comparison.id}
               status={comparison.status}
               canComplete={canWrite}
-              quotations={quotations.map((q) => ({ id: q.id, supplierId: q.supplierId, supplierName: q.supplier.name, total: q.total, currency: q.currency, leadTimeDays: q.leadTimeDays }))}
+              quotations={quotations.map((q) => ({ id: q.id, supplierId: q.supplierId, supplierName: q.supplier.name, totalMinor: q.totalMinor, currency: q.currency, leadTimeDays: q.leadTimeDays }))}
               existingScores={comparison.scores.map((s) => ({ quotationId: s.quotationId, criterion: s.criterion, score: s.score }))}
             />
           ) : (
@@ -46,7 +46,7 @@ export default async function ComparisonDetailPage({ params }: { params: Promise
       </Card>
 
       {comparison.status === "COMPLETED" && canWrite && comparison.awards.length === 0 && (
-        <RecommendAwardForm comparisonId={comparison.id} quotations={quotations.map((q) => ({ id: q.id, supplierName: q.supplier.name, total: q.total, currency: q.currency }))} />
+        <RecommendAwardForm comparisonId={comparison.id} quotations={quotations.map((q) => ({ id: q.id, supplierName: q.supplier.name, totalMinor: q.totalMinor, currency: q.currency }))} />
       )}
 
       {comparison.awards.length > 0 && (

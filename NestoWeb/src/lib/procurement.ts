@@ -1,3 +1,4 @@
+import { toMinorUnits, sumMinor } from "@/lib/money";
 export const PROCUREMENT_TRANSITIONS = {
   purchaseRequest: {
     DRAFT: ["SUBMITTED", "CANCELLED"], SUBMITTED: ["UNDER_REVIEW", "SOURCING", "REJECTED", "CANCELLED"], UNDER_REVIEW: ["SOURCING", "REJECTED", "CANCELLED"], SOURCING: ["PARTIALLY_ORDERED", "FULLY_ORDERED", "CANCELLED"], PARTIALLY_ORDERED: ["FULLY_ORDERED", "CANCELLED"], FULLY_ORDERED: ["CLOSED"],
@@ -30,6 +31,32 @@ export function deriveDocumentStatus(expiresAt: Date | null | undefined, now = n
 }
 
 export type CommercialLine = { quantity: number; unitPrice: number; discount?: number; tax?: number };
+
+// Phase 15 — the minor-unit sibling. The decimal version above stays for any
+// caller still working in decimals; anything writing to the database uses this,
+// so a purchase order's stored totals are exact.
+//
+// Each line is rounded to the nearest cent once, at the line, rather than
+// letting quantity * unitPrice accumulate float error across the sum —
+// quantity is a genuine measured value and stays fractional.
+export function calculateProcurementTotalsMinor(
+  lines: CommercialLine[],
+  currency = "EUR",
+  freightMinor = 0
+) {
+  const lineTotalsMinor = lines.map((line) => Math.round(line.quantity * toMinorUnits(line.unitPrice, currency)));
+  const subtotalMinor = sumMinor(lineTotalsMinor);
+  const discountMinor = sumMinor(lines.map((line) => toMinorUnits(line.discount ?? 0, currency)));
+  const taxMinor = sumMinor(lines.map((line) => toMinorUnits(line.tax ?? 0, currency)));
+  return {
+    lineTotalsMinor,
+    subtotalMinor,
+    discountMinor,
+    taxMinor,
+    freightMinor,
+    totalMinor: subtotalMinor - discountMinor + taxMinor + freightMinor,
+  };
+}
 
 export function calculateProcurementTotals(lines: CommercialLine[], freight = 0) {
   const subtotal = lines.reduce((sum, line) => sum + line.quantity * line.unitPrice, 0);

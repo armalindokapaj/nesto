@@ -99,7 +99,7 @@ export default async function SpendingsPage({ searchParams }: { searchParams: Pr
                     <p className="text-xs text-ink-muted">{b.category}</p>
                   </TD>
                   <TD className="text-ink-muted">{b.project?.name ?? "—"}</TD>
-                  <TD className={b.overBudget ? "text-danger font-medium" : "text-ink-muted"}>{formatMinor(b.amount, b.currency)}</TD>
+                  <TD className={b.overBudget ? "text-danger font-medium" : "text-ink-muted"}>{formatMinor(b.amountMinor, b.currency)}</TD>
                   <TD className="text-ink-muted">{b.submitter.displayName}</TD>
                   <TD>
                     <Badge status={b.status}>{t(`dashboards.finance.status${toPascal(b.status)}`)}</Badge>

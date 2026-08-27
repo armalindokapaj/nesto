@@ -63,7 +63,7 @@ export async function getProcurementDashboard(tenantId: string, actorId: string)
     },
     ordersAndDelivery: {
       openOrders: openOrders.length,
-      committedValue: openOrders.reduce((sum, po) => sum + po.amount, 0),
+      committedValue: openOrders.reduce((sum, po) => sum + po.amountMinor, 0),
       unacknowledgedOrders: openOrders.filter((po) => po.status === "ISSUED" && !po.acknowledgedAt).length,
       dueThisWeek: deliveries.filter((d) => d.expectedAt && d.expectedAt >= now && d.expectedAt <= new Date(now.getTime() + 7 * 86400000)).length,
       delayed: deliveries.filter((d) => d.status === "DELAYED").length,
@@ -75,7 +75,7 @@ export async function getProcurementDashboard(tenantId: string, actorId: string)
     },
     commercialSummary: {
       requested: requests.reduce((sum, r) => sum + r.estimatedAmount, 0),
-      committed: purchaseOrders.filter((po) => !["DRAFT", "CANCELLED", "ARCHIVED"].includes(po.status)).reduce((sum, po) => sum + po.amount, 0),
+      committed: purchaseOrders.filter((po) => !["DRAFT", "CANCELLED", "ARCHIVED"].includes(po.status)).reduce((sum, po) => sum + po.amountMinor, 0),
     },
     upcoming: deliveries
       .filter((d) => d.expectedAt && d.expectedAt >= now && !["ACCEPTED", "REJECTED", "CLOSED"].includes(d.status))

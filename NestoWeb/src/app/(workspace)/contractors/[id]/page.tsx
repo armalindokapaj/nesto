@@ -8,8 +8,9 @@ import { Card, CardHeader, CardTitle, CardDescription, CardContent } from "@/com
 import { Table, THead, TBody, TRow, TH, TD } from "@/components/ui/table";
 import { Badge } from "@/components/ui/badge";
 import { ContractorFinancialForm } from "@/components/contractors/contractor-financial-form";
-import { formatCurrency, formatDate } from "@/lib/utils";
+import { formatDate } from "@/lib/utils";
 import { getT } from "@/lib/i18n/server";
+import { formatMinor } from "@/lib/money";
 
 const RISK_KEY: Record<string, string> = {
   LOW: "contractors.low",
@@ -136,7 +137,7 @@ export default async function ContractorProfilePage({ params }: { params: Promis
                       "—"
                     )}
                   </TD>
-                  <TD className="text-ink-muted">{formatCurrency(contract.value, contract.currency)}</TD>
+                  <TD className="text-ink-muted">{formatMinor(contract.valueMinor, contract.currency)}</TD>
                   <TD>
                     <Badge status={contract.status}>{t(`contracts.${contract.status.toLowerCase()}`)}</Badge>
                   </TD>

@@ -15,13 +15,13 @@ import { getT } from "@/lib/i18n/server";
 export default async function CostCentersPage() {
   const { tenantId, role } = await getCurrentUser();
   if (!can(role, "FINANCE", "READ")) redirect("/dashboard/executive");
-  const bills = await db.spendingBill.findMany({ where: { tenantId, costCenter: { not: null } }, select: { costCenter: true, amount: true, currency: true } });
+  const bills = await db.spendingBill.findMany({ where: { tenantId, costCenter: { not: null } }, select: { costCenter: true, amountMinor: true, currency: true } });
   const { t } = await getT();
 
   const byCenter = new Map<string, number>();
   for (const b of bills) {
     if (!b.costCenter) continue;
-    byCenter.set(b.costCenter, (byCenter.get(b.costCenter) ?? 0) + b.amount);
+    byCenter.set(b.costCenter, (byCenter.get(b.costCenter) ?? 0) + b.amountMinor);
   }
   const rows = Array.from(byCenter.entries()).sort((a, b) => b[1] - a[1]);
 

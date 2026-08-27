@@ -43,7 +43,7 @@ describe("cross-tenant nested-write validators (audit C5)", () => {
     });
     clientInB = await db.client.create({ data: { tenantId: tenantB.id, name: "Client B", createdById: user.id } });
     contractorInB = await db.contractor.create({ data: { tenantId: tenantB.id, number: "CTR-B-1", name: "Contractor B", tradeType: "Electrical" } });
-    contractInB = await db.contract.create({ data: { tenantId: tenantB.id, number: "CON-B-1", title: "Contract B", value: 1000 } });
+    contractInB = await db.contract.create({ data: { tenantId: tenantB.id, number: "CON-B-1", title: "Contract B", valueMinor: 1000 } });
     supplierInB = await db.supplier.create({ data: { tenantId: tenantB.id, number: "SUP-B-1", name: "Supplier B", category: "Steel" } });
     taskInB = await db.task.create({ data: { tenantId: tenantB.id, code: "TSK-B-1", title: "Task B", createdById: user.id } });
   });

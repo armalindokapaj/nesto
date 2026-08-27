@@ -45,7 +45,7 @@ export default async function ProcurementFinancePage() {
                   </TD>
                   <TD className="text-ink-muted">{o.project?.name ?? "—"}</TD>
                   <TD className="text-ink-muted">{o.supplier.name}</TD>
-                  <TD className="text-ink-muted">{formatMinor(o.amount, o.currency)}</TD>
+                  <TD className="text-ink-muted">{formatMinor(o.amountMinor, o.currency)}</TD>
                   <TD>
                     <Badge status={o.status}>{o.status}</Badge>
                   </TD>

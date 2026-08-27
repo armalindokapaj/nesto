@@ -135,7 +135,7 @@ export async function executeReport(
     case "PROCUREMENT_SPEND": {
       if (!access.procurement) throw new Error("You do not have Procurement access for this report.");
       const data = await getProcurementDashboardData(tenantId);
-      rows = data.recentOrders.map((o) => ({ Number: o.number, Supplier: o.supplier?.name ?? "—", Amount: o.amount, Status: o.status }));
+      rows = data.recentOrders.map((o) => ({ Number: o.number, Supplier: o.supplier?.name ?? "—", Amount: o.amountMinor, Status: o.status }));
       break;
     }
     case "WORK_PROGRESS_STATUS": {

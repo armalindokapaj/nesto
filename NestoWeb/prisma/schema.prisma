@@ -1903,6 +1903,9 @@ model Invoice {
 // carries the audit trail rather than a dedicated table, same pattern as
 // JournalEntry/Account/FiscalPeriod already use.
 model SpendingBill {
+  // Phase 15 — money fields below are integer minor units (cents), converted
+  // through src/lib/money.ts. `quantity` stays Float: it is a measured amount,
+  // not a coin count, and rounding it to whole units would be wrong.
   id        String   @id @default(cuid())
   tenantId  String
   tenant    Tenant   @relation(fields: [tenantId], references: [id], onDelete: Cascade)
@@ -1913,7 +1916,7 @@ model SpendingBill {
 
   number          String // Number Series: SPD-{YYYY}-{SEQ5}
   category        String
-  amount          Float
+  amountMinor          Int
   currency        String    @default("EUR")
   supplierId      String?
   supplier        Supplier? @relation(fields: [supplierId], references: [id])
@@ -2935,6 +2938,9 @@ model ProcurementRfqSupplier {
 }
 
 model SupplierQuotation {
+  // Phase 15 — money fields below are integer minor units (cents), converted
+  // through src/lib/money.ts. `quantity` stays Float: it is a measured amount,
+  // not a coin count, and rounding it to whole units would be wrong.
   id                String         @id @default(cuid())
   tenantId          String
   tenant            Tenant         @relation(fields: [tenantId], references: [id], onDelete: Cascade)
@@ -2950,11 +2956,11 @@ model SupplierQuotation {
   supplierReference String?
   status            String         @default("RECEIVED")
   currency          String         @default("EUR")
-  subtotal          Float          @default(0)
-  discount          Float          @default(0)
-  tax               Float          @default(0)
-  freight           Float          @default(0)
-  total             Float          @default(0)
+  subtotalMinor          Int @default(0)
+  discountMinor          Int @default(0)
+  taxMinor               Int @default(0)
+  freightMinor           Int @default(0)
+  totalMinor             Int @default(0)
   validityDate      DateTime?
   leadTimeDays      Int?
   paymentTerms      String?
@@ -2975,6 +2981,9 @@ model SupplierQuotation {
 }
 
 model SupplierQuotationLine {
+  // Phase 15 — money fields below are integer minor units (cents), converted
+  // through src/lib/money.ts. `quantity` stays Float: it is a measured amount,
+  // not a coin count, and rounding it to whole units would be wrong.
   id           String              @id @default(cuid())
   tenantId     String
   tenant       Tenant              @relation(fields: [tenantId], references: [id], onDelete: Cascade)
@@ -2985,8 +2994,8 @@ model SupplierQuotationLine {
   description  String
   quantity     Float
   unit         String
-  unitPrice    Float
-  lineTotal    Float
+  unitPriceMinor    Int
+  lineTotalMinor    Int
   compliance   String              @default("COMPLIANT")
   leadTimeDays Int?
 
@@ -2994,6 +3003,9 @@ model SupplierQuotationLine {
 }
 
 model PurchaseOrder {
+  // Phase 15 — money fields below are integer minor units (cents), converted
+  // through src/lib/money.ts. `quantity` stays Float: it is a measured amount,
+  // not a coin count, and rounding it to whole units would be wrong.
   id                    String               @id @default(cuid())
   tenantId              String
   tenant                Tenant               @relation(fields: [tenantId], references: [id], onDelete: Cascade)
@@ -3017,12 +3029,12 @@ model PurchaseOrder {
   title                 String?
   type                  String               @default("STANDARD")
   description           String
-  amount                Float
+  amountMinor                Int
   currency              String               @default("EUR")
-  subtotal              Float                @default(0)
-  discount              Float                @default(0)
-  tax                   Float                @default(0)
-  freight               Float                @default(0)
+  subtotalMinor              Int @default(0)
+  discountMinor              Int @default(0)
+  taxMinor                   Int @default(0)
+  freightMinor               Int @default(0)
   status                String               @default("DRAFT") // DRAFT | ISSUED | ACKNOWLEDGED | PARTIALLY_FULFILLED | FULFILLED | CLOSED | ON_HOLD | CANCELLED | SUPERSEDED | ARCHIVED
   version               Int                  @default(1)
   issueDate             DateTime?
@@ -3048,6 +3060,9 @@ model PurchaseOrder {
 }
 
 model PurchaseOrderLine {
+  // Phase 15 — money fields below are integer minor units (cents), converted
+  // through src/lib/money.ts. `quantity` stays Float: it is a measured amount,
+  // not a coin count, and rounding it to whole units would be wrong.
   id                String        @id @default(cuid())
   tenantId          String
   tenant            Tenant        @relation(fields: [tenantId], references: [id], onDelete: Cascade)
@@ -3058,10 +3073,10 @@ model PurchaseOrderLine {
   description       String
   quantity          Float
   unit              String
-  unitPrice         Float
-  discount          Float         @default(0)
-  tax               Float         @default(0)
-  lineTotal         Float
+  unitPriceMinor         Int
+  discountMinor          Int @default(0)
+  taxMinor               Int @default(0)
+  lineTotalMinor         Int
   promisedDate      DateTime?
   deliveredQuantity Float         @default(0)
   acceptedQuantity  Float         @default(0)
@@ -3982,6 +3997,9 @@ model Contractor {
 }
 
 model Contract {
+  // Phase 15 — money fields below are integer minor units (cents), converted
+  // through src/lib/money.ts. `quantity` stays Float: it is a measured amount,
+  // not a coin count, and rounding it to whole units would be wrong.
   id           String      @id @default(cuid())
   tenantId     String
   tenant       Tenant      @relation(fields: [tenantId], references: [id], onDelete: Cascade)
@@ -3991,7 +4009,7 @@ model Contract {
   contractor   Contractor? @relation(fields: [contractorId], references: [id])
   number       String // Number Series: CON-{YYYY}-{SEQ5}
   title        String
-  value        Float
+  valueMinor        Int
   currency     String      @default("EUR")
   // Controlled lifecycle (Audit 2 §7) — the only writer of this field is
   // src/server/contract-lifecycle.ts's transition guard, not ad-hoc updates.

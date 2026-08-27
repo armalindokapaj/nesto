@@ -8,7 +8,8 @@ import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/com
 import { Badge } from "@/components/ui/badge";
 import { AwardDecisionActions } from "@/components/procurement/award-decision-actions";
 import { CreatePoFromAwardButton } from "@/components/procurement/create-po-from-award-button";
-import { formatCurrency, formatDate } from "@/lib/utils";
+import { formatDate } from "@/lib/utils";
+import { formatMinor } from "@/lib/money";
 
 export default async function AwardDetailPage({ params }: { params: Promise<{ id: string }> }) {
   const { id } = await params;
@@ -31,7 +32,7 @@ export default async function AwardDetailPage({ params }: { params: Promise<{ id
           </div>
         </CardHeader>
         <CardContent className="space-y-3 text-sm">
-          <div className="flex justify-between"><span className="text-ink-muted">Recommended value</span><span className="font-medium text-ink">{formatCurrency(award.recommendedQuotation.total, award.recommendedQuotation.currency)}</span></div>
+          <div className="flex justify-between"><span className="text-ink-muted">Recommended value</span><span className="font-medium text-ink">{formatMinor(award.recommendedQuotation.totalMinor, award.recommendedQuotation.currency)}</span></div>
           <div className="flex justify-between"><span className="text-ink-muted">Prepared by</span><span className="text-ink">{award.preparedBy.displayName} · {formatDate(award.preparedAt)}</span></div>
           {award.decidedBy && <div className="flex justify-between"><span className="text-ink-muted">Decided by</span><span className="text-ink">{award.decidedBy.displayName} · {award.decidedAt && formatDate(award.decidedAt)}</span></div>}
           {award.justification && <p className="text-ink-muted">{award.justification}</p>}

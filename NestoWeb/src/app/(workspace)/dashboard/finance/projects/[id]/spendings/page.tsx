@@ -48,7 +48,7 @@ export default async function ProjectSpendingsTabPage({ params }: { params: Prom
                 <TRow key={b.id}>
                   <TD className="text-ink-muted whitespace-nowrap">{formatDate(b.createdAt)}</TD>
                   <TD className="font-medium text-ink">{b.category}</TD>
-                  <TD className="text-ink-muted">{formatMinor(b.amount, b.currency)}</TD>
+                  <TD className="text-ink-muted">{formatMinor(b.amountMinor, b.currency)}</TD>
                   <TD className="text-ink-muted">{b.submitter.displayName}</TD>
                   <TD>
                     <Badge status={b.status}>{t(`dashboards.finance.status${toPascal(b.status)}`)}</Badge>

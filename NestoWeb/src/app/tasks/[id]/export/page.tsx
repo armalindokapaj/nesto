@@ -4,8 +4,9 @@ import { can } from "@/lib/permissions";
 import { getTaskOrchestration } from "@/server/task-orchestration";
 import { DEPARTMENT_LABELS } from "@/lib/constants";
 import { PrintButton } from "@/components/projects/print-button";
-import { formatCurrency, formatDate } from "@/lib/utils";
+import { formatDate } from "@/lib/utils";
 import { getT } from "@/lib/i18n/server";
+import { formatMinor } from "@/lib/money";
 
 // PRD_4 §16.2's `GET /api/tasks/:taskId/export` and §17.1 rule 17 ("every
 // task can export a complete chronological PDF report"). No PDF-generation
@@ -104,7 +105,7 @@ export default async function TaskExportPage({ params }: { params: Promise<{ id:
               {task.contractLinks.map((l) => (
                 <tr key={l.id} className="border-b border-border/50">
                   <td className="py-1.5 pr-3 font-medium">{l.decision.replace(/_/g, " ")}</td>
-                  <td className="py-1.5 pr-3 text-ink-muted">{l.contract ? `${l.contract.number} — ${formatCurrency(l.contract.value, l.contract.currency)}` : "—"}</td>
+                  <td className="py-1.5 pr-3 text-ink-muted">{l.contract ? `${l.contract.number} — ${formatMinor(l.contract.valueMinor, l.contract.currency)}` : "—"}</td>
                   <td className="py-1.5 text-ink-muted">{formatDate(l.createdAt)}</td>
                 </tr>
               ))}
