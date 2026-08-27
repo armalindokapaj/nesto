@@ -1,5 +1,6 @@
 import { db } from "@/lib/db";
-import { ROLES } from "@/lib/constants";
+import { ROLES, ASSIGNABLE_ACCESS_MODES } from "@/lib/constants";
+import type { AssignableAccessMode } from "@/lib/constants";
 
 export async function getAdminDashboardData(tenantId: string) {
   const [memberships, pendingInvitations, projectCount, roleCounts, recentAudit] = await Promise.all([
@@ -81,4 +82,68 @@ export async function getNotificationChannelSummary(tenantId: string) {
     emailEnabled: preferences.filter((p) => p.email).length,
     whatsappEnabled: preferences.filter((p) => p.whatsapp).length,
   };
+}
+
+// --- Phase 18 — Access Revocation ----------------------------------------
+// The only write to `accessMode` that existed before this was the hardcoded
+// "STANDARD" in actions/users.ts:80, which means no membership could ever
+// leave that state. `dal.ts` re-reads the membership on every request (see
+// Audit C2), so a mode change here takes effect on the target's very next
+// request — no session table to purge, no waiting for the 7-day cookie.
+export async function setMemberAccessMode(
+  tenantId: string,
+  actor: { id: string; role: string },
+  targetUserId: string,
+  mode: AssignableAccessMode,
+  reason?: string,
+) {
+  if (!ASSIGNABLE_ACCESS_MODES.includes(mode)) throw new Error("Unknown access mode.");
+
+  // Lockout guard. An Owner suspending themselves with no other Owner active
+  // would leave the tenant with no one able to undo it.
+  if (targetUserId === actor.id) throw new Error("You cannot change your own access.");
+
+  const membership = await db.companyMembership.findUnique({
+    where: { tenantId_userId: { tenantId, userId: targetUserId } },
+    include: { user: { select: { displayName: true } } },
+  });
+  if (!membership) throw new Error("Member not found.");
+  if (membership.accessMode === mode) return membership;
+
+  // Audit C3's boundary again: Admin holds the same permission matrix as
+  // Owner, so without this an Admin could suspend the Owner and take the
+  // tenant. Only an Owner may act on an Owner.
+  if (membership.role === "OWNER" && actor.role !== "OWNER") {
+    throw new Error("Only the Company Owner can change Owner-level access.");
+  }
+
+  if (membership.role === "OWNER" && mode !== "STANDARD") {
+    const activeOwners = await db.companyMembership.count({
+      where: { tenantId, role: "OWNER", accessMode: { in: ["STANDARD", "VIEW_ONLY"] } },
+    });
+    if (activeOwners <= 1) throw new Error("This is the last active Owner. Transfer ownership first.");
+  }
+
+  const updated = await db.companyMembership.update({
+    where: { tenantId_userId: { tenantId, userId: targetUserId } },
+    data: { accessMode: mode },
+  });
+
+  await db.auditEvent.create({
+    data: {
+      tenantId,
+      actorId: actor.id,
+      action: mode === "STANDARD" ? "MEMBER_ACCESS_RESTORED" : "MEMBER_ACCESS_REVOKED",
+      targetType: "CompanyMembership",
+      targetId: membership.id,
+      metadata: JSON.stringify({
+        targetUser: membership.user.displayName,
+        from: membership.accessMode,
+        to: mode,
+        reason: reason ?? null,
+      }),
+    },
+  });
+
+  return updated;
 }

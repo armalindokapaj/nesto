@@ -86,6 +86,33 @@ export const DEPARTMENT_LABELS: Record<(typeof DEPARTMENT_ROLES)[number], string
 export const ACCESS_MODES = ["STANDARD", "VIEW_ONLY", "SUSPENDED", "ARCHIVED"] as const;
 export type AccessMode = (typeof ACCESS_MODES)[number];
 
+// --- Membership access modes (Phase 18 — Access Revocation) ---------------
+// ACCESS_MODES above has existed since the beginning, but until Phase 18
+// nothing in the application could ever write one: every membership was
+// created STANDARD and stayed there, so `dal.ts`'s SUSPENDED/ARCHIVED check
+// and the `accessMode: { not: "SUSPENDED" }` filters in hse/event-centre/
+// setup-center were guarding a state that could not occur.
+//
+// Only the three modes below are offered in the UI. VIEW_ONLY is deliberately
+// omitted: `permissions.canWrite()` is the only thing that would enforce it
+// and it currently has zero callers, so a VIEW_ONLY member would still hold
+// full write access at all 135 `can(..., "WRITE"|"FULL")` sites. Offering it
+// would be a control that lies. Add it here once canWrite() is wired in.
+export const ASSIGNABLE_ACCESS_MODES = ["STANDARD", "SUSPENDED", "ARCHIVED"] as const satisfies readonly AccessMode[];
+export type AssignableAccessMode = (typeof ASSIGNABLE_ACCESS_MODES)[number];
+
+export const ACCESS_MODE_LABELS: Record<AssignableAccessMode, string> = {
+  STANDARD: "Active",
+  SUSPENDED: "Suspended",
+  ARCHIVED: "Archived",
+};
+
+export const ACCESS_MODE_DESCRIPTIONS: Record<AssignableAccessMode, string> = {
+  STANDARD: "Full access for their role.",
+  SUSPENDED: "Cannot sign in. Reversible — history and assignments are kept.",
+  ARCHIVED: "Cannot sign in. Use for people who have left the company.",
+};
+
 export const TASK_STATUSES = [
   "TO_DO",
   "IN_PROGRESS",

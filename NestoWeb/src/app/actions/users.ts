@@ -7,7 +7,8 @@ import { revalidatePath } from "next/cache";
 import { db } from "@/lib/db";
 import { getCurrentUser } from "@/lib/dal";
 import { can } from "@/lib/permissions";
-import { ROLES } from "@/lib/constants";
+import { ROLES, ASSIGNABLE_ACCESS_MODES } from "@/lib/constants";
+import { setMemberAccessMode } from "@/server/admin";
 
 const CreateUserSchema = z.object({
   fullName: z.string().min(2, "Enter a full name"),
@@ -104,4 +105,30 @@ export async function createUser(_prevState: CreateUserState, formData: FormData
   revalidatePath("/dashboard/admin");
 
   return { success: true, username, temporaryPassword };
+}
+
+// Phase 18 — Access Revocation. Suspend / archive / restore a member.
+export async function setMemberAccessModeAction(
+  targetUserId: string,
+  mode: string,
+  reason?: string,
+): Promise<{ error: string } | { success: true }> {
+  const { tenantId, role: actorRole, user: actor } = await getCurrentUser();
+
+  if (!can(actorRole, "USER_MANAGEMENT", "FULL")) {
+    return { error: "You do not have permission to change member access." };
+  }
+
+  const parsed = z.enum(ASSIGNABLE_ACCESS_MODES).safeParse(mode);
+  if (!parsed.success) return { error: "Unknown access mode." };
+
+  try {
+    await setMemberAccessMode(tenantId, { id: actor.id, role: actorRole }, targetUserId, parsed.data, reason);
+  } catch (err) {
+    return { error: err instanceof Error ? err.message : "Could not change access." };
+  }
+
+  revalidatePath("/dashboard/admin");
+  revalidatePath("/dashboard/admin/users");
+  return { success: true };
 }

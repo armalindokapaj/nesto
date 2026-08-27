@@ -1,6 +1,7 @@
 import { db } from "@/lib/db";
 import { can } from "@/lib/permissions";
 import type { Role } from "@/lib/constants";
+import { setMemberAccessMode } from "@/server/admin";
 
 // HR — the core write surface: employment relationships and changes, leave
 // requests and their decisions, termination, and the employee/external
@@ -250,8 +251,33 @@ export async function terminateEmployment(tenantId: string, actorId: string, emp
     where: { id: employmentId },
     data: { status: "TERMINATED", effectiveEndDate, notes: notes ? `${employment.notes ? employment.notes + " " : ""}${notes}` : employment.notes },
   });
+  // Phase 18 — Access Revocation. Before this, terminating someone closed the
+  // employment record and left their login fully working: nothing in the app
+  // could write CompanyMembership.accessMode. Termination is the single most
+  // important trigger for revocation, so it cascades here.
+  //
+  // Only for a termination effective today or earlier. A future-dated
+  // termination must not revoke access before the person's last day, and
+  // there is no scheduler in this app to revoke it when the day arrives — so
+  // that case is left to a manual suspend and is called out in the activity
+  // summary rather than silently doing nothing.
+  const linkedUserId = employment.employee.userId;
+  const effectiveNow = effectiveEndDate.getTime() <= Date.now();
+  let accessNote = "";
+
+  if (linkedUserId && effectiveNow) {
+    const actor = await db.companyMembership.findUnique({
+      where: { tenantId_userId: { tenantId, userId: actorId } },
+      select: { role: true },
+    });
+    await setMemberAccessMode(tenantId, { id: actorId, role: actor?.role ?? "" }, linkedUserId, "ARCHIVED", `Employment terminated (${employmentId})`);
+    accessNote = " — platform access revoked";
+  } else if (linkedUserId) {
+    accessNote = " — platform access still active until the effective date; suspend manually on their last day";
+  }
+
   await db.hrActivity.create({
-    data: { tenantId, entityType: "EmploymentRelationship", entityId: employmentId, actorId, eventType: "TERMINATED", summary: `${employment.employee.fullName} — employment terminated` },
+    data: { tenantId, entityType: "EmploymentRelationship", entityId: employmentId, actorId, eventType: "TERMINATED", summary: `${employment.employee.fullName} — employment terminated${accessNote}` },
   });
   return updated;
 }

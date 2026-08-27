@@ -7,15 +7,17 @@ import { Table, THead, TBody, TRow, TH, TD } from "@/components/ui/table";
 import { Avatar } from "@/components/ui/avatar";
 import { Badge } from "@/components/ui/badge";
 import { CreateUserDialog } from "@/components/dashboards/admin/create-user-dialog";
+import { MemberAccessDialog } from "@/components/dashboards/admin/member-access-dialog";
 import { ROLE_LABELS } from "@/lib/constants";
 import type { Role } from "@/lib/constants";
 import { formatDate } from "@/lib/utils";
 import { getT } from "@/lib/i18n/server";
 
 export default async function AdminUsersPage() {
-  const { tenantId, role } = await getCurrentUser();
+  const { tenantId, role, user } = await getCurrentUser();
   if (!can(role, "USER_MANAGEMENT", "READ")) redirect("/dashboard/executive");
-  const canCreate = can(role, "USER_MANAGEMENT", "FULL");
+  const canManageAccess = can(role, "USER_MANAGEMENT", "FULL");
+  const canCreate = canManageAccess;
 
   const members = await listAllMembers(tenantId);
   const { t } = await getT();
@@ -39,6 +41,7 @@ export default async function AdminUsersPage() {
                 <TH>{t("common.department")}</TH>
                 <TH>{t("common.status")}</TH>
                 <TH>{t("dashboards.admin.joined")}</TH>
+                {canManageAccess && <TH className="text-right">{t("common.actions")}</TH>}
               </TRow>
             </THead>
             <TBody>
@@ -61,11 +64,21 @@ export default async function AdminUsersPage() {
                     <Badge status={m.accessMode}>{m.accessMode === "STANDARD" ? "Active" : m.accessMode.replace("_", " ")}</Badge>
                   </TD>
                   <TD className="text-ink-muted">{formatDate(m.createdAt)}</TD>
+                  {canManageAccess && (
+                    <TD className="text-right">
+                      <MemberAccessDialog
+                        userId={m.userId}
+                        displayName={m.user.displayName}
+                        currentMode={m.accessMode}
+                        isSelf={m.userId === user.id}
+                      />
+                    </TD>
+                  )}
                 </TRow>
               ))}
               {members.length === 0 && (
                 <TRow>
-                  <TD colSpan={5} className="text-center text-ink-faint py-8">
+                  <TD colSpan={canManageAccess ? 6 : 5} className="text-center text-ink-faint py-8">
                     {t("dashboards.admin.noMembers")}
                   </TD>
                 </TRow>
