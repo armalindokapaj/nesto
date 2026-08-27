@@ -144,9 +144,37 @@ describe("unit sale and reservation state guards", () => {
   });
 
   describe("archive and restore", () => {
+    // Phase 17's headline bug: archiveUnit() set lifecycleStatus: "ARCHIVED"
+    // directly, so it reached an outcome UNIT_MANUAL_TRANSITIONS forbids —
+    // a sold apartment could be archived out of the live unit list while the
+    // client who bought it had no idea.
+    it("refuses to archive a SOLD unit, the transition the table forbids", async () => {
+      await sell(clientA);
+      await expect(archiveUnit(tenantId, unitId, actorId)).rejects.toThrow(/Cannot move a unit from SOLD/i);
+      const unit = await db.unit.findUniqueOrThrow({ where: { id: unitId } });
+      expect(unit.lifecycleStatus).toBe("SOLD");
+      expect(unit.archivedAt).toBeNull();
+    });
+
+    it("refuses to archive a RESERVED unit too", async () => {
+      await reserve(clientA);
+      await expect(archiveUnit(tenantId, unitId, actorId)).rejects.toThrow(/Cannot move a unit from RESERVED/i);
+      expect(await statusOf()).toBe("RESERVED");
+    });
+
+    it("still archives the states the table does allow", async () => {
+      // AVAILABLE -> ARCHIVED is listed, so this must keep working as before.
+      await archiveUnit(tenantId, unitId, actorId);
+      const unit = await db.unit.findUniqueOrThrow({ where: { id: unitId } });
+      expect(unit.lifecycleStatus).toBe("ARCHIVED");
+      expect(unit.archivedAt).not.toBeNull();
+    });
+
     it("archives once, not twice", async () => {
       await archiveUnit(tenantId, unitId, actorId);
-      await expect(archiveUnit(tenantId, unitId, actorId)).rejects.toThrow(/already archived/i);
+      // ARCHIVED has no legal transitions at all, so the second attempt is
+      // rejected by the same table rather than by a bespoke message.
+      await expect(archiveUnit(tenantId, unitId, actorId)).rejects.toThrow(/Cannot move a unit from ARCHIVED/i);
     });
 
     // restoreUnit resets lifecycleStatus to DRAFT, and nothing checked the

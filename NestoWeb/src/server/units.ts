@@ -235,11 +235,11 @@ export async function transitionUnitStatus(tenantId: string, unitId: string, act
   // target in the allowed list, and both write — last one wins silently.
   // updateUnit() above already guards this way on `version`.
   const result = await db.unit.updateMany({
-    where: { id: unitId, lifecycleStatus: unit.lifecycleStatus },
+    where: { id: unitId, version: unit.version, lifecycleStatus: unit.lifecycleStatus },
     data: { lifecycleStatus: nextStatus, version: { increment: 1 } },
   });
   if (result.count === 0) {
-    throw new Error("This unit's status was changed by someone else. Reload and try again.");
+    throw new Error("This unit was changed by someone else. Reload and try again.");
   }
   await logUnitActivity(tenantId, unitId, actorId, "STATUS_CHANGED", `Status changed from ${unit.lifecycleStatus} to ${nextStatus}.`);
 }
@@ -290,19 +290,19 @@ export async function duplicateUnit(tenantId: string, unitId: string, actorId: s
   return duplicate;
 }
 
+// Archiving is a lifecycle transition like any other, so it goes through the
+// table rather than around it. It used to set lifecycleStatus: "ARCHIVED"
+// directly after checking only that the unit existed — which meant a SOLD unit,
+// with a real client and a real PURCHASED relationship behind it, could be
+// archived out of the live unit list even though UNIT_MANUAL_TRANSITIONS lists
+// SOLD -> ARCHIVED as forbidden three lines away in constants.ts.
+//
+// Delegating (rather than re-checking the table here) keeps one copy of the
+// rule: if the table changes, this follows automatically, and the caller gets
+// the same error message every other forbidden transition produces.
 export async function archiveUnit(tenantId: string, unitId: string, actorId: string) {
-  assertTenant(await db.unit.findUnique({ where: { id: unitId } }), tenantId, "Unit");
-  // Conditional so a double-submit archives once rather than stamping a second
-  // archivedAt over the first. NOTE: this deliberately does not enforce
-  // UNIT_MANUAL_TRANSITIONS — that table forbids ARCHIVED from RESERVED/SOLD/
-  // CONTRACTED/HANDED_OVER/RENTED, but archiveUnit has always bypassed it and
-  // whether archiving a sold unit is legitimate is a business call, not a
-  // mechanical one. Flagged rather than silently decided here.
-  const archived = await db.unit.updateMany({
-    where: { id: unitId, archivedAt: null },
-    data: { archivedAt: new Date(), lifecycleStatus: "ARCHIVED", version: { increment: 1 } },
-  });
-  if (archived.count === 0) throw new Error("This unit is already archived.");
+  await transitionUnitStatus(tenantId, unitId, actorId, "ARCHIVED");
+  await db.unit.update({ where: { id: unitId }, data: { archivedAt: new Date() } });
   await logUnitActivity(tenantId, unitId, actorId, "ARCHIVED", "Unit archived.");
 }
 
@@ -315,10 +315,12 @@ export async function restoreUnit(tenantId: string, unitId: string, actorId: str
   // was in — a SOLD unit would come back as an unsold draft. Nothing checked
   // that the unit was archived at all before.
   const restored = await db.unit.updateMany({
-    where: { id: unitId, archivedAt: { not: null } },
+    where: { id: unitId, version: unit.version, archivedAt: { not: null } },
     data: { archivedAt: null, lifecycleStatus: "DRAFT", version: { increment: 1 } },
   });
-  if (restored.count === 0) throw new Error("This unit is not archived.");
+  if (restored.count === 0) {
+    throw new Error("This unit is not archived, or was changed by someone else. Reload and try again.");
+  }
   await logUnitActivity(tenantId, unitId, actorId, "RESTORED", "Unit restored from archive.");
 }
 
