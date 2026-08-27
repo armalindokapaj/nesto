@@ -24,6 +24,44 @@ export const peekSession = cache(async () => {
   return readSessionCookie();
 });
 
+// Phase 9 — the Route Handler counterpart to getCurrentUser().
+//
+// Four API routes authenticated with peekSession(), which decrypts the cookie
+// and performs no database read at all — precisely what its own doc comment
+// says not to do with real data. Two consequences: the JWT's `role` is a
+// 7-day-stale snapshot (Audit C2, the thing getCurrentUser() exists to fix),
+// and nothing checked `accessMode`, so once Phase 18 made suspension possible,
+// a revoked person kept working notifications and search for up to a week.
+//
+// A separate function rather than reusing getCurrentUser() because that one
+// calls redirect(), which sends a fetch() caller an HTML page where it expects
+// JSON. Next's docs also require redirect() to be called outside try/catch —
+// it works by throwing NEXT_REDIRECT — so catching it to convert to a 401 would
+// silently break the redirect. Returning null instead lets the route answer
+// with a clean 401 and keeps the same live membership checks.
+export const getCurrentApiUser = cache(async () => {
+  const session = await readSessionCookie();
+  if (!session?.userId) return null;
+
+  const [user, membership] = await Promise.all([
+    db.userIdentity.findUnique({ where: { id: session.userId } }),
+    db.companyMembership.findUnique({
+      where: { tenantId_userId: { tenantId: session.tenantId, userId: session.userId } },
+    }),
+  ]);
+
+  if (!user || !membership) return null;
+  if (membership.accessMode === "SUSPENDED" || membership.accessMode === "ARCHIVED") return null;
+
+  return {
+    user,
+    membership,
+    tenantId: session.tenantId,
+    // Live, not the cookie's snapshot — a demotion takes effect immediately.
+    role: membership.role as Role,
+  };
+});
+
 export const getCurrentUser = cache(async () => {
   const session = await verifySession();
   const [user, membership] = await Promise.all([

@@ -1,15 +1,15 @@
 import { NextResponse } from "next/server";
-import { peekSession } from "@/lib/dal";
+import { getCurrentApiUser } from "@/lib/dal";
 import { listNotifications, unreadNotificationCount } from "@/server/notifications";
 
 export async function GET() {
-  const session = await peekSession();
+  const session = await getCurrentApiUser();
   if (!session) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
   const [notifications, unread] = await Promise.all([
-    listNotifications(session.tenantId, session.userId),
-    unreadNotificationCount(session.tenantId, session.userId),
+    listNotifications(session.tenantId, session.user.id),
+    unreadNotificationCount(session.tenantId, session.user.id),
   ]);
   return NextResponse.json({ notifications, unread });
 }
