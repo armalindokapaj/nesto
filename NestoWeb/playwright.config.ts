@@ -12,11 +12,16 @@ export default defineConfig({
     screenshot: "only-on-failure",
   },
   webServer: {
-    command: "npm run dev -- --port 3100",
+    // A production build, not `next dev`. Dev-mode compilation of this app
+    // under parallel workers exhausts memory and the server gets OOM-killed
+    // partway through the run; that surfaces as dozens of
+    // ERR_CONNECTION_REFUSED failures which read as application bugs but are
+    // not. `next build` takes ~20s here and `next start` is stable under load
+    // — and it exercises what actually ships.
+    command: "npm run build && npm run start -- --port 3100",
     url: "http://localhost:3100",
-    reuseExistingServer: true,
-    // A cold `next dev` compile on a CI runner is a lot slower than locally.
-    timeout: process.env.CI ? 180_000 : 60_000,
+    reuseExistingServer: !process.env.CI,
+    timeout: 300_000,
   },
   projects: [
     { name: "desktop", use: { ...devices["Desktop Chrome"], viewport: { width: 1440, height: 900 } } },
