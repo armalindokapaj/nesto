@@ -22,6 +22,7 @@ import { DashboardGreeting } from "@/components/dashboards/dashboard-greeting";
 import { FinanceScopeBar } from "@/components/dashboards/finance-scope-bar";
 import { formatCurrency, formatDate } from "@/lib/utils";
 import { getT } from "@/lib/i18n/server";
+import { formatMinor } from "@/lib/money";
 
 // PRD_Finance_Dashboard §6 — Company Overview, the default Finance scope
 // mode. §5 "Company Overview / All Projects / Single Project" are separate
@@ -53,7 +54,7 @@ export default async function FinanceDashboardPage() {
         <StatTile
           label={t("dashboards.finance.overdueInvoices")}
           value={String(data.kpis.overdueInvoices.count)}
-          helper={formatCurrency(data.kpis.overdueInvoices.amount)}
+          helper={formatMinor(data.kpis.overdueInvoices.amount)}
           icon={AlertOctagon}
           iconColor="#c0392b"
           iconBg="#FBE4E1"

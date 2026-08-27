@@ -3,6 +3,7 @@ import { db } from "@/lib/db";
 import { assertTenant, requireTenantContract } from "@/lib/tenant";
 import { emitDomainEvent, dispatchDomainEvents } from "@/lib/domain-events";
 import { buildActorSnapshot } from "@/lib/actor-snapshot";
+import { toMinorUnits } from "@/lib/money";
 
 // Audit 2 §7 "Controlled Record Lifecycles" — Contract is one of the five
 // named state machines. This file is the ONLY place Contract.status is ever
@@ -88,9 +89,12 @@ export async function reconcileContractCompletion(tenantId: string, contractId: 
 
     const paid = await tx.invoice.aggregate({
       where: { tenantId, contractId, type: "PAYMENT", status: "POSTED" },
-      _sum: { amount: true },
+      _sum: { amountMinor: true },
     });
-    if ((paid._sum.amount ?? 0) < contract.value) return;
+    // Contract.value is Priority 2 and still a decimal Float, so bring it
+    // into minor units for the comparison rather than the reverse — comparing
+    // in minor units keeps this exact.
+    if ((paid._sum.amountMinor ?? 0) < toMinorUnits(contract.value, contract.currency)) return;
 
     assertTransition(contract.status, "COMPLETED");
     await tx.contract.update({ where: { id: contractId }, data: { status: "COMPLETED" } });
@@ -100,7 +104,7 @@ export async function reconcileContractCompletion(tenantId: string, contractId: 
         action: "CONTRACT_COMPLETED",
         targetType: "Contract",
         targetId: contractId,
-        metadata: JSON.stringify({ totalPaid: paid._sum.amount, contractValue: contract.value }),
+        metadata: JSON.stringify({ totalPaidMinor: paid._sum.amountMinor, contractValue: contract.value }),
       },
     });
   });

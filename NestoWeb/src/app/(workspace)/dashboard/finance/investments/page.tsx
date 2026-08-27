@@ -8,6 +8,7 @@ import { Badge } from "@/components/ui/badge";
 import { CreateInvestmentDialog } from "@/components/finance/create-investment-dialog";
 import { formatCurrency } from "@/lib/utils";
 import { getT } from "@/lib/i18n/server";
+import { formatMinor } from "@/lib/money";
 
 export default async function InvestmentsPage({ searchParams }: { searchParams: Promise<{ open?: string }> }) {
   const { tenantId, role, company } = await getCurrentUser();
@@ -43,7 +44,7 @@ export default async function InvestmentsPage({ searchParams }: { searchParams: 
                 <TRow key={i.id}>
                   <TD className="font-medium text-ink">{i.name}</TD>
                   <TD className="text-ink-muted">{i.type}</TD>
-                  <TD className="text-ink-muted">{formatCurrency(i.amount, i.currency)}</TD>
+                  <TD className="text-ink-muted">{formatMinor(i.amount, i.currency)}</TD>
                   <TD className="text-ink-muted">{i.currentValue != null ? formatCurrency(i.currentValue, i.currency) : "—"}</TD>
                   <TD>
                     <Badge status={i.status}>{i.status}</Badge>

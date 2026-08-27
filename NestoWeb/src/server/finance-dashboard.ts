@@ -17,12 +17,12 @@ async function projectPortfolioRow(tenantId: string, project: { id: string; name
   ]);
 
   const budgetAmount = budgetRow?.baselineAmount ?? project.budget ?? 0;
-  const revenue = invoices.filter((i) => i.type === "INVOICE").reduce((s, i) => s + i.amount, 0);
-  const receivables = invoices.filter((i) => i.type === "INVOICE" && i.status !== "PAID" && i.status !== "COMPLETED").reduce((s, i) => s + i.amount, 0);
-  const invoiceExpenses = invoices.filter((i) => i.type === "EXPENSE" || i.type === "BILL").reduce((s, i) => s + Math.abs(i.amount), 0);
+  const revenue = invoices.filter((i) => i.type === "INVOICE").reduce((s, i) => s + i.amountMinor, 0);
+  const receivables = invoices.filter((i) => i.type === "INVOICE" && i.status !== "PAID" && i.status !== "COMPLETED").reduce((s, i) => s + i.amountMinor, 0);
+  const invoiceExpenses = invoices.filter((i) => i.type === "EXPENSE" || i.type === "BILL").reduce((s, i) => s + Math.abs(i.amountMinor), 0);
   const payablesFromInvoices = invoices
     .filter((i) => (i.type === "EXPENSE" || i.type === "BILL") && i.status !== "PAID" && i.status !== "COMPLETED")
-    .reduce((s, i) => s + Math.abs(i.amount), 0);
+    .reduce((s, i) => s + Math.abs(i.amountMinor), 0);
   const paidSpendingAmount = spendingBills.filter((b) => b.status === "PAID").reduce((s, b) => s + b.amount, 0);
   const approvedNotPaidAmount = spendingBills.filter((b) => b.status === "APPROVED_FOR_PAYMENT").reduce((s, b) => s + b.amount, 0);
   // Spendings (§6.2): Finance-approved OR Paid only — draft/rejected/pending excluded.
@@ -74,8 +74,8 @@ export async function getCompanyFinanceOverview(tenantId: string) {
     db.invoice.findMany({ where: { tenantId, OR: [{ description: { contains: "Tax", mode: "insensitive" as const } }, { number: { contains: "TAX", mode: "insensitive" as const } }] } }),
   ]);
 
-  const revenue = invoices.filter((i) => i.type === "INVOICE").reduce((s, i) => s + i.amount, 0);
-  const expenses = invoices.filter((i) => i.type === "EXPENSE" || i.type === "BILL").reduce((s, i) => s + Math.abs(i.amount), 0);
+  const revenue = invoices.filter((i) => i.type === "INVOICE").reduce((s, i) => s + i.amountMinor, 0);
+  const expenses = invoices.filter((i) => i.type === "EXPENSE" || i.type === "BILL").reduce((s, i) => s + Math.abs(i.amountMinor), 0);
   // Gross/Net/EBITDA v1 approximation — no COGS/overhead/D&A split exists yet
   // in this data model, so all three collapse to the same reproducible
   // revenue-minus-expenses formula, documented rather than fabricated apart.
@@ -83,11 +83,11 @@ export async function getCompanyFinanceOverview(tenantId: string) {
   const netProfit = grossProfit;
   const ebitda = netProfit;
   const cashPosition = accounts.reduce((s, a) => s + a.balance, 0);
-  const receivables = invoices.filter((i) => i.type === "INVOICE" && OVERDUE_STATUSES.includes(i.status)).reduce((s, i) => s + i.amount, 0);
-  const payables = invoices.filter((i) => (i.type === "EXPENSE" || i.type === "BILL") && OVERDUE_STATUSES.includes(i.status)).reduce((s, i) => s + Math.abs(i.amount), 0);
+  const receivables = invoices.filter((i) => i.type === "INVOICE" && OVERDUE_STATUSES.includes(i.status)).reduce((s, i) => s + i.amountMinor, 0);
+  const payables = invoices.filter((i) => (i.type === "EXPENSE" || i.type === "BILL") && OVERDUE_STATUSES.includes(i.status)).reduce((s, i) => s + Math.abs(i.amountMinor), 0);
   const now = new Date();
   const overdue = invoices.filter((i) => i.dueDate && i.dueDate < now && OVERDUE_STATUSES.includes(i.status));
-  const overdueAmount = overdue.reduce((s, i) => s + Math.abs(i.amount), 0);
+  const overdueAmount = overdue.reduce((s, i) => s + Math.abs(i.amountMinor), 0);
   const upcoming = invoices
     .filter((i) => (i.type === "BILL" || i.type === "EXPENSE") && i.status !== "COMPLETED" && i.dueDate && i.dueDate >= now)
     .sort((a, b) => a.dueDate!.getTime() - b.dueDate!.getTime())
@@ -101,7 +101,7 @@ export async function getCompanyFinanceOverview(tenantId: string) {
   const totalBudget = portfolio.reduce((s, p) => s + p.budget, 0);
   const forecastVariance = totalForecast - totalBudget;
 
-  const taxLiabilities = taxInvoices.filter((i) => OVERDUE_STATUSES.includes(i.status)).reduce((s, i) => s + Math.abs(i.amount), 0);
+  const taxLiabilities = taxInvoices.filter((i) => OVERDUE_STATUSES.includes(i.status)).reduce((s, i) => s + Math.abs(i.amountMinor), 0);
 
   const recentActivity = await db.financeActivity.findMany({
     where: { tenantId },
@@ -168,10 +168,10 @@ export async function getSingleProjectFinanceOverview(tenantId: string, projectI
     db.spendingBill.findMany({ where: { tenantId, projectId }, orderBy: { createdAt: "desc" } }),
     db.invoice.findMany({ where: { tenantId, projectId } }),
   ]);
-  const cashIn = cashFlowInvoices.filter((i) => i.type === "INVOICE" && (i.status === "PAID" || i.status === "COMPLETED")).reduce((s, i) => s + i.amount, 0);
+  const cashIn = cashFlowInvoices.filter((i) => i.type === "INVOICE" && (i.status === "PAID" || i.status === "COMPLETED")).reduce((s, i) => s + i.amountMinor, 0);
   const cashOut = cashFlowInvoices
     .filter((i) => (i.type === "EXPENSE" || i.type === "BILL" || i.type === "PAYMENT") && (i.status === "PAID" || i.status === "COMPLETED"))
-    .reduce((s, i) => s + Math.abs(i.amount), 0);
+    .reduce((s, i) => s + Math.abs(i.amountMinor), 0);
 
   return {
     project,
@@ -220,19 +220,19 @@ export async function getFinanceDashboardData(tenantId: string) {
     db.project.findMany({ where: { tenantId }, include: { invoices: true } }),
   ]);
 
-  const revenue = invoices.filter((i) => i.type === "INVOICE").reduce((s, i) => s + i.amount, 0);
+  const revenue = invoices.filter((i) => i.type === "INVOICE").reduce((s, i) => s + i.amountMinor, 0);
   const expenses = invoices
     .filter((i) => i.type === "EXPENSE" || i.type === "BILL")
-    .reduce((s, i) => s + Math.abs(i.amount), 0);
+    .reduce((s, i) => s + Math.abs(i.amountMinor), 0);
   const netProfit = revenue - expenses;
   const cashBalance = accounts.reduce((s, a) => s + a.balance, 0);
   const outstanding = invoices.filter((i) => i.type === "INVOICE" && i.status !== "PAID");
-  const outstandingAmount = outstanding.reduce((s, i) => s + i.amount, 0);
+  const outstandingAmount = outstanding.reduce((s, i) => s + i.amountMinor, 0);
 
   const revenueByProject = projects
     .map((p) => ({
       label: p.name,
-      value: p.invoices.filter((i) => i.type === "INVOICE").reduce((s, i) => s + i.amount, 0),
+      value: p.invoices.filter((i) => i.type === "INVOICE").reduce((s, i) => s + i.amountMinor, 0),
     }))
     .filter((p) => p.value > 0)
     .sort((a, b) => b.value - a.value);
@@ -264,10 +264,10 @@ export async function getBudgetVsActualByProject(tenantId: string) {
   });
 
   return projects.map((p) => {
-    const actualRevenue = p.invoices.filter((i) => i.type === "INVOICE").reduce((s, i) => s + i.amount, 0);
+    const actualRevenue = p.invoices.filter((i) => i.type === "INVOICE").reduce((s, i) => s + i.amountMinor, 0);
     const actualExpenses = p.invoices
       .filter((i) => i.type === "EXPENSE" || i.type === "BILL")
-      .reduce((s, i) => s + Math.abs(i.amount), 0);
+      .reduce((s, i) => s + Math.abs(i.amountMinor), 0);
     return {
       id: p.id,
       name: p.name,
@@ -278,7 +278,7 @@ export async function getBudgetVsActualByProject(tenantId: string) {
   });
 }
 
-function buildMonthlyCashFlow(invoices: { amount: number; type: string; issuedDate: Date }[]) {
+function buildMonthlyCashFlow(invoices: { amountMinor: number; type: string; issuedDate: Date }[]) {
   const months = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
   const byMonth = new Map<string, { revenue: number; expenses: number }>();
   for (const m of months) byMonth.set(m, { revenue: 0, expenses: 0 });
@@ -286,8 +286,8 @@ function buildMonthlyCashFlow(invoices: { amount: number; type: string; issuedDa
   for (const inv of invoices) {
     const label = months[inv.issuedDate.getMonth()];
     const entry = byMonth.get(label)!;
-    if (inv.type === "INVOICE") entry.revenue += inv.amount;
-    else entry.expenses += Math.abs(inv.amount);
+    if (inv.type === "INVOICE") entry.revenue += inv.amountMinor;
+    else entry.expenses += Math.abs(inv.amountMinor);
   }
 
   const currentMonth = new Date().getMonth();

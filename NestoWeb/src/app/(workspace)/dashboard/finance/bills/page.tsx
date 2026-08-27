@@ -6,8 +6,9 @@ import { listInvoicesByType } from "@/server/finance";
 import { Card, CardContent } from "@/components/ui/card";
 import { Table, THead, TBody, TRow, TH, TD } from "@/components/ui/table";
 import { Badge } from "@/components/ui/badge";
-import { formatCurrency, formatDate } from "@/lib/utils";
+import { formatDate } from "@/lib/utils";
 import { getT } from "@/lib/i18n/server";
+import { formatMinor } from "@/lib/money";
 
 export default async function BillsPage() {
   const { tenantId, role } = await getCurrentUser();
@@ -51,7 +52,7 @@ export default async function BillsPage() {
                       "—"
                     )}
                   </TD>
-                  <TD className="font-medium text-danger">{formatCurrency(Math.abs(bill.amount), bill.currency)}</TD>
+                  <TD className="font-medium text-danger">{formatMinor(Math.abs(bill.amountMinor), bill.currency)}</TD>
                   <TD>
                     <Badge status={bill.status}>{bill.status}</Badge>
                   </TD>

@@ -1,6 +1,7 @@
 import { db } from "@/lib/db";
 import { logAudit } from "@/lib/audit";
 import type { Prisma } from "@/generated/prisma";
+import { toMinorUnits } from "@/lib/money";
 
 // ---------------------------------------------------------------------------
 // PRD_HR_Payroll_Workforce — Phase 2 (Payroll). Scope decision 2026-08-06:
@@ -202,8 +203,10 @@ export async function calculatePayrollRun(tenantId: string, actorId: string, run
       employeeId: candidate.employeeId,
       employmentRelationshipId: candidate.employmentRelationshipId,
       salaryRecordId: currentSalary.id,
-      grossSalary: currentSalary.grossSalary,
-      netSalary: currentSalary.netSalary,
+      // SalaryRecord is still Float (Priority 3); this is the conversion
+      // boundary, so everything downstream of a payroll line is exact.
+      grossSalaryMinor: toMinorUnits(currentSalary.grossSalary, currentSalary.currency),
+      netSalaryMinor: toMinorUnits(currentSalary.netSalary, currentSalary.currency),
       currency: currentSalary.currency,
       calculationTrace: `source: SalaryRecord ${currentSalary.id} (effective ${currentSalary.effectiveStartDate.toISOString().slice(0, 10)}); formula: pass-through, no deductions applied; rounding: none`,
     }];

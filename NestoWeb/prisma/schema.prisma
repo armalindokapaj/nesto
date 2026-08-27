@@ -1870,7 +1870,8 @@ model Invoice {
   number      String
   type        String // INVOICE | BILL | PAYMENT | EXPENSE
   description String?
-  amount      Float
+  // Phase 14 — integer minor units (cents), via src/lib/money.ts.
+  amountMinor      Int
   currency    String    @default("EUR")
   status      String    @default("PENDING") // legacy: PAID | PENDING | SENT | OVERDUE | COMPLETED
   // PRD_2 posting lifecycle (§8.1) also uses this column:
@@ -6370,8 +6371,10 @@ model PayrollRunLine {
   salaryRecordId           String?
   salaryRecord             SalaryRecord?           @relation(fields: [salaryRecordId], references: [id])
 
-  grossSalary      Float
-  netSalary        Float
+  // Phase 14 — integer minor units (cents). Conversion goes through
+  // src/lib/money.ts at every boundary; see that file for why not Decimal.
+  grossSalaryMinor Int
+  netSalaryMinor   Int
   currency         String @default("EUR")
   // Phase 2 is intentionally trivial ("source: SalaryRecord X, formula:
   // pass-through, rounding: none") — Phase 3 would replace this with the

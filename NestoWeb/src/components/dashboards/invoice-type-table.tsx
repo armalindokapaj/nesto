@@ -1,9 +1,10 @@
 import { Table, THead, TBody, TRow, TH, TD } from "@/components/ui/table";
 import { Badge } from "@/components/ui/badge";
-import { formatCurrency, formatDate } from "@/lib/utils";
+import { formatDate } from "@/lib/utils";
 import { getT } from "@/lib/i18n/server";
+import { formatMinor } from "@/lib/money";
 
-type InvoiceRow = { id: string; number: string; description: string | null; amount: number; currency: string; status: string; issuedDate: Date; dueDate: Date | null };
+type InvoiceRow = { id: string; number: string; description: string | null; amountMinor: number; currency: string; status: string; issuedDate: Date; dueDate: Date | null };
 
 /** Shared table body for the Revenue/Expenses/Invoices/Payments Project Finance tabs — same filtered-Invoice-list shape, different `type`. */
 export async function InvoiceTypeTable({ rows, emptyKey }: { rows: InvoiceRow[]; emptyKey: string }) {
@@ -26,7 +27,7 @@ export async function InvoiceTypeTable({ rows, emptyKey }: { rows: InvoiceRow[];
               <p className="font-medium text-ink">{r.number}</p>
               <p className="text-xs text-ink-muted">{r.description}</p>
             </TD>
-            <TD className="text-ink-muted">{formatCurrency(Math.abs(r.amount), r.currency)}</TD>
+            <TD className="text-ink-muted">{formatMinor(Math.abs(r.amountMinor), r.currency)}</TD>
             <TD>
               <Badge status={r.status}>{r.status}</Badge>
             </TD>

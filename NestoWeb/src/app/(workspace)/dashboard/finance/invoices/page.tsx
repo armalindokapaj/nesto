@@ -7,8 +7,9 @@ import { Card, CardContent } from "@/components/ui/card";
 import { Table, THead, TBody, TRow, TH, TD } from "@/components/ui/table";
 import { Badge } from "@/components/ui/badge";
 import { InvoiceActions } from "@/components/finance/invoice-actions";
-import { formatCurrency, formatDate } from "@/lib/utils";
+import { formatDate } from "@/lib/utils";
 import { getT } from "@/lib/i18n/server";
+import { formatMinor } from "@/lib/money";
 
 export default async function InvoicesPage() {
   const { tenantId, role } = await getCurrentUser();
@@ -55,7 +56,7 @@ export default async function InvoicesPage() {
                       "—"
                     )}
                   </TD>
-                  <TD className="font-medium text-success">{formatCurrency(inv.amount, inv.currency)}</TD>
+                  <TD className="font-medium text-success">{formatMinor(inv.amountMinor, inv.currency)}</TD>
                   <TD>
                     <Badge status={inv.status}>{inv.status}</Badge>
                   </TD>

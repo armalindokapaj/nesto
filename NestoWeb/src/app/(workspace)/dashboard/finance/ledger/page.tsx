@@ -4,8 +4,9 @@ import { can } from "@/lib/permissions";
 import { db } from "@/lib/db";
 import { Card, CardHeader, CardTitle, CardContent } from "@/components/ui/card";
 import { Table, THead, TBody, TRow, TH, TD } from "@/components/ui/table";
-import { formatCurrency, formatDate } from "@/lib/utils";
+import { formatDate } from "@/lib/utils";
 import { getT } from "@/lib/i18n/server";
+import { formatMinor } from "@/lib/money";
 
 // §4 "General Ledger" — the posted FinancialLedgerEntry stream (immutable,
 // reversal-linked), distinct from Journal Entries (the pre-posting drafts).
@@ -44,7 +45,7 @@ export default async function GeneralLedgerPage() {
                     <p className="font-medium text-ink">{e.invoice.number}</p>
                     <p className="text-xs text-ink-muted">{e.invoice.description}{e.reversesEntryId ? " (reversal)" : ""}</p>
                   </TD>
-                  <TD className="text-ink-muted">{formatCurrency(e.amount, e.currency)}</TD>
+                  <TD className="text-ink-muted">{formatMinor(e.amount, e.currency)}</TD>
                   <TD className="text-ink-muted">{e.postedBy.displayName}</TD>
                 </TRow>
               ))}

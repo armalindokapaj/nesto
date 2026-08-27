@@ -6,6 +6,7 @@ import { getCurrentUser } from "@/lib/dal";
 import { can } from "@/lib/permissions";
 import { emitDomainEvent, dispatchDomainEvents } from "@/lib/domain-events";
 import { buildActorSnapshot } from "@/lib/actor-snapshot";
+import { fromMinorUnits } from "@/lib/money";
 
 // PRD_2 §8 — posting is deliberate, atomic and one-way. Once an invoice is
 // POSTED it cannot be edited; corrections go through reverseInvoiceAction,
@@ -33,7 +34,8 @@ export async function postInvoiceAction(invoiceId: string) {
       data: {
         tenantId,
         invoiceId,
-        amount: invoice.amount,
+        // FinancialLedgerEntry is Priority 2, still Float — convert back out.
+        amount: fromMinorUnits(invoice.amountMinor, invoice.currency),
         currency: invoice.currency,
         postedById: user.id,
       },
@@ -66,7 +68,7 @@ export async function postInvoiceAction(invoiceId: string) {
         {
           invoiceId,
           contractId: invoice.contractId,
-          amount: invoice.amount,
+          amount: fromMinorUnits(invoice.amountMinor, invoice.currency),
           currency: invoice.currency,
         },
         {

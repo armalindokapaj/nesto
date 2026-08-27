@@ -7,8 +7,9 @@ import { getSpendingBill } from "@/server/finance";
 import { Card, CardHeader, CardTitle, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { SpendingBillActions } from "@/components/finance/spending-bill-actions";
-import { formatCurrency, formatDate } from "@/lib/utils";
+import { formatDate } from "@/lib/utils";
 import { getT } from "@/lib/i18n/server";
+import { formatMinor } from "@/lib/money";
 
 export default async function SpendingBillDetailPage({ params }: { params: Promise<{ id: string }> }) {
   const { tenantId, role, user } = await getCurrentUser();
@@ -38,7 +39,7 @@ export default async function SpendingBillDetailPage({ params }: { params: Promi
           <div className="grid grid-cols-2 sm:grid-cols-4 gap-4 text-sm">
             <div>
               <p className="text-xs text-ink-muted">{t("common.amount")}</p>
-              <p className={bill.overBudget ? "text-danger font-medium" : "font-medium text-ink"}>{formatCurrency(bill.amount, bill.currency)}</p>
+              <p className={bill.overBudget ? "text-danger font-medium" : "font-medium text-ink"}>{formatMinor(bill.amount, bill.currency)}</p>
             </div>
             <div>
               <p className="text-xs text-ink-muted">{t("nav.projects")}</p>

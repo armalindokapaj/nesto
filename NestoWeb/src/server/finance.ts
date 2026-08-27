@@ -13,6 +13,7 @@ import {
   listMyWorkItems,
   type DecisionValue,
 } from "@/server/workflow-engine";
+import { toMinorUnits } from "@/lib/money";
 
 // Finance — the single write/CRUD surface for the domain. Consolidated from
 // the former finance-module.ts (accounting core), finance-budget.ts,
@@ -683,7 +684,7 @@ export async function markSpendingBillPaid(
         number,
         type: "PAYMENT",
         description: `Spending Bill ${bill.number} — ${bill.category}`,
-        amount: bill.amount,
+        amountMinor: toMinorUnits(bill.amount, bill.currency),
         currency: bill.currency,
         status: "COMPLETED",
         postedAt: new Date(),

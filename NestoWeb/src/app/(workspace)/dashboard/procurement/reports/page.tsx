@@ -6,7 +6,7 @@ import { ProcurementNav, ProcurementPageHeader } from "@/components/procurement/
 import { StatTile } from "@/components/ui/stat-tile";
 import { ClipboardList, MessagesSquare, PackageOpen, Truck } from "lucide-react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { formatCurrency } from "@/lib/utils";
+import { formatMinor } from "@/lib/money";
 
 export default async function ProcurementReportsPage() {
   const { tenantId, role } = await getCurrentUser();
@@ -28,7 +28,7 @@ export default async function ProcurementReportsPage() {
         <StatTile label="Requests" value={String(requestsByStatus.reduce((s, r) => s + r._count._all, 0))} icon={ClipboardList} iconColor="#2457C5" iconBg="#E4ECFB" />
         <StatTile label="Purchase Orders" value={String(ordersByStatus.reduce((s, r) => s + r._count._all, 0))} icon={PackageOpen} iconColor="#B76E00" iconBg="#FBECD2" />
         <StatTile label="Deliveries" value={String(deliveriesByStatus.reduce((s, r) => s + r._count._all, 0))} icon={Truck} iconColor="#1A7F4E" iconBg="#E2F4EA" />
-        <StatTile label="Committed Value" value={formatCurrency(totalCommitted._sum.amount ?? 0)} icon={MessagesSquare} iconColor="#4a3aa7" iconBg="#EEEAFB" />
+        <StatTile label="Committed Value" value={formatMinor(totalCommitted._sum.amount ?? 0)} icon={MessagesSquare} iconColor="#4a3aa7" iconBg="#EEEAFB" />
       </div>
 
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">

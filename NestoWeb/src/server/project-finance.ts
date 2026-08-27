@@ -15,9 +15,9 @@ export async function getProjectFinanceDashboardData(tenantId: string, projectId
     db.purchaseOrder.findMany({ where: { tenantId, projectId } }),
   ]);
 
-  const invoiced = invoices.filter((i) => i.type === "INVOICE").reduce((s, i) => s + i.amount, 0);
-  const paid = invoices.filter((i) => i.type === "INVOICE" && i.status === "PAID").reduce((s, i) => s + i.amount, 0);
-  const expenses = invoices.filter((i) => i.type === "EXPENSE" || i.type === "BILL").reduce((s, i) => s + Math.abs(i.amount), 0);
+  const invoiced = invoices.filter((i) => i.type === "INVOICE").reduce((s, i) => s + i.amountMinor, 0);
+  const paid = invoices.filter((i) => i.type === "INVOICE" && i.status === "PAID").reduce((s, i) => s + i.amountMinor, 0);
+  const expenses = invoices.filter((i) => i.type === "EXPENSE" || i.type === "BILL").reduce((s, i) => s + Math.abs(i.amountMinor), 0);
   const committed = purchaseOrders
     .filter((po) => po.status !== "CANCELLED" && po.status !== "DRAFT")
     .reduce((s, po) => s + po.amount, 0);

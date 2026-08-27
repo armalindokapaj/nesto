@@ -7,8 +7,9 @@ import { listClientPayments } from "@/server/crm-module";
 import { Card, CardHeader, CardTitle, CardDescription, CardContent } from "@/components/ui/card";
 import { Table, THead, TBody, TRow, TH, TD } from "@/components/ui/table";
 import { Badge } from "@/components/ui/badge";
-import { formatCurrency, formatDate } from "@/lib/utils";
+import { formatDate } from "@/lib/utils";
 import { getT } from "@/lib/i18n/server";
+import { formatMinor } from "@/lib/money";
 
 // PRD_Sales_Dashboard §6 — "Payments: Permission-filtered Finance/CRM
 // payment summary entry." Finance remains the source of truth for Invoice;
@@ -72,7 +73,7 @@ export default async function ClientPaymentsPage() {
                     )}
                   </TD>
                   <TD className="text-ink-muted">{p.contract?.number ?? "—"}</TD>
-                  <TD className="text-ink-muted">{formatCurrency(p.amount, p.currency)}</TD>
+                  <TD className="text-ink-muted">{formatMinor(p.amountMinor, p.currency)}</TD>
                   <TD>
                     <Badge status={p.status}>{p.status}</Badge>
                   </TD>

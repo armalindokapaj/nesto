@@ -246,7 +246,7 @@ async function main() {
           number: inv.number,
           type: inv.type,
           description: inv.description,
-          amount: inv.amount,
+          amountMinor: Math.round(inv.amount * 100),
           status: inv.status,
           projectId: inv.projectId,
           issuedDate: inv.issuedDate,
@@ -263,7 +263,7 @@ async function main() {
       { number: "BILL-2026-013", description: "Insurance Payment", amount: -12_000, status: "PENDING", dueDate: daysFromNow(8) },
     ].map((b) =>
       db.invoice.create({
-        data: { tenantId: tenant.id, type: "BILL", ...b },
+        data: { tenantId: tenant.id, type: "BILL", ...b, amount: undefined, amountMinor: Math.round(b.amount * 100) } as never,
       })
     )
   );

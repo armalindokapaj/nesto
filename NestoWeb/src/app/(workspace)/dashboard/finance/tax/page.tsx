@@ -5,8 +5,9 @@ import { listTaxRelated } from "@/server/finance";
 import { Card, CardContent } from "@/components/ui/card";
 import { Table, THead, TBody, TRow, TH, TD } from "@/components/ui/table";
 import { Badge } from "@/components/ui/badge";
-import { formatCurrency, formatDate } from "@/lib/utils";
+import { formatDate } from "@/lib/utils";
 import { getT } from "@/lib/i18n/server";
+import { formatMinor } from "@/lib/money";
 
 export default async function TaxManagementPage() {
   const { tenantId, role } = await getCurrentUser();
@@ -41,7 +42,7 @@ export default async function TaxManagementPage() {
                     <p className="font-medium text-ink">{r.number}</p>
                     <p className="text-xs text-ink-muted">{r.description}</p>
                   </TD>
-                  <TD className="font-medium text-danger">{formatCurrency(Math.abs(r.amount), r.currency)}</TD>
+                  <TD className="font-medium text-danger">{formatMinor(Math.abs(r.amountMinor), r.currency)}</TD>
                   <TD>
                     <Badge status={r.status}>{r.status}</Badge>
                   </TD>

@@ -23,7 +23,7 @@ export default async function ProjectContractsTabPage({ params }: { params: Prom
   const contracts = await db.contract.findMany({
     where: { tenantId, projectId: id },
     orderBy: { createdAt: "desc" },
-    include: { invoices: { select: { id: true, type: true, amount: true, status: true } } },
+    include: { invoices: { select: { id: true, type: true, amountMinor: true, status: true } } },
   });
   const { t } = await getT();
 
@@ -46,7 +46,7 @@ export default async function ProjectContractsTabPage({ params }: { params: Prom
             </THead>
             <TBody>
               {contracts.map((c) => {
-                const paid = c.invoices.filter((i) => i.status === "PAID" || i.status === "COMPLETED").reduce((s, i) => s + Math.abs(i.amount), 0);
+                const paid = c.invoices.filter((i) => i.status === "PAID" || i.status === "COMPLETED").reduce((s, i) => s + Math.abs(i.amountMinor), 0);
                 return (
                   <TRow key={c.id}>
                     <TD>

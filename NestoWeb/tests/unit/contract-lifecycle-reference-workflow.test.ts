@@ -68,7 +68,7 @@ describe("contract lifecycle reference workflow (audit 2)", () => {
 
     const financeStructure = await db.invoice.findFirst({ where: { tenantId, contractId: contract.id, type: "PAYMENT" } });
     expect(financeStructure).not.toBeNull();
-    expect(financeStructure!.amount).toBe(1000);
+    expect(financeStructure!.amountMinor).toBe(100_000);
     expect(financeStructure!.status).toBe("PENDING");
 
     const domainEvent = await db.domainEvent.findFirst({
@@ -95,7 +95,7 @@ describe("contract lifecycle reference workflow (audit 2)", () => {
         contractId: contract.id,
         number: `PAY-WF-${Date.now()}`,
         type: "PAYMENT",
-        amount: 2000,
+        amountMinor: 200_000,
         status: "PENDING",
       },
     });

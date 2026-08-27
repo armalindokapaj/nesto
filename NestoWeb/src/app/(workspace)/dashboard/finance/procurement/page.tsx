@@ -5,8 +5,8 @@ import { db } from "@/lib/db";
 import { Card, CardHeader, CardTitle, CardContent } from "@/components/ui/card";
 import { Table, THead, TBody, TRow, TH, TD } from "@/components/ui/table";
 import { Badge } from "@/components/ui/badge";
-import { formatCurrency } from "@/lib/utils";
 import { getT } from "@/lib/i18n/server";
+import { formatMinor } from "@/lib/money";
 
 export default async function ProcurementFinancePage() {
   const { tenantId, role } = await getCurrentUser();
@@ -45,7 +45,7 @@ export default async function ProcurementFinancePage() {
                   </TD>
                   <TD className="text-ink-muted">{o.project?.name ?? "—"}</TD>
                   <TD className="text-ink-muted">{o.supplier.name}</TD>
-                  <TD className="text-ink-muted">{formatCurrency(o.amount, o.currency)}</TD>
+                  <TD className="text-ink-muted">{formatMinor(o.amount, o.currency)}</TD>
                   <TD>
                     <Badge status={o.status}>{o.status}</Badge>
                   </TD>

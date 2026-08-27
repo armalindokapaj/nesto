@@ -28,7 +28,7 @@ export default async function CompensationPage() {
         <CardHeader><div><CardTitle>{t("nav.compensationAndBenefits")}</CardTitle><CardDescription>{t("hrDashboard.compensationSubtitle")}</CardDescription></div></CardHeader>
         <CardContent className="p-0">
           <Table>
-            <THead><TRow><TH>{t("common.name")}</TH><TH className="text-right">{t("hrDashboard.grossSalary")}</TH><TH className="text-right">{t("hrDashboard.netSalary")}</TH><TH>{t("hrDashboard.frequency")}</TH><TH>{t("hrDashboard.effectiveFrom")}</TH></TRow></THead>
+            <THead><TRow><TH>{t("common.name")}</TH><TH className="text-right">{t("hrDashboard.grossSalaryMinor")}</TH><TH className="text-right">{t("hrDashboard.netSalaryMinor")}</TH><TH>{t("hrDashboard.frequency")}</TH><TH>{t("hrDashboard.effectiveFrom")}</TH></TRow></THead>
             <TBody>
               {records.map((r) => (
                 <TRow key={r.id}>

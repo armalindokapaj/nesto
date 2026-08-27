@@ -172,7 +172,7 @@ describe("decision and state guards", () => {
       // Each line still carries the right figures, not just the right count.
       const mine = lines.filter((l) => staff.includes(l.employeeId));
       expect(mine).toHaveLength(5);
-      expect(mine.every((l) => l.grossSalary >= 1000 && l.calculationTrace?.includes("SalaryRecord"))).toBe(true);
+      expect(mine.every((l) => l.grossSalaryMinor >= 100_000 && l.calculationTrace?.includes("SalaryRecord"))).toBe(true);
     });
 
     it("skips an employee with no compensation on file rather than inventing a figure", async () => {

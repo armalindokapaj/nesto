@@ -3,6 +3,7 @@ import { db } from "@/lib/db";
 import { registerDomainEventHandler } from "@/lib/domain-events";
 import { allocateNumber } from "@/server/number-series";
 import { reconcileContractCompletion } from "@/server/contract-lifecycle";
+import { toMinorUnits } from "@/lib/money";
 
 // Reactions for the reference vertical workflow (Audit 2 §5): Contract
 // Approved -> Finance Structure -> Payment Recorded -> Contractor Profile.
@@ -31,7 +32,7 @@ registerDomainEventHandler("ContractApproved", async (payload, event) => {
       number: invoiceNumber,
       type: "PAYMENT",
       description: `Payment structure for contract ${number}`,
-      amount: value,
+      amountMinor: toMinorUnits(value, currency),
       currency,
       status: "PENDING",
     },
