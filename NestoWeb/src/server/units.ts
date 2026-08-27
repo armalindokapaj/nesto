@@ -37,8 +37,8 @@ function buildWhere(tenantId: string, projectId: string, filters: UnitFilters, i
     ...(filters.q
       ? {
           OR: [
-            { code: { contains: filters.q } },
-            { displayName: { contains: filters.q } },
+            { code: { contains: filters.q, mode: "insensitive" as const } },
+            { displayName: { contains: filters.q, mode: "insensitive" as const } },
           ],
         }
       : {}),

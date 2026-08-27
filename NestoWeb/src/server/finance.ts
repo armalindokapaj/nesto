@@ -37,7 +37,7 @@ export async function listInvoicesByType(tenantId: string, type: "INVOICE" | "BI
 
 export async function listTaxRelated(tenantId: string) {
   return db.invoice.findMany({
-    where: { tenantId, OR: [{ description: { contains: "Tax" } }, { number: { contains: "TAX" } }] },
+    where: { tenantId, OR: [{ description: { contains: "Tax", mode: "insensitive" as const } }, { number: { contains: "TAX", mode: "insensitive" as const } }] },
     orderBy: { issuedDate: "desc" },
   });
 }

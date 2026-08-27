@@ -489,9 +489,9 @@ export async function listModuleDocuments(
   if (search?.trim()) {
     const q = search.trim();
     where.OR = [
-      { title: { contains: q } },
-      { code: { contains: q } },
-      { revisions: { some: { name: { contains: q } } } },
+      { title: { contains: q, mode: "insensitive" as const } },
+      { code: { contains: q, mode: "insensitive" as const } },
+      { revisions: { some: { name: { contains: q, mode: "insensitive" as const } } } },
     ];
   }
 

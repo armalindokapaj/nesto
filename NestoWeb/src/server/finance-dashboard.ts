@@ -71,7 +71,7 @@ export async function getCompanyFinanceOverview(tenantId: string) {
     db.financeAccount.findMany({ where: { tenantId } }),
     getProjectFinancialPortfolio(tenantId),
     getSpendingsSummary(tenantId),
-    db.invoice.findMany({ where: { tenantId, OR: [{ description: { contains: "Tax" } }, { number: { contains: "TAX" } }] } }),
+    db.invoice.findMany({ where: { tenantId, OR: [{ description: { contains: "Tax", mode: "insensitive" as const } }, { number: { contains: "TAX", mode: "insensitive" as const } }] } }),
   ]);
 
   const revenue = invoices.filter((i) => i.type === "INVOICE").reduce((s, i) => s + i.amount, 0);
