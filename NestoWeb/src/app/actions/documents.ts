@@ -3,6 +3,7 @@
 import { z } from "zod";
 import { revalidatePath } from "next/cache";
 import { getCurrentUser } from "@/lib/dal";
+import { assertAllowedUpload, DOCUMENT_MIME_TYPES } from "@/lib/uploads";
 import { can } from "@/lib/permissions";
 import {
   createDocument,
@@ -22,7 +23,11 @@ async function readUploadedFile(formData: FormData, field = "file") {
     throw new Error("File is too large (max 8MB).");
   }
   const data = new Uint8Array(await file.arrayBuffer());
-  return { data, mimeType: file.type || "application/octet-stream", size: file.size };
+  const mimeType = file.type || "application/octet-stream";
+  // Phase 3 Track C — the declared type is attacker-controlled, so this checks
+  // the bytes too, not just the allowlist.
+  assertAllowedUpload(data, mimeType, DOCUMENT_MIME_TYPES, "file");
+  return { data, mimeType, size: file.size };
 }
 
 const CreateDocumentSchema = z.object({

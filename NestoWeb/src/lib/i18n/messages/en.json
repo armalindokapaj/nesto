@@ -266,7 +266,8 @@
     "noWorkspace": "This account has no active company workspace. Contact your Company Admin.",
     "joinNesto": "Join Nesto",
     "joinNestoSubtitle": "Create your independent profile.",
-    "fieldRequired": "This needs to be filled"
+    "fieldRequired": "This needs to be filled",
+    "tooManyAttempts": "Too many attempts. Try again in a few minutes, or contact your administrator."
   },
   "landing": {
     "headlineLine1": "Private software.",

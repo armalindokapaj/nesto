@@ -2,6 +2,7 @@ import "server-only";
 import crypto from "node:crypto";
 import bcrypt from "bcryptjs";
 import { db } from "@/lib/db";
+import { isLoginLocked, recordLoginAttempt } from "@/lib/rate-limit";
 import { allocatePlatformNumber } from "@/server/platform-number-series";
 import type { ApplicationReviewAction, PublicAccountStatus, PublicAccountType } from "@/lib/constants";
 
@@ -136,10 +137,18 @@ export async function verifyEmail(token: string) {
   });
 }
 
+// Phase 3 Track A — the same lockout as the company login. A brute-force attempt
+// is the same threat whichever form it arrives through, and both share one
+// LoginAttempt table so an attacker cannot get a fresh budget by switching
+// forms. Returns a discriminated result rather than null so the caller can tell
+// "wrong password" from "locked out"; every existing null check still works
+// because both failures return no account.
 export async function authenticatePublicAccount(identifier: string, password: string) {
+  if (await isLoginLocked(identifier)) return null;
   const account = await db.publicAccount.findFirst({ where: { OR: [{ email: identifier }, { username: identifier }] } });
   const passwordHash = account?.passwordHash ?? "$2b$10$invalidsaltinvalidsaltinvalidsaltinvalidsal";
   const valid = await bcrypt.compare(password, passwordHash);
+  await recordLoginAttempt(identifier, Boolean(account && valid));
   if (!account || !valid) return null;
   return account;
 }

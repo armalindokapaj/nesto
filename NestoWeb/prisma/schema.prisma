@@ -679,6 +679,24 @@ model CompanyMembership {
   @@unique([tenantId, userId])
 }
 
+// Phase 3 — brute-force defence for both login paths. Deliberately a table in
+// the database already provisioned rather than a second data store (Redis/
+// Upstash) for one narrow feature; a count query over an indexed window is
+// ample at this scale.
+//
+// No tenantId: a login attempt happens before any tenant is known, and this
+// table's whole job is to be queryable by identifier across every attempt,
+// including ones that match no account at all.
+model LoginAttempt {
+  id         String   @id @default(cuid())
+  identifier String
+  ip         String?
+  succeeded  Boolean
+  createdAt  DateTime @default(now())
+
+  @@index([identifier, createdAt])
+}
+
 model Invitation {
   id          String    @id @default(cuid())
   tenantId    String

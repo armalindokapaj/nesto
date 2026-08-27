@@ -266,7 +266,8 @@
     "noWorkspace": "Ky llogari nuk ka qasje aktive në ndonjë hapësirë kompanie. Kontaktoni Administratorin e Kompanisë.",
     "joinNesto": "Bashkohu me Nesto",
     "joinNestoSubtitle": "Krijoni profilin tuaj të pavarur.",
-    "fieldRequired": "Kjo duhet plotësuar"
+    "fieldRequired": "Kjo duhet plotësuar",
+    "tooManyAttempts": "Shumë përpjekje. Provoni sërish pas disa minutash, ose kontaktoni administratorin."
   },
   "landing": {
     "headlineLine1": "Software privat.",

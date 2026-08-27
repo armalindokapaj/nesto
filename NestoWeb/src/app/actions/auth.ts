@@ -4,6 +4,7 @@ import { z } from "zod";
 import bcrypt from "bcryptjs";
 import { redirect } from "next/navigation";
 import { db } from "@/lib/db";
+import { isLoginLocked, recordLoginAttempt } from "@/lib/rate-limit";
 import { createSession, deleteSession } from "@/lib/session";
 import { DASHBOARD_BY_ROLE } from "@/lib/permissions";
 import type { Role } from "@/lib/constants";
@@ -32,6 +33,19 @@ export async function login(_prevState: LoginState, formData: FormData): Promise
 
   const { identifier, password } = parsed.data;
 
+  // Phase 3 Track A — the constant-shape comparison below stops account
+  // enumeration but never limited how many times someone could try.
+  //
+  // The lockout message is deliberately more informative than "invalid
+  // credentials", which the PRD left as a choice to make on purpose. It does
+  // not enumerate: the counter is keyed on the identifier as typed, so an
+  // invented account locks out and reads exactly the same as a real one. These
+  // accounts are admin-provisioned internal ones, and a locked-out employee who
+  // cannot tell why is a real cost with nothing bought in exchange.
+  if (await isLoginLocked(identifier)) {
+    return { error: t("auth.tooManyAttempts") };
+  }
+
   const user = await db.userIdentity.findFirst({
     where: { OR: [{ email: identifier }, { username: identifier }] },
   });
@@ -40,6 +54,8 @@ export async function login(_prevState: LoginState, formData: FormData): Promise
   // leaking account existence via timing/response differences.
   const passwordHash = user?.passwordHash ?? "$2b$10$invalidsaltinvalidsaltinvalidsaltinvalidsal";
   const passwordValid = await bcrypt.compare(password, passwordHash);
+
+  await recordLoginAttempt(identifier, Boolean(user && passwordValid));
 
   if (!user || !passwordValid) {
     return { error: t("auth.invalidCredentials") };
