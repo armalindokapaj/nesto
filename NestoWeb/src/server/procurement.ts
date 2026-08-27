@@ -184,6 +184,22 @@ export async function addSupplierQualification(tenantId: string, actorId: string
   return qualification;
 }
 
+/**
+ * Qualification records with an `expiring` flag resolved server-side. The
+ * 30-day window is evaluated here, against a single instant, rather than per
+ * row in the page — reading the clock during render is impure and would also
+ * let rows disagree about "now".
+ */
+export async function listSupplierQualifications(tenantId: string) {
+  const rows = await db.supplierQualification.findMany({
+    where: { tenantId },
+    include: { supplier: true },
+    orderBy: { createdAt: "desc" },
+  });
+  const expiringBefore = new Date(Date.now() + 30 * 86400000);
+  return rows.map((q) => ({ ...q, expiring: Boolean(q.validUntil && q.validUntil < expiringBefore) }));
+}
+
 // PRD Procurement §27.2 Phase 1 "Foundation" — dedicated category taxonomy.
 export async function listSupplierCategories(tenantId: string) {
   return db.supplierCategory.findMany({ where: { tenantId }, include: { parent: true, _count: { select: { suppliers: true } } }, orderBy: [{ active: "desc" }, { name: "asc" }] });
