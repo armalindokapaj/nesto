@@ -4,7 +4,7 @@ import { getCurrentUser } from "@/lib/dal";
 import { can } from "@/lib/permissions";
 import { requireTenantProject } from "@/lib/tenant";
 import { getProjectHeaderInfo } from "@/server/finance-dashboard";
-import { getBudget } from "@/server/finance-budget";
+import { getBudget } from "@/server/finance";
 import { db } from "@/lib/db";
 import { Card, CardHeader, CardTitle, CardContent } from "@/components/ui/card";
 import { Table, THead, TBody, TRow, TH, TD } from "@/components/ui/table";

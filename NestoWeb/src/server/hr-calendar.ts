@@ -1,5 +1,10 @@
 import { db } from "@/lib/db";
 
+// HR calendar read models — the month grid and current-week leave the
+// Calendar module renders, plus HR appointments. Separate from hr.ts because
+// the consumer is the Calendar module, not the HR pages, and nothing here
+// may decide or mutate a leave request.
+
 function monthRange(year: number, month: number) {
   const start = new Date(year, month, 1);
   const end = new Date(year, month + 1, 0, 23, 59, 59, 999);

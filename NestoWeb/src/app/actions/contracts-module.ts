@@ -15,7 +15,7 @@ import {
   updateObligationStatus,
   addMilestone,
   updateMilestoneStatus,
-} from "@/server/contracts-module";
+} from "@/server/contracts";
 
 // PRD_Contracts_Module — additive actions. Create/edit-value and the
 // lifecycle transitions (submit/approve/activate/terminate/...) continue to

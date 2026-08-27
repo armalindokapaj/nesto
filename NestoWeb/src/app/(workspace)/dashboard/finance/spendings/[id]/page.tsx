@@ -3,7 +3,7 @@ import Link from "next/link";
 import { ArrowLeft } from "lucide-react";
 import { getCurrentUser } from "@/lib/dal";
 import { can } from "@/lib/permissions";
-import { getSpendingBill } from "@/server/finance-spendings";
+import { getSpendingBill } from "@/server/finance";
 import { Card, CardHeader, CardTitle, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { SpendingBillActions } from "@/components/finance/spending-bill-actions";

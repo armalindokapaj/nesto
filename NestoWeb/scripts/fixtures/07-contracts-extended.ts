@@ -1,5 +1,5 @@
 import type { FixtureContext } from "./context";
-import { addContractParty, addObligation, updateObligationStatus, addMilestone, updateMilestoneStatus } from "@/server/contracts-module";
+import { addContractParty, addObligation, updateObligationStatus, addMilestone, updateMilestoneStatus } from "@/server/contracts";
 
 export async function seedContractsExtended(ctx: FixtureContext) {
   const { db, tenantId, owner, users } = ctx;

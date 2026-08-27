@@ -1,7 +1,7 @@
 import { db } from "@/lib/db";
 import { assertTenant } from "@/lib/tenant";
 import { listProjects } from "@/server/projects";
-import { getBudgetVsActualByProject } from "@/server/finance";
+import { getBudgetVsActualByProject } from "@/server/finance-dashboard";
 import { listEmployees } from "@/server/hr";
 import { getProcurementDashboardData } from "@/server/procurement";
 import { getWorkProgressDashboard } from "@/server/work-progress";

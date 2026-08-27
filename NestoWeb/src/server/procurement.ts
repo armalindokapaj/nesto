@@ -6,6 +6,16 @@ import { allocateNumber } from "@/server/number-series";
 import { assertTenant, requireTenantProject, requireTenantSupplier } from "@/lib/tenant";
 import { calculateProcurementTotals, deriveDocumentStatus, isProcurementTransitionAllowed } from "@/lib/procurement";
 
+// Procurement — the core write surface: suppliers and their qualifications,
+// purchase requests, packages, RFQs and quotations, purchase orders and
+// deliveries, plus the activity log every transition appends to.
+//
+// Two sibling files, each split for a stated reason:
+//   - procurement-comparison.ts — quotation scoring and award recommendation
+//     (PRD_Procurement_Dashboard §10/§11). Kept apart because award decisions
+//     are a separate actor from the buyer who runs the RFQ.
+//   - procurement-dashboard.ts  — read-only dashboard aggregation (§4/§5).
+
 type ActivityInput = {
   tenantId: string;
   actorId: string;

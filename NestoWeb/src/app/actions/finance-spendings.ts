@@ -9,7 +9,7 @@ import {
   submitSpendingBill,
   decideSpendingBill,
   markSpendingBillPaid,
-} from "@/server/finance-spendings";
+} from "@/server/finance";
 import type { DecisionValue } from "@/server/workflow-engine";
 
 // PRD_Finance_Dashboard §11/§21 — Spending Bill actions. Scoped to

@@ -4,7 +4,7 @@ import { z } from "zod";
 import { revalidatePath } from "next/cache";
 import { getCurrentUser } from "@/lib/dal";
 import { can } from "@/lib/permissions";
-import { createBudget, reviseBudget, closeBudget } from "@/server/finance-budget";
+import { createBudget, reviseBudget, closeBudget } from "@/server/finance";
 
 type ActionState = { error: string } | { ok: true } | undefined;
 

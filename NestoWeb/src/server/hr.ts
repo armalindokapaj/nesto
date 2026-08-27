@@ -2,6 +2,17 @@ import { db } from "@/lib/db";
 import { can } from "@/lib/permissions";
 import type { Role } from "@/lib/constants";
 
+// HR — the core write surface: employment relationships and changes, leave
+// requests and their decisions, termination, and the employee/external
+// workforce lists these all read from.
+//
+// Three sibling files, each split for a stated reason:
+//   - hr-dashboard.ts  — read-only aggregation for the 11-region dashboard.
+//   - hr-timesheets.ts — Timesheets and Project Labour, kept separate because
+//     payable hours are entered and verified independently of HR records.
+//   - hr-calendar.ts   — the month/week calendar read models and HR
+//     appointments, which the Calendar module renders rather than HR pages.
+
 export async function getHrDashboardData(tenantId: string) {
   const [employees, leaveRequests] = await Promise.all([
     db.employee.findMany({ where: { tenantId }, orderBy: { hireDate: "desc" } }),

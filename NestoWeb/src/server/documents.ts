@@ -7,6 +7,13 @@ import { emitDomainEvent, dispatchDomainEvents } from "@/lib/domain-events";
 import { can } from "@/lib/permissions";
 import type { Role } from "@/lib/constants";
 
+// Documents — the per-record attachment API used by the Projects, Tasks,
+// Units and Clients pages: upload, revision, and the approval that binds to
+// one revision. Deliberately separate from documents-module.ts, which is the
+// folder-tree / Document Passport / shortcut layer. Different consumers and
+// different lifecycles: a task attachment never enters the folder tree, and
+// changing the tree must never risk the attachment approval path.
+
 // Uint8Array<ArrayBuffer> (not Node's Buffer) — matches what Prisma's `Bytes`
 // scalar expects and what `file.arrayBuffer()` naturally produces.
 type UploadedFile = { data: Uint8Array<ArrayBuffer>; mimeType: string; size: number };

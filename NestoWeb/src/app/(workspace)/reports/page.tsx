@@ -3,7 +3,7 @@ import { FolderKanban, Wallet, Users } from "lucide-react";
 import { getCurrentUser } from "@/lib/dal";
 import { can } from "@/lib/permissions";
 import { listProjects } from "@/server/projects";
-import { getBudgetVsActualByProject } from "@/server/finance";
+import { getBudgetVsActualByProject } from "@/server/finance-dashboard";
 import { listEmployees } from "@/server/hr";
 import { Card, CardHeader, CardTitle, CardDescription, CardContent } from "@/components/ui/card";
 import { ExportCsvButton } from "@/components/ui/export-csv-button";

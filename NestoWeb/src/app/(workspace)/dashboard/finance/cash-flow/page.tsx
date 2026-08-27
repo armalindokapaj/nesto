@@ -1,7 +1,7 @@
 import { redirect } from "next/navigation";
 import { getCurrentUser } from "@/lib/dal";
 import { can } from "@/lib/permissions";
-import { getFinanceDashboardData } from "@/server/finance";
+import { getFinanceDashboardData } from "@/server/finance-dashboard";
 import { Card, CardHeader, CardTitle, CardContent } from "@/components/ui/card";
 import { Table, THead, TBody, TRow, TH, TD } from "@/components/ui/table";
 import { TrendLineChart } from "@/components/ui/charts/line-chart";

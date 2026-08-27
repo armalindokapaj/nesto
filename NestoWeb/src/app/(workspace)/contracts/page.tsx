@@ -2,7 +2,7 @@ import { redirect } from "next/navigation";
 import Link from "next/link";
 import { getCurrentUser } from "@/lib/dal";
 import { can } from "@/lib/permissions";
-import { listContracts } from "@/server/contracts";
+import { listContracts, listStarredContractIds } from "@/server/contracts";
 import { listContractors } from "@/server/contractors";
 import { listProjects } from "@/server/projects";
 import { Card, CardHeader, CardTitle, CardDescription, CardContent } from "@/components/ui/card";
@@ -12,7 +12,6 @@ import { CreateContractDialog } from "@/components/contracts/create-contract-dia
 import { ContractActions } from "@/components/contracts/contract-actions";
 import { ContractStarButton } from "@/components/contracts/contract-star-button";
 import { CreateContractorDialog } from "@/components/contractors/create-contractor-dialog";
-import { listStarredContractIds } from "@/server/contracts-module";
 import { formatCurrency, formatDate } from "@/lib/utils";
 import { getT } from "@/lib/i18n/server";
 

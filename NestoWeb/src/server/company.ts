@@ -1,5 +1,10 @@
 import { db } from "@/lib/db";
 
+// Company profile — read and update of the company record itself. Separate
+// from company-modules.ts, which owns per-company module enablement (a
+// different lifecycle: profile edits are routine, module toggles change what
+// the whole nav shows).
+
 export async function getCompanyProfile(tenantId: string) {
   return db.company.findFirst({
     where: { tenantId },

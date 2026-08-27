@@ -3,7 +3,7 @@ import Link from "next/link";
 import { ArrowLeft, Archive, ArchiveRestore } from "lucide-react";
 import { getCurrentUser } from "@/lib/dal";
 import { can } from "@/lib/permissions";
-import { getContractDetail } from "@/server/contracts-module";
+import { getContractDetail } from "@/server/contracts";
 import { archiveContractAction, restoreContractAction } from "@/app/actions/contracts-module";
 import { listAllMembers } from "@/server/admin";
 import { listModuleDocuments } from "@/server/documents-module";

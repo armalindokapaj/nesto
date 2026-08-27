@@ -12,7 +12,7 @@ import {
   createJournalEntry,
   postJournalEntry,
   reverseJournalEntry,
-} from "@/server/finance-module";
+} from "@/server/finance";
 import type { AccountType } from "@/lib/finance-constants";
 
 // PRD_Finance_Module — Accounting Core actions. Gated on FINANCE:WRITE for

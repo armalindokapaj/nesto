@@ -2,7 +2,7 @@ import { redirect } from "next/navigation";
 import Link from "next/link";
 import { getCurrentUser } from "@/lib/dal";
 import { can } from "@/lib/permissions";
-import { listJournalEntries, listAccounts, listFiscalPeriods, ensureCurrentFiscalPeriod } from "@/server/finance-module";
+import { listJournalEntries, listAccounts, listFiscalPeriods, ensureCurrentFiscalPeriod } from "@/server/finance";
 import { Card, CardHeader, CardTitle, CardDescription, CardContent } from "@/components/ui/card";
 import { Table, THead, TBody, TRow, TH, TD } from "@/components/ui/table";
 import { Badge } from "@/components/ui/badge";
