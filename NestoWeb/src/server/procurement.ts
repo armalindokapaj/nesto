@@ -2,6 +2,7 @@ import "server-only";
 
 import { randomUUID } from "crypto";
 import { db } from "@/lib/db";
+import { logAudit } from "@/lib/audit";
 import { allocateNumber } from "@/server/number-series";
 import { assertTenant, requireTenantProject, requireTenantSupplier } from "@/lib/tenant";
 import { calculateProcurementTotals, deriveDocumentStatus, isProcurementTransitionAllowed } from "@/lib/procurement";
@@ -292,6 +293,10 @@ export async function transitionPurchaseRequest(tenantId: string, actorId: strin
   const snapshot = nextStatus === "SUBMITTED" ? JSON.stringify({ ...request, lines: request.lines, submittedAt: new Date().toISOString() }) : undefined;
   await db.purchaseRequest.update({ where: { id: request.id }, data: { status: nextStatus, snapshot, version: { increment: 1 } } });
   await writeActivity({ tenantId, actorId, entityType: "PURCHASE_REQUEST", entityId: request.id, eventType: `purchase_request.${nextStatus.toLowerCase()}`, summary: reason || `Request moved to ${nextStatus}.`, previousStatus: request.status, nextStatus });
+  // Phase 1 Track B — procurement approvals had no AuditEvent. This is the
+  // committing step for a purchase request, so it is the one recorded here.
+  await logAudit({ tenantId, actorId, action: `procurement.request.${nextStatus.toLowerCase()}`, targetType: "PurchaseRequest", targetId: request.id,
+    metadata: { from: request.status, to: nextStatus, reason: reason ?? null } });
 }
 
 export async function listProcurementPackages(tenantId: string) {

@@ -1,5 +1,6 @@
 import "server-only";
 import { db } from "@/lib/db";
+import { logAudit } from "@/lib/audit";
 import { can } from "@/lib/permissions";
 import type { Role } from "@/lib/constants";
 import { allocateNumber } from "@/server/number-series";
@@ -277,6 +278,10 @@ export async function setLegalCaseStatus(tenantId: string, actorId: string, case
     await tx.legalActivity.create({
       data: { tenantId, entityType: "LegalCase", entityId: caseId, actorId, eventType: "STATUS_CHANGED", summary: `Case status set to ${status}` },
     });
+    // Phase 1 Track B — legal wrote no AuditEvent; case status is exactly the
+    // kind of record a dispute later turns on.
+    await logAudit({ tenantId, actorId, action: "legal.case.status_changed", targetType: "LegalCase", targetId: caseId,
+      metadata: { from: legalCase.status, to: status } }, tx);
     return updated;
   });
 }

@@ -246,7 +246,8 @@
     "payrollAndRewards": "Paga & Shpërblime",
     "development": "Zhvillimi",
     "employeeRelations": "Marrëdhëniet me punonjësit",
-    "workforcePlanning": "Planifikimi i fuqisë punëtore"
+    "workforcePlanning": "Planifikimi i fuqisë punëtore",
+    "domainEvents": "Ngjarjet e Domenit"
   },
   "auth": {
     "signInToNesto": "Kyçu në Nesto",

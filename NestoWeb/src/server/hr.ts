@@ -1,4 +1,5 @@
 import { db } from "@/lib/db";
+import { logAudit } from "@/lib/audit";
 import { can } from "@/lib/permissions";
 import type { Role } from "@/lib/constants";
 import { setMemberAccessMode } from "@/server/admin";
@@ -208,6 +209,12 @@ export async function recordEmploymentChange(
         summary: `${employee.fullName} — ${input.jobTitle} (${input.department})${input.isTransfer ? ", transferred" : ""}`,
       },
     });
+
+    // Phase 1 Track B — HR wrote no AuditEvent. An employment change is a
+    // role/status change with pay consequences, so it belongs on the trail.
+    await logAudit({ tenantId, actorId: createdById, action: input.isTransfer ? "hr.employment.transferred" : "hr.employment.changed",
+      targetType: "EmploymentRelationship", targetId: created.id,
+      metadata: { employeeId, jobTitle: input.jobTitle, department: input.department, employmentType: input.employmentType, effectiveStartDate: input.effectiveStartDate } }, tx);
 
     return created;
   });

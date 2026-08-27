@@ -1,4 +1,5 @@
 import { db } from "@/lib/db";
+import { logAudit } from "@/lib/audit";
 import type { Prisma } from "@/generated/prisma";
 
 // ---------------------------------------------------------------------------
@@ -222,6 +223,10 @@ export async function lockPayrollRun(tenantId: string, actorId: string, runId: s
       data: { status: "LOCKED", lockedById: actorId, lockedAt: new Date() },
     });
     await logPayrollActivity(tenantId, "PayrollRun", runId, actorId, "LOCKED", `Payroll run locked — ${run.lines.length} payslips issued`, tx);
+    // Phase 1 Track B — payroll wrote no AuditEvent at all. Locking is the
+    // moment payslips become real, so it is the one to record.
+    await logAudit({ tenantId, actorId, action: "payroll.run.locked", targetType: "PayrollRun", targetId: runId,
+      metadata: { payrollGroupId: run.payrollGroupId, lines: run.lines.length, periodStart: run.periodStart, periodEnd: run.periodEnd } }, tx);
     return updated;
   });
 }

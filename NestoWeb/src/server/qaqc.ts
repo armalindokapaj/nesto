@@ -1,5 +1,6 @@
 import "server-only";
 import { db } from "@/lib/db";
+import { logAudit } from "@/lib/audit";
 import { assertTenant } from "@/lib/tenant";
 import { allocateNumber } from "@/server/number-series";
 
@@ -283,6 +284,10 @@ export async function closeDefect(tenantId: string, actorId: string, id: string)
   if (defect.status !== "VERIFIED") throw new Error("Only a verified defect can be closed.");
   const updated = await db.defect.update({ where: { id }, data: { status: "CLOSED", closedAt: new Date() } });
   await logQaqcActivity({ tenantId, entityType: "Defect", entityId: id, actorId, eventType: "CLOSED", summary: `${defect.number} closed` });
+  // Phase 1 Track B — QA/QC sign-off had no AuditEvent; closing a defect is
+  // the assertion that the work is acceptable.
+  await logAudit({ tenantId, actorId, action: "qaqc.defect.closed", targetType: "Defect", targetId: id,
+    metadata: { number: defect.number, projectId: defect.projectId } });
   return updated;
 }
 

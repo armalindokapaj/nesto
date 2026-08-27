@@ -147,3 +147,23 @@ export async function setMemberAccessMode(
 
   return updated;
 }
+
+// --- Phase 1 Track D — domain-event visibility -----------------------------
+// DomainEvent is a well-formed transactional outbox, and its own schema comment
+// says a PENDING/FAILED row is "exactly what a future background worker would
+// sweep and retry". That worker does not exist, so until now a failed event was
+// invisible unless someone queried the table by hand.
+//
+// This is deliberately not a job queue: a place to see stuck events, and a
+// button. Automatic retry is a scheduler problem; manual retry is a button.
+export async function listStuckDomainEvents(tenantId: string) {
+  return db.domainEvent.findMany({
+    where: { tenantId, status: { in: ["PENDING", "FAILED"] } },
+    orderBy: { createdAt: "desc" },
+    take: 100,
+  });
+}
+
+export async function countStuckDomainEvents(tenantId: string) {
+  return db.domainEvent.count({ where: { tenantId, status: { in: ["PENDING", "FAILED"] } } });
+}

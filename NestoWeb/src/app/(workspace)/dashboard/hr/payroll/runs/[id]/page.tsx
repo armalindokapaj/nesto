@@ -3,7 +3,7 @@ import Link from "next/link";
 import { ArrowLeft } from "lucide-react";
 import { getCurrentUser } from "@/lib/dal";
 import { can } from "@/lib/permissions";
-import { canViewSalary } from "@/server/employee-profile";
+import { canViewCompensation } from "@/server/employee-profile";
 import { getPayrollRunDetail } from "@/server/payroll";
 import { Card, CardHeader, CardTitle, CardDescription, CardContent } from "@/components/ui/card";
 import { Table, THead, TBody, TRow, TH, TD } from "@/components/ui/table";
@@ -24,7 +24,7 @@ const RUN_TONE: Record<string, "success" | "warning" | "danger" | "neutral"> = {
 export default async function PayrollRunDetailPage({ params }: { params: Promise<{ id: string }> }) {
   const { id } = await params;
   const { tenantId, role, user } = await getCurrentUser();
-  if (!can(role, "HR", "READ") || !canViewSalary({ userId: user.id, role })) redirect("/dashboard/hr");
+  if (!can(role, "HR", "READ") || !(await canViewCompensation(tenantId, { userId: user.id, role }))) redirect("/dashboard/hr");
   const canManage = can(role, "HR", "FULL");
 
   const detail = await getPayrollRunDetail(tenantId, id);

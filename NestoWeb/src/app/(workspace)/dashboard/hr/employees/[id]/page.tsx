@@ -3,7 +3,7 @@ import Link from "next/link";
 import { ArrowLeft } from "lucide-react";
 import { getCurrentUser } from "@/lib/dal";
 import { can } from "@/lib/permissions";
-import { canViewSalary } from "@/server/employee-profile";
+import { canViewCompensation } from "@/server/employee-profile";
 import { getEmployeeHrDetail, listReportableEmployees } from "@/server/hr";
 import { Card, CardHeader, CardTitle, CardDescription, CardContent } from "@/components/ui/card";
 import { Table, THead, TBody, TRow, TH, TD } from "@/components/ui/table";
@@ -23,7 +23,7 @@ export default async function HrEmployeeDetailPage({ params }: { params: Promise
   const { tenantId, role, user } = await getCurrentUser();
   if (!can(role, "HR", "READ")) redirect("/dashboard/executive");
   const canManage = can(role, "HR", "FULL");
-  const showCompensation = canViewSalary({ userId: user.id, role });
+  const showCompensation = await canViewCompensation(tenantId, { userId: user.id, role });
 
   const [detail, managers] = await Promise.all([getEmployeeHrDetail(tenantId, id), listReportableEmployees(tenantId)]);
   if (!detail) notFound();

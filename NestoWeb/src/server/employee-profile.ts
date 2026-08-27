@@ -1,6 +1,7 @@
 import "server-only";
 import { db } from "@/lib/db";
 import { can } from "@/lib/permissions";
+import { hasCapability } from "@/server/capabilities";
 import { assertTenant } from "@/lib/tenant";
 import type { Role } from "@/lib/constants";
 
@@ -24,6 +25,21 @@ export function canManageProfile(employeeUserId: string | null, viewer: ProfileV
 // permission matrix, so this one check covers exactly the requested set.
 export function canViewSalary(viewer: ProfileViewer) {
   return can(viewer.role, "HR", "FULL") || can(viewer.role, "FINANCE", "FULL");
+}
+
+// Phase 1 Track C — `hr.compensation.view` was defined in lib/capabilities.ts
+// as a sensitive, per-user-revocable capability, and hasCapability() was
+// correctly implemented, but nothing that reads compensation ever called it:
+// the other three capability keys gated something, this one did not. So an
+// Owner could revoke it for a named person and the revoke did nothing.
+//
+// The role check stays and is ANDed with the capability, so nobody gains
+// access who did not have it before — the capability can only take it away.
+// The default holders (OWNER/ADMIN/HR/FINANCE) match the role check already,
+// which is why this is a no-op until someone is explicitly revoked.
+export async function canViewCompensation(tenantId: string, viewer: ProfileViewer) {
+  if (!canViewSalary(viewer)) return false;
+  return hasCapability(tenantId, viewer.userId, viewer.role, "hr.compensation.view");
 }
 
 // Directory — every active company member, company-wide (no HR gate), same
@@ -61,7 +77,7 @@ export async function getEmployeeProfile(tenantId: string, employeeId: string, v
 
   const showContract = canViewWorkContract(employee.userId, viewer);
   const documents = employee.documents.filter((d) => d.visibility === "COMPANY" || showContract);
-  const showSalary = canViewSalary(viewer);
+  const showSalary = await canViewCompensation(tenantId, viewer);
   // Fetched and attached only when authorized — the page component never
   // receives salary data at all rather than receiving-then-hiding it.
   const currentSalary = showSalary
@@ -89,7 +105,7 @@ export type SalaryRecordInput = {
 
 export async function getSalaryHistory(tenantId: string, employeeId: string, viewer: ProfileViewer) {
   assertTenant(await db.employee.findUnique({ where: { id: employeeId } }), tenantId, "Employee");
-  if (!canViewSalary(viewer)) throw new Error("You do not have permission to view salary information.");
+  if (!(await canViewCompensation(tenantId, viewer))) throw new Error("You do not have permission to view salary information.");
   return db.salaryRecord.findMany({
     where: { tenantId, employeeId },
     orderBy: { effectiveStartDate: "desc" },
@@ -110,7 +126,7 @@ export async function createSalaryRecord(
   input: SalaryRecordInput
 ) {
   assertTenant(await db.employee.findUnique({ where: { id: employeeId } }), tenantId, "Employee");
-  if (!canViewSalary(viewer)) throw new Error("You do not have permission to manage salary information.");
+  if (!(await canViewCompensation(tenantId, viewer))) throw new Error("You do not have permission to manage salary information.");
 
   return db.$transaction(async (tx) => {
     await tx.salaryRecord.updateMany({

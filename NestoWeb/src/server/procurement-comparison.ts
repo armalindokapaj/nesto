@@ -1,5 +1,6 @@
 import "server-only";
 import { db } from "@/lib/db";
+import { logAudit } from "@/lib/audit";
 import { assertTenant } from "@/lib/tenant";
 import { allocateNumber } from "@/server/number-series";
 
@@ -197,5 +198,9 @@ export async function decideAward(tenantId: string, actorId: string, id: string,
     data: { status: decision, decidedById: actorId, decidedAt: new Date(), decisionNote: note },
   });
   await logProcurementActivity(tenantId, actorId, "AWARD_RECOMMENDATION", id, `award.${decision.toLowerCase()}`, `${award.number} ${decision.toLowerCase()}.${note ? ` ${note}` : ""}`);
+  // Phase 1 Track B — awarding a supplier is the procurement decision most
+  // likely to be questioned later; it had no AuditEvent.
+  await logAudit({ tenantId, actorId, action: `procurement.award.${decision.toLowerCase()}`, targetType: "AwardRecommendation", targetId: id,
+    metadata: { number: award.number, note: note ?? null } });
   return updated;
 }

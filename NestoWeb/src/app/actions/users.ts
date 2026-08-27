@@ -9,6 +9,7 @@ import { getCurrentUser } from "@/lib/dal";
 import { can } from "@/lib/permissions";
 import { ROLES, ASSIGNABLE_ACCESS_MODES } from "@/lib/constants";
 import { setMemberAccessMode } from "@/server/admin";
+import { logAudit } from "@/lib/audit";
 
 const CreateUserSchema = z.object({
   fullName: z.string().min(2, "Enter a full name"),
@@ -130,5 +131,32 @@ export async function setMemberAccessModeAction(
 
   revalidatePath("/dashboard/admin");
   revalidatePath("/dashboard/admin/users");
+  return { success: true };
+}
+
+// Phase 1 Track D — manual retry for a stuck domain event. dispatchDomainEvents
+// already skips anything PROCESSED and re-runs the rest, so it is the retry
+// primitive; this only adds the permission gate and the audit trail.
+export async function retryDomainEventAction(eventId: string): Promise<{ error: string } | { success: true }> {
+  const { tenantId, role: actorRole, user: actor } = await getCurrentUser();
+  if (!can(actorRole, "AUDIT_LOGS", "READ") || !can(actorRole, "USER_MANAGEMENT", "FULL")) {
+    return { error: "You do not have permission to retry domain events." };
+  }
+  const event = await db.domainEvent.findUnique({ where: { id: eventId } });
+  if (!event || event.tenantId !== tenantId) return { error: "Event not found." };
+  if (event.status === "PROCESSED") return { error: "This event has already been processed." };
+
+  const { dispatchDomainEvents } = await import("@/lib/domain-events");
+  await dispatchDomainEvents([eventId]);
+
+  const after = await db.domainEvent.findUnique({ where: { id: eventId } });
+  await logAudit({
+    tenantId, actorId: actor.id, action: "domain_event.retried",
+    targetType: "DomainEvent", targetId: eventId,
+    metadata: { type: event.type, resultStatus: after?.status ?? "UNKNOWN" },
+  });
+
+  revalidatePath("/dashboard/admin/domain-events");
+  if (after?.status === "FAILED") return { error: after.error ?? "The retry failed again." };
   return { success: true };
 }

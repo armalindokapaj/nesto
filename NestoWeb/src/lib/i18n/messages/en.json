@@ -246,7 +246,8 @@
     "payrollAndRewards": "Payroll & Rewards",
     "development": "Development",
     "employeeRelations": "Employee Relations",
-    "workforcePlanning": "Workforce Planning"
+    "workforcePlanning": "Workforce Planning",
+    "domainEvents": "Domain Events"
   },
   "auth": {
     "signInToNesto": "Sign in to Nesto",

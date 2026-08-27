@@ -1,5 +1,6 @@
 import "server-only";
 import { db } from "@/lib/db";
+import { logAudit } from "@/lib/audit";
 import { assertTenant } from "@/lib/tenant";
 
 // PRD_HR_Dashboard — Timesheets + Project Labour. Timesheets bridge
@@ -104,6 +105,10 @@ export async function verifyTimesheet(tenantId: string, actorId: string, id: str
   if (timesheet.status !== "SUBMITTED") throw new Error("Only a submitted timesheet can be verified.");
   const updated = await db.timesheet.update({ where: { id }, data: { status: "VERIFIED", verifiedById: actorId, verifiedAt: new Date() } });
   await logHrActivity({ tenantId, entityType: "Timesheet", entityId: id, actorId, eventType: "VERIFIED", summary: "Timesheet verified" });
+  // Phase 1 Track B — a VERIFIED timesheet is the only thing Payroll treats as
+  // payable hours, so this is a payroll-affecting approval with no trail.
+  await logAudit({ tenantId, actorId, action: "hr.timesheet.verified", targetType: "Timesheet", targetId: id,
+    metadata: { employmentId: timesheet.employmentId, weekStartDate: timesheet.weekStartDate } });
   return updated;
 }
 

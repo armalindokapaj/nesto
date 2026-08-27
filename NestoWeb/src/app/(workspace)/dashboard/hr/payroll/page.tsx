@@ -3,7 +3,7 @@ import Link from "next/link";
 import { getCurrentUser } from "@/lib/dal";
 import { can } from "@/lib/permissions";
 import { listPayrollGroups, listPayrollRuns, listCompaniesForPicker } from "@/server/payroll";
-import { canViewSalary } from "@/server/employee-profile";
+import { canViewCompensation } from "@/server/employee-profile";
 import { Card, CardHeader, CardTitle, CardDescription, CardContent } from "@/components/ui/card";
 import { Table, THead, TBody, TRow, TH, TD } from "@/components/ui/table";
 import { Badge } from "@/components/ui/badge";
@@ -23,7 +23,7 @@ const RUN_TONE: Record<string, "success" | "warning" | "danger" | "neutral"> = {
 // merely HR/READ — this page shows every employee's pay.
 export default async function PayrollPage() {
   const { tenantId, role, user } = await getCurrentUser();
-  if (!can(role, "HR", "READ") || !canViewSalary({ userId: user.id, role })) redirect("/dashboard/hr");
+  if (!can(role, "HR", "READ") || !(await canViewCompensation(tenantId, { userId: user.id, role }))) redirect("/dashboard/hr");
   const canManage = can(role, "HR", "FULL");
 
   const [groups, runs, companies] = await Promise.all([

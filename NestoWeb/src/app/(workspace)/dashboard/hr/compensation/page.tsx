@@ -1,7 +1,7 @@
 import { redirect } from "next/navigation";
 import { getCurrentUser } from "@/lib/dal";
 import { db } from "@/lib/db";
-import { canViewSalary } from "@/server/employee-profile";
+import { canViewCompensation } from "@/server/employee-profile";
 import { Card, CardHeader, CardTitle, CardDescription, CardContent } from "@/components/ui/card";
 import { Table, THead, TBody, TRow, TH, TD } from "@/components/ui/table";
 import { Badge } from "@/components/ui/badge";
@@ -13,7 +13,7 @@ import { getT } from "@/lib/i18n/server";
 // has no data model yet, deliberately not fabricated.
 export default async function CompensationPage() {
   const { tenantId, role, user } = await getCurrentUser();
-  if (!canViewSalary({ userId: user.id, role })) redirect("/dashboard/hr");
+  if (!(await canViewCompensation(tenantId, { userId: user.id, role }))) redirect("/dashboard/hr");
 
   const records = await db.salaryRecord.findMany({
     where: { tenantId, status: "CURRENT" },

@@ -1,5 +1,6 @@
 import "server-only";
 import { db } from "@/lib/db";
+import { logAudit } from "@/lib/audit";
 import { assertTenant } from "@/lib/tenant";
 import { allocateNumber } from "@/server/number-series";
 import { NORMAL_BALANCE_BY_TYPE, type AccountType } from "@/lib/finance-constants";
@@ -463,6 +464,11 @@ export async function reviseBudget(tenantId: string, actorId: string, input: { b
         revisedById: actorId,
       },
     });
+    // Phase 1 Track B — only actions/finance.ts wrote AuditEvent rows, and
+    // only for what that one file covered. A budget revision moves the number
+    // everything else is measured against.
+    await logAudit({ tenantId, actorId, action: "finance.budget.revised", targetType: "Budget", targetId: budget.id,
+      metadata: { previousAmount: budget.baselineAmount, newAmount: input.newAmount, reason: input.reason ?? null } }, tx);
     return tx.budget.update({ where: { id: budget.id }, data: { baselineAmount: input.newAmount } });
   });
 }

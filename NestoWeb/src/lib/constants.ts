@@ -31,6 +31,14 @@ export const ROLES = [
 
 export type Role = (typeof ROLES)[number];
 
+// Role scope (Phase 1 §1.2 / Phase 8) — CLIENT and CONTRACTOR are external:
+// they belong to an outside organization and see only what the portal grant
+// layer allows. See EXTERNAL_ROLES in permissions.ts.
+//
+// VIEWER is INTERNAL, decided explicitly rather than left ambiguous. It is a
+// read-only company seat ("Viewer / Trainee"), and the seeded PlatformAdmin
+// and SuperPlatformAdmin accounts both use it — classing it external would
+// lock platform administration out of the app.
 export const ROLE_LABELS: Record<Role, string> = {
   OWNER: "Company Owner",
   ADMIN: "Company Admin",
