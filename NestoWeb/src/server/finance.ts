@@ -1,6 +1,7 @@
 import "server-only";
 import { db } from "@/lib/db";
 import { logAudit } from "@/lib/audit";
+import { toPaginatedResult, type PageParams } from "@/lib/pagination";
 import { assertTenant } from "@/lib/tenant";
 import { allocateNumber } from "@/server/number-series";
 import { NORMAL_BALANCE_BY_TYPE, type AccountType } from "@/lib/finance-constants";
@@ -213,16 +214,28 @@ export async function getJournalEntryDetail(tenantId: string, journalEntryId: st
   return { ...entry, activity };
 }
 
+const JOURNAL_ENTRY_INCLUDE = {
+  period: { select: { id: true, name: true } },
+  createdBy: { select: { id: true, displayName: true } },
+  lines: { select: { debit: true, credit: true } },
+} as const;
+
 export async function listJournalEntries(tenantId: string) {
-  return db.journalEntry.findMany({
-    where: { tenantId },
-    orderBy: { date: "desc" },
-    include: {
-      period: { select: { id: true, name: true } },
-      createdBy: { select: { id: true, displayName: true } },
-      lines: { select: { debit: true, credit: true } },
-    },
-  });
+  return db.journalEntry.findMany({ where: { tenantId }, orderBy: { date: "desc" }, include: JOURNAL_ENTRY_INCLUDE });
+}
+
+// Phase 4 — a general ledger only grows; it is the textbook case for "tens of
+// thousands of rows within a couple of years of real use", and accounting
+// software does not get to skip pagination here. The unbounded version above
+// stays for callers that genuinely need the whole ledger (trial balance,
+// exports); screens use this.
+export async function listJournalEntriesPage(tenantId: string, params: PageParams) {
+  const where = { tenantId };
+  const [items, total] = await Promise.all([
+    db.journalEntry.findMany({ where, orderBy: { date: "desc" }, include: JOURNAL_ENTRY_INCLUDE, skip: params.skip, take: params.take }),
+    db.journalEntry.count({ where }),
+  ]);
+  return toPaginatedResult(items, total, params);
 }
 
 export async function createJournalEntry(

@@ -1,21 +1,25 @@
 import { redirect } from "next/navigation";
 import { getCurrentUser } from "@/lib/dal";
 import { can } from "@/lib/permissions";
-import { listStopWorkOrders, listProjectsForPicker } from "@/server/hse";
+import { listStopWorkOrdersPage, listProjectsForPicker } from "@/server/hse";
 import { Card, CardContent } from "@/components/ui/card";
 import { Table, THead, TBody, TRow, TH, TD } from "@/components/ui/table";
 import { Badge } from "@/components/ui/badge";
 import { IssueStopWorkDialog, ReleaseStopWorkForm } from "@/components/hse/hse-dialogs";
 import { formatDate } from "@/lib/utils";
+import { parsePageParams } from "@/lib/pagination";
+import { Pagination } from "@/components/ui/pagination";
 import { getT } from "@/lib/i18n/server";
 
-export default async function StopWorkPage() {
+export default async function StopWorkPage({ searchParams }: { searchParams: Promise<{ page?: string }> }) {
+  const params = parsePageParams(await searchParams);
   const { tenantId, role } = await getCurrentUser();
   if (!can(role, "HSE_REPORTS", "READ")) redirect("/dashboard/executive");
   const canIssue = can(role, "HSE_REPORTS", "WRITE");
   const canRelease = can(role, "HSE_REPORTS", "FULL");
 
-  const [orders, projects] = await Promise.all([listStopWorkOrders(tenantId), listProjectsForPicker(tenantId)]);
+  const [ordersPage, projects] = await Promise.all([listStopWorkOrdersPage(tenantId, params), listProjectsForPicker(tenantId)]);
+  const orders = ordersPage.items;
   const { t } = await getT();
 
   return (
@@ -68,6 +72,7 @@ export default async function StopWorkPage() {
               )}
             </TBody>
           </Table>
+          <Pagination page={ordersPage.page} pageCount={ordersPage.pageCount} total={ordersPage.total} pageSize={ordersPage.pageSize} />
         </CardContent>
       </Card>
     </div>

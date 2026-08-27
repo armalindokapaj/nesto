@@ -63,7 +63,18 @@ export async function revokeProjectAccess(tenantId: string, accessId: string) {
   return db.businessAccessRelationship.update({ where: { id: access.id }, data: { revokedAt: new Date() } });
 }
 
-/** Project IDs a given external-portal user (CLIENT/CONTRACTOR login) can see, via their org's grants. */
+/**
+ * Project IDs a given external-portal user (CLIENT/CONTRACTOR login) can see, via their org's grants.
+ *
+ * Phase 6 — use this result inside the query (`where: { projectId: { in: ids } }`),
+ * never as a post-fetch `.filter()` on rows the database has already paged.
+ * Filtering after LIMIT/OFFSET is wrong in a way that looks like an empty page:
+ * a client with access to 3 of 200 tasks whose rows fall beyond the first page
+ * boundary gets zero results on page 1, and any total/pageCount counted over
+ * the whole tenant is wrong too. That is the expected outcome for almost every
+ * real external user, not an edge case, since they see a small subset by
+ * definition.
+ */
 export async function listAccessibleProjectIdsForUser(tenantId: string, userId: string) {
   const memberships = await db.portalMembership.findMany({
     where: { tenantId, userId, status: "ACTIVE" },

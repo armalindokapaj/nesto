@@ -2,7 +2,7 @@ import { redirect } from "next/navigation";
 import Link from "next/link";
 import { getCurrentUser } from "@/lib/dal";
 import { can } from "@/lib/permissions";
-import { listHseReports } from "@/server/hse";
+import { listHseReportsPage } from "@/server/hse";
 import { listProjects } from "@/server/projects";
 import { Card, CardHeader, CardTitle, CardDescription, CardContent } from "@/components/ui/card";
 import { Table, THead, TBody, TRow, TH, TD } from "@/components/ui/table";
@@ -11,6 +11,8 @@ import { CreateHseReportDialog } from "@/components/hse/create-hse-report-dialog
 import { HseReportStatusSelect } from "@/components/hse/hse-report-status-select";
 import { formatDate } from "@/lib/utils";
 import { getT } from "@/lib/i18n/server";
+import { parsePageParams } from "@/lib/pagination";
+import { Pagination } from "@/components/ui/pagination";
 
 const SEVERITY_TONE: Record<string, "success" | "warning" | "danger"> = {
   LOW: "success",
@@ -25,12 +27,14 @@ const STATUS_KEY: Record<string, string> = {
   RESOLVED: "hse.statusResolved",
 };
 
-export default async function HseReportsPage() {
+export default async function HseReportsPage({ searchParams }: { searchParams: Promise<{ page?: string }> }) {
+  const params = parsePageParams(await searchParams);
   const { tenantId, role } = await getCurrentUser();
   if (!can(role, "HSE_REPORTS", "READ")) redirect("/dashboard/executive");
   const canCreate = can(role, "HSE_REPORTS", "WRITE");
 
-  const [reports, projects] = await Promise.all([listHseReports(tenantId), listProjects(tenantId)]);
+  const [reportsPage, projects] = await Promise.all([listHseReportsPage(tenantId, params), listProjects(tenantId)]);
+  const reports = reportsPage.items;
   const { t } = await getT();
 
   return (
@@ -90,6 +94,7 @@ export default async function HseReportsPage() {
               )}
             </TBody>
           </Table>
+          <Pagination page={reportsPage.page} pageCount={reportsPage.pageCount} total={reportsPage.total} pageSize={reportsPage.pageSize} />
         </CardContent>
       </Card>
     </div>

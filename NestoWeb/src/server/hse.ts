@@ -1,16 +1,33 @@
 import { db } from "@/lib/db";
+import { toPaginatedResult, type PageParams } from "@/lib/pagination";
 import type { Prisma } from "@/generated/prisma";
 import { assertTenant } from "@/lib/tenant";
 import { allocateNumber } from "@/server/number-series";
 import { canCloseIncident, canTransitionCorrectiveAction, canTransitionIncident } from "@/lib/hse";
 
+// Phase 4 — these lists pulled the tenant's entire HSE history on every page
+// load. HSE records are generated continuously and forever (a toolbox talk
+// before every shift, an inspection per site visit), and each row `include`s
+// related records, so the cost grows faster than a row count suggests.
+//
+// Each list keeps its unbounded form for the callers that genuinely need every
+// row (dashboard rollups, exports) and gains a `...Page` sibling for the screens
+// people actually load. Two functions rather than an optional argument so the
+// return type is exact at every call site instead of a union nobody can narrow.
 export async function listHseReports(tenantId: string) {
-  return db.hseReport.findMany({
-    where: { tenantId },
-    include: { project: true, reportedBy: true },
-    orderBy: { createdAt: "desc" },
-  });
+  return db.hseReport.findMany({ where: { tenantId }, include: { project: true, reportedBy: true }, orderBy: { createdAt: "desc" } });
 }
+
+/** Paginated sibling — see the note above listHseReports(). */
+export async function listHseReportsPage(tenantId: string, params: PageParams) {
+  const where = { tenantId };
+  const [items, total] = await Promise.all([
+    db.hseReport.findMany({ where, include: { project: true, reportedBy: true }, orderBy: { createdAt: "desc" }, skip: params.skip, take: params.take }),
+    db.hseReport.count({ where }),
+  ]);
+  return toPaginatedResult(items, total, params);
+}
+
 
 export async function createHseReport(
   tenantId: string,
@@ -135,6 +152,17 @@ export async function listPermitsToWork(tenantId: string) {
   return db.permitToWork.findMany({ where: { tenantId }, include: { requestedBy: true, issuedBy: true }, orderBy: { createdAt: "desc" } });
 }
 
+/** Paginated sibling — see the note above listPermitsToWork(). */
+export async function listPermitsToWorkPage(tenantId: string, params: PageParams) {
+  const where = { tenantId };
+  const [items, total] = await Promise.all([
+    db.permitToWork.findMany({ where, include: { requestedBy: true, issuedBy: true }, orderBy: { createdAt: "desc" }, skip: params.skip, take: params.take }),
+    db.permitToWork.count({ where }),
+  ]);
+  return toPaginatedResult(items, total, params);
+}
+
+
 export async function getPermitToWorkDetail(tenantId: string, permitId: string) {
   const permit = await db.permitToWork.findUnique({ where: { id: permitId }, include: { requestedBy: true, issuedBy: true } });
   if (!permit || permit.tenantId !== tenantId) return null;
@@ -176,6 +204,17 @@ export async function setPermitToWorkStatus(tenantId: string, actorId: string, p
 export async function listStopWorkOrders(tenantId: string) {
   return db.stopWorkOrder.findMany({ where: { tenantId }, include: { issuedBy: true, releasedBy: true }, orderBy: { issuedAt: "desc" } });
 }
+
+/** Paginated sibling — see the note above listStopWorkOrders(). */
+export async function listStopWorkOrdersPage(tenantId: string, params: PageParams) {
+  const where = { tenantId };
+  const [items, total] = await Promise.all([
+    db.stopWorkOrder.findMany({ where, include: { issuedBy: true, releasedBy: true }, orderBy: { issuedAt: "desc" }, skip: params.skip, take: params.take }),
+    db.stopWorkOrder.count({ where }),
+  ]);
+  return toPaginatedResult(items, total, params);
+}
+
 
 // Fast-issue path — no approval gate on raising a stop-work order (anyone
 // empowered can stop work immediately, per the PRD). Release is the

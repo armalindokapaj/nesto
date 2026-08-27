@@ -2,21 +2,25 @@ import { redirect } from "next/navigation";
 import Link from "next/link";
 import { getCurrentUser } from "@/lib/dal";
 import { can } from "@/lib/permissions";
-import { listJournalEntries, listAccounts, listFiscalPeriods, ensureCurrentFiscalPeriod } from "@/server/finance";
+import { listJournalEntriesPage, listAccounts, listFiscalPeriods, ensureCurrentFiscalPeriod } from "@/server/finance";
 import { Card, CardHeader, CardTitle, CardDescription, CardContent } from "@/components/ui/card";
 import { Table, THead, TBody, TRow, TH, TD } from "@/components/ui/table";
 import { Badge } from "@/components/ui/badge";
 import { JournalEntryForm } from "@/components/finance/journal-entry-form";
 import { formatDate } from "@/lib/utils";
 import { getT } from "@/lib/i18n/server";
+import { parsePageParams } from "@/lib/pagination";
+import { Pagination } from "@/components/ui/pagination";
 
-export default async function JournalEntriesPage() {
+export default async function JournalEntriesPage({ searchParams }: { searchParams: Promise<{ page?: string }> }) {
+  const params = parsePageParams(await searchParams);
   const { tenantId, role } = await getCurrentUser();
   if (!can(role, "FINANCE", "READ")) redirect("/dashboard/executive");
   const canWrite = can(role, "FINANCE", "WRITE");
 
   await ensureCurrentFiscalPeriod(tenantId);
-  const [entries, accounts, periods] = await Promise.all([listJournalEntries(tenantId), listAccounts(tenantId), listFiscalPeriods(tenantId)]);
+  const [entriesPage, accounts, periods] = await Promise.all([listJournalEntriesPage(tenantId, params), listAccounts(tenantId), listFiscalPeriods(tenantId)]);
+  const entries = entriesPage.items;
   const openPeriods = periods.filter((p) => p.status === "OPEN");
   const { t } = await getT();
 
@@ -90,6 +94,7 @@ export default async function JournalEntriesPage() {
               )}
             </TBody>
           </Table>
+          <Pagination page={entriesPage.page} pageCount={entriesPage.pageCount} total={entriesPage.total} pageSize={entriesPage.pageSize} />
         </CardContent>
       </Card>
     </div>
