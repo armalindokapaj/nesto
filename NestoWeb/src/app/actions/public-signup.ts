@@ -11,6 +11,7 @@ import {
   registerPublicAccount,
   authenticatePublicAccount,
   resendVerificationToken,
+  sendVerificationEmail,
   verifyEmail,
   updateProfessionalProfile,
   updateContractorProfile,
@@ -78,7 +79,11 @@ export async function registerAction(_prev: ActionState, formData: FormData): Pr
       privacyVersion: "1.0",
     });
     await createPublicSession(account.id);
-    return { success: true, token: verificationToken };
+    // Phase 13 — the token goes to the address being claimed, not back to the
+    // browser that typed it. It is only echoed when no email actually went out
+    // and this is not production (see sendVerificationEmail).
+    const { canRevealToken } = await sendVerificationEmail(account.email, verificationToken);
+    return canRevealToken ? { success: true, token: verificationToken } : { success: true };
   } catch (err) {
     return toError(err);
   }
@@ -105,7 +110,8 @@ export async function resendVerificationAction(): Promise<ActionState> {
   try {
     const account = await getCurrentPublicAccount();
     const token = await resendVerificationToken(account.id);
-    return { success: true, token };
+    const { canRevealToken } = await sendVerificationEmail(account.email, token);
+    return canRevealToken ? { success: true, token } : { success: true };
   } catch (err) {
     return toError(err);
   }

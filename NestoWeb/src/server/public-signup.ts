@@ -2,6 +2,8 @@ import "server-only";
 import crypto from "node:crypto";
 import bcrypt from "bcryptjs";
 import { db } from "@/lib/db";
+import { sendEmail } from "@/lib/email";
+import { reportError } from "@/lib/observability";
 import { isLoginLocked, recordLoginAttempt } from "@/lib/rate-limit";
 import { allocatePlatformNumber } from "@/server/platform-number-series";
 import type { ApplicationReviewAction, PublicAccountStatus, PublicAccountType } from "@/lib/constants";
@@ -97,9 +99,45 @@ export async function registerPublicAccount(input: {
   });
 }
 
-// No email provider is wired anywhere in this app (established precedent —
-// see landing page's Forgot Password flow). The verification link is
-// surfaced directly in the UI after registration/resend rather than emailed.
+// Phase 13 — this file used to say "no email provider is wired anywhere in this
+// app", and returned the verification token to whoever submitted the form.
+// Phase 2 removed that reason, and leaving it meant "email verification" that
+// never required access to the email account: anyone could register a
+// colleague's or a competitor's address and verify it themselves. A Platform
+// Admin reviewing an application reads that checkmark as a trust signal, on
+// exactly the field meant to establish identity.
+//
+// Sending happens outside the transaction on purpose: a provider call has no
+// business holding a database transaction open, and a send failure must not
+// roll back a successfully created account — the resend flow is the recovery
+// path for precisely that.
+export async function sendVerificationEmail(email: string, token: string) {
+  const base = process.env.APP_URL ?? process.env.NEXT_PUBLIC_APP_URL ?? "";
+  const result = await sendEmail({
+    to: [email],
+    subject: "Verify your email — Nesto",
+    text: [
+      "Confirm your email address to continue your application.",
+      "",
+      `${base}/apply/verify?token=${token}`,
+      "",
+      "This link expires in 24 hours. If you did not request it, ignore this message.",
+    ].join("\n"),
+    tag: "email_verification",
+  });
+
+  // Whether the token may still be shown on screen. Only when no email actually
+  // went out AND this is not production: that keeps development and CI usable
+  // without a provider, while production never hands back a token it just
+  // failed to send — a broken signup is recoverable, a meaningless
+  // verification checkmark is not.
+  const canRevealToken = result.delivered === 0 && process.env.NODE_ENV !== "production";
+  if (result.delivered === 0 && !canRevealToken) {
+    reportError(new Error("Verification email could not be sent"), { reason: result.skipped, driver: result.driver });
+  }
+  return { delivered: result.delivered, canRevealToken };
+}
+
 export async function resendVerificationToken(publicAccountId: string) {
   const token = crypto.randomBytes(32).toString("hex");
   await db.emailVerificationToken.updateMany({
