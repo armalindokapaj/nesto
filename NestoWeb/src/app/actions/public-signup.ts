@@ -37,11 +37,12 @@ import {
   PROFILE_DOCUMENT_CATEGORIES,
   PORTFOLIO_PROJECT_STATUSES,
 } from "@/lib/constants";
+import { toActionError } from "@/lib/errors";
 
 export type ActionState = { error: string } | { success: true; token?: string } | undefined;
 
 function toError(err: unknown): ActionState {
-  return { error: err instanceof Error ? err.message : "Something went wrong." };
+  return { error: toActionError(err, "Something went wrong.") };
 }
 
 // Empty-string date inputs (an unfilled <input type="date">) must be treated

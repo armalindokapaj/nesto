@@ -4,6 +4,7 @@ import { db } from "@/lib/db";
 import { requireTenantProject } from "@/lib/tenant";
 import { createUnit } from "@/server/units";
 import { UNIT_TYPES } from "@/lib/constants";
+import { toActionError } from "@/lib/errors";
 
 // PRD_Units §10 — simplified synchronous dry-run/commit (CSV only, no
 // async job/template generator — this app has no job queue, and the PRD's
@@ -35,7 +36,7 @@ export async function dryRunUnitsImport(tenantId: string, projectId: string, csv
   try {
     records = parse(csvText, { columns: true, skip_empty_lines: true, trim: true });
   } catch (err) {
-    return { validRows: [] as ParsedImportRow[], errors: [{ row: 0, message: `Could not parse CSV: ${err instanceof Error ? err.message : "invalid file"}` }] };
+    return { validRows: [] as ParsedImportRow[], errors: [{ row: 0, message: `Could not parse CSV: ${toActionError(err, "invalid file")}` }] };
   }
 
   const [existingUnits, structures] = await Promise.all([
@@ -138,7 +139,7 @@ export async function commitUnitsImport(
       await db.unitAreaComponent.createMany({ data: components });
       created += 1;
     } catch (err) {
-      failed.push({ row: row.row, message: err instanceof Error ? err.message : "Could not create unit." });
+      failed.push({ row: row.row, message: toActionError(err, "Could not create unit.") });
     }
   }
 

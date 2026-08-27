@@ -11,6 +11,7 @@ import {
   requestDocumentApproval,
   decideDocumentApproval,
 } from "@/server/documents";
+import { toActionError } from "@/lib/errors";
 
 const MAX_FILE_BYTES = 8 * 1024 * 1024;
 
@@ -72,7 +73,7 @@ export async function createDocumentAction(_prev: CreateDocumentState, formData:
   try {
     file = await readUploadedFile(formData);
   } catch (err) {
-    return { error: err instanceof Error ? err.message : "Invalid file" };
+    return { error: toActionError(err, "Invalid file") };
   }
 
   const doc = await createDocument(tenantId, { ...parsed.data, uploadedById: user.id, file });
@@ -100,13 +101,13 @@ export async function uploadDocumentRevisionAction(_prev: ActionState, formData:
   try {
     file = await readUploadedFile(formData);
   } catch (err) {
-    return { error: err instanceof Error ? err.message : "Invalid file" };
+    return { error: toActionError(err, "Invalid file") };
   }
 
   try {
     await uploadDocumentRevision(tenantId, { supersedesId, revisionComment, uploadedById: user.id, file });
   } catch (err) {
-    return { error: err instanceof Error ? err.message : "Could not upload revision." };
+    return { error: toActionError(err, "Could not upload revision.") };
   }
   revalidatePath(`/documents/${supersedesId}`);
   revalidatePath("/documents");

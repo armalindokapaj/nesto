@@ -17,6 +17,7 @@ import {
   createSavedView,
   deleteSavedView,
 } from "@/server/tasks-module";
+import { toActionError } from "@/lib/errors";
 
 // PRD_Tasks_Module — additive actions (Star, Checklist). Everything else
 // (create/edit/status, orchestration, comments) continues to run through the
@@ -61,7 +62,7 @@ export async function addChecklistItemAction(_prev: ActionState, formData: FormD
       createdById: user.id,
     });
   } catch (error) {
-    return { error: error instanceof Error ? error.message : "Could not add checklist item" };
+    return { error: toActionError(error, "Could not add checklist item") };
   }
 
   revalidatePath(`/tasks/${parsed.data.taskId}`);

@@ -7,6 +7,7 @@ import type { ImportableEntity, ImportRowError } from "@/server/import-center";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { useI18n } from "@/lib/i18n/locale-provider";
+import { toActionError } from "@/lib/errors";
 
 const SELECT_CLASS =
   "h-9 w-full rounded-lg border border-border bg-surface px-3 text-sm text-ink focus:outline-none focus:border-gold focus:ring-2 focus:ring-gold/20";
@@ -41,7 +42,7 @@ export function ImportCenterPanel({ entities }: { entities: { key: ImportableEnt
         const result = await dryRunImportAction(entity, text);
         setDryRun(result);
       } catch (err) {
-        setError(err instanceof Error ? err.message : "Could not read file.");
+        setError(toActionError(err, "Could not read file."));
       }
     });
   }
@@ -54,7 +55,7 @@ export function ImportCenterPanel({ entities }: { entities: { key: ImportableEnt
         setCommitResult(result);
         setDryRun(null);
       } catch (err) {
-        setError(err instanceof Error ? err.message : "Import failed.");
+        setError(toActionError(err, "Import failed."));
       }
     });
   }

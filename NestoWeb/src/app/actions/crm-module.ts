@@ -26,6 +26,7 @@ import {
   createSupportCase,
   updateSupportCaseStatus,
 } from "@/server/crm-module";
+import { toActionError } from "@/lib/errors";
 
 // PRD_CRM_Module — additive actions. Task/document/comment actions on a
 // client continue to run through the existing action files untouched.
@@ -72,7 +73,7 @@ export async function updateClientCrmFieldsAction(_prev: ActionState, formData: 
       preferredContactMethod: rest.preferredContactMethod || null,
     });
   } catch (error) {
-    return { error: error instanceof Error ? error.message : "Could not update client" };
+    return { error: toActionError(error, "Could not update client") };
   }
 
   revalidatePath(`/clients/${parsed.data.clientId}`);
@@ -131,7 +132,7 @@ export async function addContactAction(_prev: ActionState, formData: FormData): 
     assertClientsWrite(role);
     await addContact(tenantId, { ...parsed.data, actorId: user.id });
   } catch (error) {
-    return { error: error instanceof Error ? error.message : "Could not add contact" };
+    return { error: toActionError(error, "Could not add contact") };
   }
 
   revalidatePath(`/clients/${parsed.data.clientId}`);
@@ -160,7 +161,7 @@ export async function addClientNoteAction(_prev: ActionState, formData: FormData
     assertClientsWrite(role);
     await addClientNote(tenantId, { ...parsed.data, authorId: user.id });
   } catch (error) {
-    return { error: error instanceof Error ? error.message : "Could not add note" };
+    return { error: toActionError(error, "Could not add note") };
   }
 
   revalidatePath(`/clients/${parsed.data.clientId}`);
@@ -194,7 +195,7 @@ export async function createLeadAction(_prev: ActionState, formData: FormData): 
     assertClientsWrite(role);
     await createLead(tenantId, { ...parsed.data, ownerId: user.id });
   } catch (error) {
-    return { error: error instanceof Error ? error.message : "Could not create lead" };
+    return { error: toActionError(error, "Could not create lead") };
   }
 
   revalidatePath("/clients/leads");
@@ -237,7 +238,7 @@ export async function createOpportunityAction(_prev: ActionState, formData: Form
     assertClientsWrite(role);
     await createOpportunity(tenantId, { ...parsed.data, ownerId: user.id, actorId: user.id });
   } catch (error) {
-    return { error: error instanceof Error ? error.message : "Could not create opportunity" };
+    return { error: toActionError(error, "Could not create opportunity") };
   }
 
   revalidatePath(`/clients/${parsed.data.clientId}`);
@@ -280,7 +281,7 @@ export async function recordClientUnitInterestAction(_prev: ActionState, formDat
     assertClientsWrite(role);
     await recordClientUnitInterest(tenantId, { ...parsed.data, actorId: user.id });
   } catch (error) {
-    return { error: error instanceof Error ? error.message : "Could not record interest" };
+    return { error: toActionError(error, "Could not record interest") };
   }
   revalidatePath("/clients/reservations");
   revalidatePath("/dashboard/sales");
@@ -311,7 +312,7 @@ export async function createReservationAction(_prev: ActionState, formData: Form
     assertClientsWrite(role);
     await createReservation(tenantId, { ...parsed.data, salespersonId: user.id, actorId: user.id });
   } catch (error) {
-    return { error: error instanceof Error ? error.message : "Could not create reservation" };
+    return { error: toActionError(error, "Could not create reservation") };
   }
   revalidatePath("/clients/reservations");
   revalidatePath("/dashboard/sales");
@@ -326,7 +327,7 @@ export async function releaseReservationAction(relationshipId: string): Promise<
   } catch (error) {
     // Was uncaught, so a double-click surfaced as an unhandled server-action
     // rejection rather than a message. Its siblings above already do this.
-    return { error: error instanceof Error ? error.message : "Could not release reservation" };
+    return { error: toActionError(error, "Could not release reservation") };
   }
   revalidatePath("/clients/reservations");
   revalidatePath("/dashboard/sales");
@@ -359,7 +360,7 @@ export async function recordUnitSaleAction(_prev: ActionState, formData: FormDat
     assertClientsWrite(role);
     await recordUnitSale(tenantId, { ...parsed.data, salespersonId: user.id, actorId: user.id });
   } catch (error) {
-    return { error: error instanceof Error ? error.message : "Could not record sale" };
+    return { error: toActionError(error, "Could not record sale") };
   }
   revalidatePath("/clients/reservations");
   revalidatePath("/dashboard/sales");
@@ -394,7 +395,7 @@ export async function logCommunicationAction(_prev: ActionState, formData: FormD
     assertClientsWrite(role);
     await logCommunication(tenantId, { ...parsed.data, loggedById: user.id });
   } catch (error) {
-    return { error: error instanceof Error ? error.message : "Could not log communication" };
+    return { error: toActionError(error, "Could not log communication") };
   }
   revalidatePath("/clients/communications");
   revalidatePath("/dashboard/sales");
@@ -427,7 +428,7 @@ export async function createSupportCaseAction(_prev: ActionState, formData: Form
     assertClientsWrite(role);
     await createSupportCase(tenantId, { ...parsed.data, createdById: user.id });
   } catch (error) {
-    return { error: error instanceof Error ? error.message : "Could not create support case" };
+    return { error: toActionError(error, "Could not create support case") };
   }
   revalidatePath("/clients/support");
   revalidatePath("/dashboard/sales");

@@ -5,6 +5,7 @@ import { revalidatePath } from "next/cache";
 import { getCurrentUser } from "@/lib/dal";
 import { assignTraining, updateTrainingStatus } from "@/server/training";
 import type { Role } from "@/lib/constants";
+import { toActionError } from "@/lib/errors";
 
 export type TrainingActionState = { error?: string; success?: boolean } | undefined;
 
@@ -30,7 +31,7 @@ export async function assignTrainingAction(_prev: TrainingActionState, formData:
   try {
     await assignTraining(tenantId, { userId: user.id, role: role as Role }, parsed.data);
   } catch (err) {
-    return { error: err instanceof Error ? err.message : "Something went wrong." };
+    return { error: toActionError(err, "Something went wrong.") };
   }
   revalidatePath("/dashboard/hr/training");
   revalidatePath(`/employees/${parsed.data.employeeId}`);

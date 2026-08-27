@@ -15,6 +15,7 @@ import {
   getWorkflowInstance,
 } from "@/server/workflow-engine";
 import { hasCapability } from "@/server/capabilities";
+import { toActionError } from "@/lib/errors";
 
 export type WorkflowActionState = { error: string } | undefined;
 
@@ -68,7 +69,7 @@ export async function decideWorkItemAction(stageInstanceId: string, decision: "A
   try {
     await decide(tenantId, user.id, role, stageInstanceId, decision, comment);
   } catch (err) {
-    return { error: err instanceof Error ? err.message : "Could not record decision." };
+    return { error: toActionError(err, "Could not record decision.") };
   }
   revalidatePath("/workflows");
   return undefined;
@@ -79,7 +80,7 @@ export async function confirmSourceFinalizationAction(instanceId: string): Promi
   try {
     await confirmSourceFinalization(tenantId, user.id, instanceId);
   } catch (err) {
-    return { error: err instanceof Error ? err.message : "Could not finalize workflow." };
+    return { error: toActionError(err, "Could not finalize workflow.") };
   }
   revalidatePath("/workflows");
   return undefined;
@@ -96,7 +97,7 @@ export async function cancelWorkflowAction(instanceId: string): Promise<Workflow
     }
     await cancelWorkflow(tenantId, user.id, instanceId, isOverride);
   } catch (err) {
-    return { error: err instanceof Error ? err.message : "Could not cancel workflow." };
+    return { error: toActionError(err, "Could not cancel workflow.") };
   }
   revalidatePath("/workflows");
   return undefined;

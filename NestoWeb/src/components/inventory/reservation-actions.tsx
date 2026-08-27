@@ -4,6 +4,7 @@ import { useTransition, useState } from "react";
 import { cancelReservationAction } from "@/app/actions/inventory-dashboard";
 import { Button } from "@/components/ui/button";
 import { useI18n } from "@/lib/i18n/locale-provider";
+import { toActionError } from "@/lib/errors";
 
 export function ReservationActions({ id, status }: { id: string; status: string }) {
   const { t } = useI18n();
@@ -22,7 +23,7 @@ export function ReservationActions({ id, status }: { id: string; status: string 
             try {
               await cancelReservationAction(id);
             } catch (err) {
-              setError(err instanceof Error ? err.message : "Could not cancel.");
+              setError(toActionError(err, "Could not cancel."));
             }
           })
         }

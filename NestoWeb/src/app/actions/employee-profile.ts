@@ -11,6 +11,7 @@ import {
   createSalaryRecord,
 } from "@/server/employee-profile";
 import type { Role } from "@/lib/constants";
+import { toActionError } from "@/lib/errors";
 
 export type ProfileActionState = { error?: string; success?: boolean } | undefined;
 
@@ -34,7 +35,7 @@ export async function updateEmployeePhotoAction(_prev: ProfileActionState, formD
   try {
     await updateEmployeePhoto(tenantId, employeeId, { userId: user.id, role: role as Role }, remove ? null : (photoDataUrl as string));
   } catch (err) {
-    return { error: err instanceof Error ? err.message : "Something went wrong." };
+    return { error: toActionError(err, "Something went wrong.") };
   }
   revalidatePath(`/employees/${employeeId}`);
   revalidatePath("/employees");
@@ -57,7 +58,7 @@ export async function updateEmployeeContactAction(_prev: ProfileActionState, for
   try {
     await updateEmployeeContact(tenantId, parsed.data.employeeId, { userId: user.id, role: role as Role }, parsed.data.phone ?? "");
   } catch (err) {
-    return { error: err instanceof Error ? err.message : "Something went wrong." };
+    return { error: toActionError(err, "Something went wrong.") };
   }
   revalidatePath(`/employees/${parsed.data.employeeId}`);
   return { success: true };
@@ -84,7 +85,7 @@ export async function addEmployeeDocumentAction(_prev: ProfileActionState, formD
       category: parsed.data.category,
     });
   } catch (err) {
-    return { error: err instanceof Error ? err.message : "Something went wrong." };
+    return { error: toActionError(err, "Something went wrong.") };
   }
   revalidatePath(`/employees/${parsed.data.employeeId}`);
   return { success: true };
@@ -134,7 +135,7 @@ export async function createSalaryRecordAction(_prev: ProfileActionState, formDa
       notes: parsed.data.notes,
     });
   } catch (err) {
-    return { error: err instanceof Error ? err.message : "Something went wrong." };
+    return { error: toActionError(err, "Something went wrong.") };
   }
   revalidatePath(`/employees/${parsed.data.employeeId}`);
   return { success: true };

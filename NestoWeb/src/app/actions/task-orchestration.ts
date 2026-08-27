@@ -35,6 +35,7 @@ import {
   escalate,
   acknowledgeEscalation,
 } from "@/server/task-orchestration";
+import { toActionError } from "@/lib/errors";
 
 export type ActionState = { error: string } | undefined;
 
@@ -96,7 +97,7 @@ async function isTaskLevelAuthority(tenantId: string, taskId: string, userId: st
 }
 
 function toError(err: unknown): ActionState {
-  return { error: err instanceof Error ? err.message : "Something went wrong." };
+  return { error: toActionError(err, "Something went wrong.") };
 }
 
 const StartOrchestrationSchema = z.object({ taskId: z.string().min(1), taskManagerId: z.string().min(1) });

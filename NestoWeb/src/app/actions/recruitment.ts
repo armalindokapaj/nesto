@@ -14,6 +14,7 @@ import {
   createOffer,
   setOfferStatus,
 } from "@/server/recruitment";
+import { toActionError } from "@/lib/errors";
 
 export type RecruitmentActionState = { error: string } | undefined;
 
@@ -53,7 +54,7 @@ export async function setVacancyStatusAction(vacancyId: string, status: string):
   try {
     await setVacancyStatus(tenantId, vacancyId, status);
   } catch (e) {
-    return { error: e instanceof Error ? e.message : "Could not update vacancy." };
+    return { error: toActionError(e, "Could not update vacancy.") };
   }
   revalidatePath("/dashboard/hr/recruitment");
   revalidatePath(`/dashboard/hr/recruitment/${vacancyId}`);
@@ -94,7 +95,7 @@ export async function setCandidateStageAction(candidateId: string, vacancyId: st
   try {
     await setCandidateStage(tenantId, user.id, candidateId, toStage);
   } catch (e) {
-    return { error: e instanceof Error ? e.message : "Could not update candidate." };
+    return { error: toActionError(e, "Could not update candidate.") };
   }
   revalidatePath(`/dashboard/hr/recruitment/${vacancyId}`);
   return undefined;
@@ -122,7 +123,7 @@ export async function createOfferAction(_prev: RecruitmentActionState, formData:
   try {
     await createOffer(tenantId, user.id, parsed.data);
   } catch (e) {
-    return { error: e instanceof Error ? e.message : "Could not create offer." };
+    return { error: toActionError(e, "Could not create offer.") };
   }
   revalidatePath(`/dashboard/hr/recruitment/${formData.get("vacancyId")}`);
   return undefined;
@@ -136,7 +137,7 @@ export async function setOfferStatusAction(offerId: string, vacancyId: string, s
   try {
     await setOfferStatus(tenantId, user.id, offerId, status);
   } catch (e) {
-    return { error: e instanceof Error ? e.message : "Could not update offer." };
+    return { error: toActionError(e, "Could not update offer.") };
   }
   revalidatePath(`/dashboard/hr/recruitment/${vacancyId}`);
   return undefined;

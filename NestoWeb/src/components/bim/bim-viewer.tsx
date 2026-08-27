@@ -4,6 +4,7 @@ import { useEffect, useRef, useState } from "react";
 import * as THREE from "three";
 import { OrbitControls } from "three/examples/jsm/controls/OrbitControls.js";
 import { GLTFLoader } from "three/examples/jsm/loaders/GLTFLoader.js";
+import { toActionError } from "@/lib/errors";
 
 // PRD_BIM_3D_Digital_Twin — a real, working viewer, scoped down from the
 // full PRD's IFC/geometry-conversion pipeline (that needs a parser this
@@ -63,7 +64,7 @@ export function BimViewer({ fileUrl }: { fileUrl: string }) {
       },
       undefined,
       (err) => {
-        setError(err instanceof Error ? err.message : "Could not load model file.");
+        setError(toActionError(err, "Could not load model file."));
         setLoading(false);
       }
     );

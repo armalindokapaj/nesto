@@ -5,6 +5,7 @@ import { useRouter } from "next/navigation";
 import { decideAwardAction } from "@/app/actions/procurement-comparison";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { toActionError } from "@/lib/errors";
 
 // §10.3 Separation of duties — server rejects the preparer deciding their
 // own recommendation; this UI is shown to any FULL-authority user but
@@ -22,7 +23,7 @@ export function AwardDecisionActions({ id }: { id: string }) {
         await decideAwardAction(id, decision, note || undefined);
         router.refresh();
       } catch (err) {
-        setError(err instanceof Error ? err.message : "Could not decide.");
+        setError(toActionError(err, "Could not decide."));
       }
     });
   }

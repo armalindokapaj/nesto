@@ -6,6 +6,7 @@ import { getCurrentUser } from "@/lib/dal";
 import { can } from "@/lib/permissions";
 import { createContract } from "@/server/contracts";
 import { approveContract } from "@/server/contract-lifecycle";
+import { toActionError } from "@/lib/errors";
 
 const CreateContractSchema = z.object({
   title: z.string().min(2, "Enter a contract title"),
@@ -50,7 +51,7 @@ export async function approveContractAction(contractId: string): Promise<Approve
   try {
     await approveContract(tenantId, user.id, contractId);
   } catch (err) {
-    return { error: err instanceof Error ? err.message : "Could not approve contract." };
+    return { error: toActionError(err, "Could not approve contract.") };
   }
 
   revalidatePath("/contracts");

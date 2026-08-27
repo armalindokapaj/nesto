@@ -5,6 +5,7 @@ import { getCurrentUser } from "@/lib/dal";
 import { can } from "@/lib/permissions";
 import { CAPABILITY_KEYS, type CapabilityKey } from "@/lib/capabilities";
 import { grantCapability, revokeCapability } from "@/server/capabilities";
+import { toActionError } from "@/lib/errors";
 
 export type CapabilityActionState = { error: string } | undefined;
 
@@ -23,7 +24,7 @@ export async function grantCapabilityAction(_prev: CapabilityActionState, formDa
     assertKnownKey(key);
     await grantCapability(tenantId, user.id, userId, key);
   } catch (err) {
-    return { error: err instanceof Error ? err.message : "Could not grant capability." };
+    return { error: toActionError(err, "Could not grant capability.") };
   }
   revalidatePath("/dashboard/admin/roles");
   return undefined;
@@ -36,7 +37,7 @@ export async function revokeCapabilityAction(userId: string, key: string): Promi
     assertKnownKey(key);
     await revokeCapability(tenantId, user.id, userId, key);
   } catch (err) {
-    return { error: err instanceof Error ? err.message : "Could not revoke capability." };
+    return { error: toActionError(err, "Could not revoke capability.") };
   }
   revalidatePath("/dashboard/admin/roles");
   return undefined;

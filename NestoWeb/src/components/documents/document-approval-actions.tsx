@@ -6,6 +6,7 @@ import { requestDocumentApprovalAction, decideDocumentApprovalAction } from "@/a
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/input";
 import { useI18n } from "@/lib/i18n/locale-provider";
+import { toActionError } from "@/lib/errors";
 
 // PRD_18 §13 — a tag/comment is not an approval; this is the formal request,
 // converted into an Approval Request only after the server has confirmed the
@@ -44,7 +45,7 @@ export function RequestApprovalForm({ documentId, approvers }: { documentId: str
             try {
               await requestDocumentApprovalAction(documentId, approverId);
             } catch (err) {
-              setError(err instanceof Error ? err.message : "Could not request approval.");
+              setError(toActionError(err, "Could not request approval."));
             }
           })
         }
@@ -76,7 +77,7 @@ export function ApprovalDecisionButtons({ documentId }: { documentId: string }) 
       try {
         await decideDocumentApprovalAction(documentId, decision, comment.trim() || undefined);
       } catch (err) {
-        setError(err instanceof Error ? err.message : "Could not record decision.");
+        setError(toActionError(err, "Could not record decision."));
       }
     });
   }

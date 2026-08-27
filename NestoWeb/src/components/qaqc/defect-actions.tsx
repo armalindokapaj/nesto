@@ -6,6 +6,7 @@ import { markDefectInCorrectionAction, submitDefectForReviewAction, verifyDefect
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { useI18n } from "@/lib/i18n/locale-provider";
+import { toActionError } from "@/lib/errors";
 
 // §13.1 canonical lifecycle: Open -> Assigned -> In Correction -> Ready for
 // Review -> Verified -> Closed, with reject-back-to-correction and reopen.
@@ -24,7 +25,7 @@ export function DefectActions({ id, status }: { id: string; status: string }) {
         await action();
         router.refresh();
       } catch (err) {
-        setError(err instanceof Error ? err.message : "Could not complete this action.");
+        setError(toActionError(err, "Could not complete this action."));
       }
     });
   }

@@ -1,6 +1,7 @@
 import "server-only";
 import { parse } from "csv-parse/sync";
 import { db } from "@/lib/db";
+import { toActionError } from "@/lib/errors";
 
 // PRD_Platform_UI_UX_Architecture §22 Import Center — the generic
 // upload -> map -> validate -> detect duplicates -> preview -> commit ->
@@ -30,7 +31,7 @@ function parseCsv(csvText: string): { records: Record<string, string>[]; parseEr
   try {
     return { records: parse(csvText, { columns: true, skip_empty_lines: true, trim: true }) };
   } catch (err) {
-    return { records: [], parseError: { row: 0, message: `Could not parse CSV: ${err instanceof Error ? err.message : "invalid file"}` } };
+    return { records: [], parseError: { row: 0, message: `Could not parse CSV: ${toActionError(err, "invalid file")}` } };
   }
 }
 
@@ -76,7 +77,7 @@ async function commitEmployees(tenantId: string, rows: EmployeeRow[]): Promise<I
       await db.employee.create({ data: { tenantId, fullName: row.fullName, position: row.position, department: row.department, hireDate: row.hireDate, phone: row.phone } });
       created++;
     } catch (err) {
-      failed.push({ row: row.row, message: err instanceof Error ? err.message : "Could not create employee." });
+      failed.push({ row: row.row, message: toActionError(err, "Could not create employee.") });
     }
   }
   return { created, failed };
@@ -120,7 +121,7 @@ async function commitClients(tenantId: string, actorId: string, rows: ClientRow[
       await db.client.create({ data: { tenantId, createdById: actorId, name: row.name, contactName: row.contactName, email: row.email, phone: row.phone } });
       created++;
     } catch (err) {
-      failed.push({ row: row.row, message: err instanceof Error ? err.message : "Could not create client." });
+      failed.push({ row: row.row, message: toActionError(err, "Could not create client.") });
     }
   }
   return { created, failed };

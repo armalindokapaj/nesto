@@ -12,6 +12,7 @@ import {
   issueInspectionResult,
   reopenForReinspection,
 } from "@/server/qaqc";
+import { toActionError } from "@/lib/errors";
 
 type ActionState = { error: string } | { ok: true } | undefined;
 
@@ -54,7 +55,7 @@ export async function createInspectionRequestAction(_prev: ActionState, formData
     assertProjectsWrite(role);
     await createInspectionRequest(tenantId, user.id, parsed.data);
   } catch (error) {
-    return { error: error instanceof Error ? error.message : "Could not create inspection request" };
+    return { error: toActionError(error, "Could not create inspection request") };
   }
   revalidatePath("/dashboard/engineering/inspections");
   return { ok: true };
@@ -91,7 +92,7 @@ export async function issueInspectionResultAction(_prev: ActionState, formData: 
     assertProjectsWrite(role);
     await issueInspectionResult(tenantId, user.id, { id, result, evidenceNotes: typeof evidenceNotes === "string" ? evidenceNotes : undefined });
   } catch (error) {
-    return { error: error instanceof Error ? error.message : "Could not issue result" };
+    return { error: toActionError(error, "Could not issue result") };
   }
   revalidatePath("/dashboard/engineering/inspections");
   return { ok: true };

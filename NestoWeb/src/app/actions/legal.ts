@@ -18,6 +18,7 @@ import {
   createLegalHold,
   releaseLegalHold,
 } from "@/server/legal";
+import { toActionError } from "@/lib/errors";
 
 const CreateAuthoritySchema = z.object({
   name: z.string().min(1),
@@ -186,7 +187,7 @@ export async function setLegalCaseStatusAction(caseId: string, status: string): 
   try {
     await setLegalCaseStatus(tenantId, user.id, caseId, status);
   } catch (e) {
-    return { error: e instanceof Error ? e.message : "Could not update case." };
+    return { error: toActionError(e, "Could not update case.") };
   }
   revalidatePath(`/dashboard/legal/cases/${caseId}`);
   revalidatePath("/dashboard/legal/cases");
@@ -240,7 +241,7 @@ export async function releaseLegalHoldAction(holdId: string, caseId?: string): P
   try {
     await releaseLegalHold(tenantId, user.id, holdId);
   } catch (e) {
-    return { error: e instanceof Error ? e.message : "Could not release hold." };
+    return { error: toActionError(e, "Could not release hold.") };
   }
   revalidatePath("/dashboard/legal/holds");
   if (caseId) revalidatePath(`/dashboard/legal/cases/${caseId}`);

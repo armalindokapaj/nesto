@@ -8,6 +8,7 @@ import type { ParsedImportRow, ImportRowError } from "@/server/unit-import";
 import { UNIT_IMPORT_COLUMNS } from "@/lib/constants";
 import { Button } from "@/components/ui/button";
 import { useI18n } from "@/lib/i18n/locale-provider";
+import { toActionError } from "@/lib/errors";
 
 type DryRunResult = { validRows: ParsedImportRow[]; errors: ImportRowError[] };
 type CommitResult = { created: number; failed: ImportRowError[] };
@@ -41,7 +42,7 @@ export function ImportUnitsDialog({ projectId }: { projectId: string }) {
         const result = await dryRunUnitsImportAction(projectId, text);
         setDryRun(result);
       } catch (err) {
-        setError(err instanceof Error ? err.message : "Could not read file.");
+        setError(toActionError(err, "Could not read file."));
       }
     });
   }
@@ -54,7 +55,7 @@ export function ImportUnitsDialog({ projectId }: { projectId: string }) {
         setCommitResult(result);
         setDryRun(null);
       } catch (err) {
-        setError(err instanceof Error ? err.message : "Import failed.");
+        setError(toActionError(err, "Import failed."));
       }
     });
   }

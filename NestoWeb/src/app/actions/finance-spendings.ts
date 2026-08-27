@@ -11,6 +11,7 @@ import {
   markSpendingBillPaid,
 } from "@/server/finance";
 import type { DecisionValue } from "@/server/workflow-engine";
+import { toActionError } from "@/lib/errors";
 
 // PRD_Finance_Dashboard §11/§21 — Spending Bill actions. Scoped to
 // FINANCE:WRITE — this is the Finance shell's own operational workflow
@@ -55,7 +56,7 @@ export async function createSpendingBillAction(_prev: ActionState, formData: For
     assertFinanceWrite(role);
     await createSpendingBill(tenantId, user.id, parsed.data);
   } catch (error) {
-    return { error: error instanceof Error ? error.message : "Could not create Spending Bill" };
+    return { error: toActionError(error, "Could not create Spending Bill") };
   }
 
   revalidatePath("/dashboard/finance/spendings");
@@ -89,7 +90,7 @@ export async function markSpendingBillPaidAction(_prev: ActionState, formData: F
     assertFinanceWrite(role);
     await markSpendingBillPaid(tenantId, user.id, { spendingBillId, transferReference });
   } catch (error) {
-    return { error: error instanceof Error ? error.message : "Could not mark paid" };
+    return { error: toActionError(error, "Could not mark paid") };
   }
 
   revalidatePath("/dashboard/finance/spendings");

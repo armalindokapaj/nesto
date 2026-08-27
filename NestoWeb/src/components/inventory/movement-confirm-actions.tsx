@@ -5,6 +5,7 @@ import { confirmMovementReceiptAction, disputeMovementReceiptAction } from "@/ap
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { useI18n } from "@/lib/i18n/locale-provider";
+import { toActionError } from "@/lib/errors";
 
 // PRD_Inventory_Dashboard — the named recipient's own confirm/dispute act on
 // a PENDING (or DISPUTED, re-confirmable) movement. Server-side rejects
@@ -25,7 +26,7 @@ export function MovementConfirmActions({ movementId, confirmationStatus }: { mov
       try {
         await confirmMovementReceiptAction(movementId);
       } catch (err) {
-        setError(err instanceof Error ? err.message : "Could not confirm.");
+        setError(toActionError(err, "Could not confirm."));
       }
     });
   }
@@ -38,7 +39,7 @@ export function MovementConfirmActions({ movementId, confirmationStatus }: { mov
         setDisputing(false);
         setReason("");
       } catch (err) {
-        setError(err instanceof Error ? err.message : "Could not dispute.");
+        setError(toActionError(err, "Could not dispute."));
       }
     });
   }

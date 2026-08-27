@@ -7,6 +7,7 @@ import { can } from "@/lib/permissions";
 import type { Role } from "@/lib/constants";
 import { assertConfigEnabled } from "@/server/platform-config";
 import { createShiftDefinition, assignSchedule, endScheduleAssignment, getEmployeeByUserId, recordAttendanceEvent } from "@/server/attendance";
+import { toActionError } from "@/lib/errors";
 
 export type AttendanceActionState = { error: string } | undefined;
 
@@ -74,7 +75,7 @@ export async function clockAction(type: "CLOCK_IN" | "CLOCK_OUT"): Promise<Atten
   try {
     await recordAttendanceEvent(tenantId, user.id, employee.id, type);
   } catch (e) {
-    return { error: e instanceof Error ? e.message : "Could not record attendance." };
+    return { error: toActionError(e, "Could not record attendance.") };
   }
   revalidatePath(PATH);
   return undefined;

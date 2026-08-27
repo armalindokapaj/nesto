@@ -16,6 +16,7 @@ import {
   updateClientRequestStatus,
   assignClientRequest,
 } from "@/server/architecture";
+import { toActionError } from "@/lib/errors";
 
 type ActionState = { error: string } | { ok: true } | undefined;
 
@@ -97,7 +98,7 @@ export async function createDrawingRevisionAction(_prev: ActionState, formData: 
     assertProjectsWrite(role);
     await createDrawingRevision(tenantId, user.id, parsed.data);
   } catch (error) {
-    return { error: error instanceof Error ? error.message : "Could not create revision" };
+    return { error: toActionError(error, "Could not create revision") };
   }
   revalidatePath("/dashboard/architect/revisions");
   revalidatePath("/dashboard/architect/drawings");
@@ -127,7 +128,7 @@ export async function respondToRfiAction(_prev: ActionState, formData: FormData)
     assertProjectsWrite(role);
     await respondToRfi(tenantId, user.id, { rfiId, response });
   } catch (error) {
-    return { error: error instanceof Error ? error.message : "Could not respond to RFI" };
+    return { error: toActionError(error, "Could not respond to RFI") };
   }
   revalidatePath("/dashboard/architect/rfis");
   revalidatePath("/dashboard/engineering/rfis");
@@ -164,7 +165,7 @@ export async function createSubmittalAction(_prev: ActionState, formData: FormDa
     assertProjectsWrite(role);
     await createSubmittal(tenantId, user.id, parsed.data);
   } catch (error) {
-    return { error: error instanceof Error ? error.message : "Could not create submittal" };
+    return { error: toActionError(error, "Could not create submittal") };
   }
   revalidatePath("/dashboard/architect/submittals");
   revalidatePath("/dashboard/engineering/submittals");

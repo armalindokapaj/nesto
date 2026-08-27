@@ -16,6 +16,7 @@ import {
   addMilestone,
   updateMilestoneStatus,
 } from "@/server/contracts";
+import { toActionError } from "@/lib/errors";
 
 // PRD_Contracts_Module — additive actions. Create/edit-value and the
 // lifecycle transitions (submit/approve/activate/terminate/...) continue to
@@ -62,7 +63,7 @@ export async function updateContractDetailsAction(_prev: ActionState, formData: 
       responsibleUserId: parsed.data.responsibleUserId || null,
     });
   } catch (error) {
-    return { error: error instanceof Error ? error.message : "Could not update contract" };
+    return { error: toActionError(error, "Could not update contract") };
   }
 
   revalidatePath(`/contracts/${parsed.data.contractId}`);
@@ -114,7 +115,7 @@ export async function addContractPartyAction(_prev: ActionState, formData: FormD
     assertContractsWrite(role);
     await addContractParty(tenantId, { ...parsed.data, actorId: user.id });
   } catch (error) {
-    return { error: error instanceof Error ? error.message : "Could not add party" };
+    return { error: toActionError(error, "Could not add party") };
   }
 
   revalidatePath(`/contracts/${parsed.data.contractId}`);
@@ -159,7 +160,7 @@ export async function addObligationAction(_prev: ActionState, formData: FormData
       actorId: user.id,
     });
   } catch (error) {
-    return { error: error instanceof Error ? error.message : "Could not add obligation" };
+    return { error: toActionError(error, "Could not add obligation") };
   }
 
   revalidatePath(`/contracts/${parsed.data.contractId}`);
@@ -200,7 +201,7 @@ export async function addMilestoneAction(_prev: ActionState, formData: FormData)
       actorId: user.id,
     });
   } catch (error) {
-    return { error: error instanceof Error ? error.message : "Could not add milestone" };
+    return { error: toActionError(error, "Could not add milestone") };
   }
 
   revalidatePath(`/contracts/${parsed.data.contractId}`);

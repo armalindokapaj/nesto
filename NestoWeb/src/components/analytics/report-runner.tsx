@@ -6,6 +6,7 @@ import { executeReportAction, issueReportExecutionAction } from "@/app/actions/a
 import { Button } from "@/components/ui/button";
 import { ExportCsvButton } from "@/components/ui/export-csv-button";
 import { useI18n } from "@/lib/i18n/locale-provider";
+import { toActionError } from "@/lib/errors";
 
 // PRD_Reporting_Analytics — running a report always re-queries live (no
 // cached rows anywhere), so "Run" and "Export" are two separate steps: run
@@ -34,7 +35,7 @@ export function ReportRunner({ reportId, reportName }: { reportId: string; repor
                 setRows(result.rows as Record<string, string | number>[]);
                 setExecutionId(result.executionId);
               } catch (e) {
-                setError(e instanceof Error ? e.message : "Could not run report.");
+                setError(toActionError(e, "Could not run report."));
               }
             })
           }

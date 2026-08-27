@@ -17,6 +17,7 @@ import {
   setReorderLevels,
   confirmDailyClose,
 } from "@/server/inventory-dashboard";
+import { toActionError } from "@/lib/errors";
 
 type ActionState = { error: string } | { ok: true } | undefined;
 
@@ -49,7 +50,7 @@ export async function createReservationAction(_prev: ActionState, formData: Form
     assertInventoryWrite(role);
     await createReservation(tenantId, user.id, parsed.data);
   } catch (error) {
-    return { error: error instanceof Error ? error.message : "Could not create reservation" };
+    return { error: toActionError(error, "Could not create reservation") };
   }
   revalidatePath("/dashboard/inventory/reservations");
   return { ok: true };
@@ -84,7 +85,7 @@ export async function createCountAction(_prev: ActionState, input: { warehouseId
     assertInventoryWrite(role);
     await createCount(tenantId, user.id, parsed.data);
   } catch (error) {
-    return { error: error instanceof Error ? error.message : "Could not create count" };
+    return { error: toActionError(error, "Could not create count") };
   }
   revalidatePath("/dashboard/inventory/counts");
   return { ok: true };
@@ -140,7 +141,7 @@ export async function setReorderLevelsAction(_prev: ActionState, formData: FormD
     assertInventoryWrite(role);
     await setReorderLevels(tenantId, parsed.data);
   } catch (error) {
-    return { error: error instanceof Error ? error.message : "Could not set reorder levels" };
+    return { error: toActionError(error, "Could not set reorder levels") };
   }
   revalidatePath("/dashboard/inventory/reorder");
   return { ok: true };

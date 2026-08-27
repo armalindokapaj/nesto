@@ -5,6 +5,7 @@ import { revalidatePath } from "next/cache";
 import { getCurrentUser } from "@/lib/dal";
 import { can } from "@/lib/permissions";
 import { createLoan, createInvestment } from "@/server/finance";
+import { toActionError } from "@/lib/errors";
 
 type ActionState = { error: string } | { ok: true } | undefined;
 
@@ -43,7 +44,7 @@ export async function createLoanAction(_prev: ActionState, formData: FormData): 
     assertFinanceWrite(role);
     await createLoan(tenantId, user.id, parsed.data);
   } catch (error) {
-    return { error: error instanceof Error ? error.message : "Could not create loan" };
+    return { error: toActionError(error, "Could not create loan") };
   }
 
   revalidatePath("/dashboard/finance/loans");
@@ -81,7 +82,7 @@ export async function createInvestmentAction(_prev: ActionState, formData: FormD
     assertFinanceWrite(role);
     await createInvestment(tenantId, user.id, parsed.data);
   } catch (error) {
-    return { error: error instanceof Error ? error.message : "Could not create investment" };
+    return { error: toActionError(error, "Could not create investment") };
   }
 
   revalidatePath("/dashboard/finance/investments");

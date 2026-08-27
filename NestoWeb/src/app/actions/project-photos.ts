@@ -5,6 +5,7 @@ import { getCurrentUser } from "@/lib/dal";
 import { assertAllowedUpload, IMAGE_MIME_TYPES } from "@/lib/uploads";
 import { can } from "@/lib/permissions";
 import { createProjectPhoto } from "@/server/project-photos";
+import { toActionError } from "@/lib/errors";
 
 const MAX_FILE_BYTES = 8 * 1024 * 1024;
 
@@ -39,7 +40,7 @@ export async function uploadProjectPhotoAction(_prev: ActionState, formData: For
   try {
     file = await readUploadedFile(formData);
   } catch (err) {
-    return { error: err instanceof Error ? err.message : "Invalid file" };
+    return { error: toActionError(err, "Invalid file") };
   }
 
   const caption = String(formData.get("caption") ?? "").trim() || undefined;
@@ -48,7 +49,7 @@ export async function uploadProjectPhotoAction(_prev: ActionState, formData: For
   try {
     await createProjectPhoto(tenantId, { projectId, uploadedById: user.id, file, caption, workPackageId });
   } catch (err) {
-    return { error: err instanceof Error ? err.message : "Could not upload photo." };
+    return { error: toActionError(err, "Could not upload photo.") };
   }
 
   revalidatePath(`/projects/${projectId}`);

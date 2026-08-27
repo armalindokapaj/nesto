@@ -21,6 +21,7 @@ import {
   removeDocumentFromCollection,
   bulkArchiveDocuments,
 } from "@/server/documents-module";
+import { toActionError } from "@/lib/errors";
 
 // PRD_Documents_Module — module-level actions (folders, shortcuts, Star,
 // Tranzit promotion, archive/restore). Document upload/revision continues to
@@ -53,7 +54,7 @@ export async function createFolderAction(_prev: ActionState, formData: FormData)
       createdById: user.id,
     });
   } catch (error) {
-    return { error: error instanceof Error ? error.message : "Could not create folder" };
+    return { error: toActionError(error, "Could not create folder") };
   }
 
   revalidatePath("/documents");
@@ -87,7 +88,7 @@ export async function createShortcutAction(_prev: ActionState, formData: FormDat
     assertDocumentsWrite(role);
     await createShortcut(tenantId, { ...parsed.data, actorId: user.id });
   } catch (error) {
-    return { error: error instanceof Error ? error.message : "Could not create shortcut" };
+    return { error: toActionError(error, "Could not create shortcut") };
   }
 
   revalidatePath(`/documents/${parsed.data.documentId}`);
@@ -107,7 +108,7 @@ export async function removeShortcutAction(_prev: ActionState, formData: FormDat
     assertDocumentsWrite(role);
     await removeShortcut(tenantId, { ...parsed.data, actorId: user.id });
   } catch (error) {
-    return { error: error instanceof Error ? error.message : "Could not remove shortcut" };
+    return { error: toActionError(error, "Could not remove shortcut") };
   }
 
   revalidatePath(`/documents/${parsed.data.documentId}`);
@@ -138,7 +139,7 @@ export async function promoteFromTranzitAction(_prev: ActionState, formData: For
       actorId: user.id,
     });
   } catch (error) {
-    return { error: error instanceof Error ? error.message : "Could not promote document" };
+    return { error: toActionError(error, "Could not promote document") };
   }
 
   revalidatePath(`/documents/${parsed.data.documentId}`);
@@ -180,7 +181,7 @@ export async function addDocumentCommentAction(_prev: ActionState, formData: For
     if (!can(role, "DOCUMENTS", "READ")) throw new Error("Not authorized");
     await addDocumentComment(tenantId, { documentId: parsed.data.documentId, authorId: user.id, body: parsed.data.body });
   } catch (error) {
-    return { error: error instanceof Error ? error.message : "Could not add comment" };
+    return { error: toActionError(error, "Could not add comment") };
   }
 
   revalidatePath(`/documents/${parsed.data.documentId}`);
@@ -205,7 +206,7 @@ export async function setRequiredReadingAction(_prev: ActionState, formData: For
     assertDocumentsWrite(role);
     await setRequiredReading(tenantId, parsed.data.documentId, user.id, parsed.data.required, parsed.data.assigneeIds);
   } catch (error) {
-    return { error: error instanceof Error ? error.message : "Could not update required reading" };
+    return { error: toActionError(error, "Could not update required reading") };
   }
   revalidatePath(`/documents/${parsed.data.documentId}`);
   return { ok: true };
@@ -262,7 +263,7 @@ export async function addDocumentToCollectionAction(_prev: ActionState, formData
   try {
     await addDocumentToCollection(tenantId, parsed.data.collectionId, user.id, parsed.data.documentId, parsed.data.revisionId);
   } catch (error) {
-    return { error: error instanceof Error ? error.message : "Could not add document" };
+    return { error: toActionError(error, "Could not add document") };
   }
   revalidatePath(`/documents/collections/${parsed.data.collectionId}`);
   return { ok: true };

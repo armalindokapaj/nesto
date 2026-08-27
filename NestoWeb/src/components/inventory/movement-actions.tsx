@@ -4,6 +4,7 @@ import { useState, useTransition } from "react";
 import { postMovementAction, reverseMovementAction } from "@/app/actions/inventory-module";
 import { Button } from "@/components/ui/button";
 import { useI18n } from "@/lib/i18n/locale-provider";
+import { toActionError } from "@/lib/errors";
 
 export function MovementActions({ movementId, status }: { movementId: string; status: string }) {
   const { t } = useI18n();
@@ -16,7 +17,7 @@ export function MovementActions({ movementId, status }: { movementId: string; st
       try {
         await action();
       } catch (err) {
-        setError(err instanceof Error ? err.message : "Could not complete this action.");
+        setError(toActionError(err, "Could not complete this action."));
       }
     });
   }

@@ -6,6 +6,7 @@ import { advanceNcrStageAction, reopenNcrAction } from "@/app/actions/qaqc-quali
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { useI18n } from "@/lib/i18n/locale-provider";
+import { toActionError } from "@/lib/errors";
 
 const STAGE_ORDER = ["DRAFT", "ISSUED", "CONTAINMENT", "ROOT_CAUSE", "CORRECTIVE_PLAN", "IMPLEMENTATION", "VERIFICATION", "CLOSED"] as const;
 
@@ -27,7 +28,7 @@ export function NcrStageActions({ id, status }: { id: string; status: string }) 
         await action();
         router.refresh();
       } catch (err) {
-        setError(err instanceof Error ? err.message : "Could not complete this action.");
+        setError(toActionError(err, "Could not complete this action."));
       }
     });
   }

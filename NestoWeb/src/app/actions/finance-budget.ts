@@ -5,6 +5,7 @@ import { revalidatePath } from "next/cache";
 import { getCurrentUser } from "@/lib/dal";
 import { can } from "@/lib/permissions";
 import { createBudget, reviseBudget, closeBudget } from "@/server/finance";
+import { toActionError } from "@/lib/errors";
 
 type ActionState = { error: string } | { ok: true } | undefined;
 
@@ -37,7 +38,7 @@ export async function createBudgetAction(_prev: ActionState, formData: FormData)
     assertFinanceWrite(role);
     await createBudget(tenantId, user.id, parsed.data);
   } catch (error) {
-    return { error: error instanceof Error ? error.message : "Could not create budget" };
+    return { error: toActionError(error, "Could not create budget") };
   }
 
   revalidatePath("/dashboard/finance/budgets");
@@ -64,7 +65,7 @@ export async function reviseBudgetAction(_prev: ActionState, formData: FormData)
     assertFinanceWrite(role);
     await reviseBudget(tenantId, user.id, parsed.data);
   } catch (error) {
-    return { error: error instanceof Error ? error.message : "Could not revise budget" };
+    return { error: toActionError(error, "Could not revise budget") };
   }
 
   revalidatePath(`/dashboard/finance/budgets/${parsed.data.budgetId}`);

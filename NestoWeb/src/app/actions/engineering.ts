@@ -11,6 +11,7 @@ import {
   createCoordinationIssue,
   updateCoordinationIssueStatus,
 } from "@/server/engineering";
+import { toActionError } from "@/lib/errors";
 
 type ActionState = { error: string } | { ok: true } | undefined;
 
@@ -40,7 +41,7 @@ export async function createEngineeringPackageAction(_prev: ActionState, formDat
     assertProjectsWrite(role);
     await createEngineeringPackage(tenantId, { ...parsed.data, ownerId: user.id });
   } catch (error) {
-    return { error: error instanceof Error ? error.message : "Could not create package" };
+    return { error: toActionError(error, "Could not create package") };
   }
   revalidatePath("/dashboard/engineering/packages");
   return { ok: true };
@@ -72,7 +73,7 @@ export async function createSpecificationAction(_prev: ActionState, formData: Fo
     assertProjectsWrite(role);
     await createSpecification(tenantId, user.id, parsed.data);
   } catch (error) {
-    return { error: error instanceof Error ? error.message : "Could not create specification" };
+    return { error: toActionError(error, "Could not create specification") };
   }
   revalidatePath("/dashboard/engineering/specifications");
   return { ok: true };
@@ -108,7 +109,7 @@ export async function createCalculationAction(_prev: ActionState, formData: Form
     assertProjectsWrite(role);
     await createCalculation(tenantId, user.id, parsed.data);
   } catch (error) {
-    return { error: error instanceof Error ? error.message : "Could not create calculation" };
+    return { error: toActionError(error, "Could not create calculation") };
   }
   revalidatePath("/dashboard/engineering/calculations");
   return { ok: true };
@@ -136,7 +137,7 @@ export async function createCoordinationIssueAction(_prev: ActionState, formData
     assertProjectsWrite(role);
     await createCoordinationIssue(tenantId, user.id, parsed.data);
   } catch (error) {
-    return { error: error instanceof Error ? error.message : "Could not create issue" };
+    return { error: toActionError(error, "Could not create issue") };
   }
   revalidatePath("/dashboard/engineering/coordination");
   return { ok: true };

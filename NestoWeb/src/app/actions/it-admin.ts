@@ -15,6 +15,7 @@ import {
   setItTicketStatus,
   addItTicketComment,
 } from "@/server/it-admin";
+import { toActionError } from "@/lib/errors";
 
 export type ItAdminActionState = { error: string } | undefined;
 
@@ -82,7 +83,7 @@ export async function assignLicenceSeatAction(licenceId: string, userId: string)
   try {
     await assignLicenceSeat(tenantId, licenceId, userId);
   } catch (err) {
-    return { error: err instanceof Error ? err.message : "Could not assign seat." };
+    return { error: toActionError(err, "Could not assign seat.") };
   }
   revalidatePath("/dashboard/admin/it/licences");
   return undefined;
@@ -128,7 +129,7 @@ export async function setItTicketStatusAction(ticketId: string, status: string, 
   try {
     await setItTicketStatus(tenantId, ticketId, status, assignedToId);
   } catch (err) {
-    return { error: err instanceof Error ? err.message : "Could not update ticket." };
+    return { error: toActionError(err, "Could not update ticket.") };
   }
   revalidatePath(`/dashboard/admin/it/tickets/${ticketId}`);
   revalidatePath("/dashboard/admin/it/tickets");

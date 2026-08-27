@@ -14,6 +14,7 @@ import {
   reverseJournalEntry,
 } from "@/server/finance";
 import type { AccountType } from "@/lib/finance-constants";
+import { toActionError } from "@/lib/errors";
 
 // PRD_Finance_Module — Accounting Core actions. Gated on FINANCE:WRITE for
 // day-to-day entries, FINANCE:FULL for posting/reversing and period control
@@ -52,7 +53,7 @@ export async function createAccountAction(_prev: ActionState, formData: FormData
     assertFinanceFull(role);
     await createAccount(tenantId, { ...parsed.data, type: parsed.data.type as AccountType });
   } catch (error) {
-    return { error: error instanceof Error ? error.message : "Could not create account" };
+    return { error: toActionError(error, "Could not create account") };
   }
 
   revalidatePath("/finance/accounts");
@@ -74,7 +75,7 @@ export async function createCostCenterAction(_prev: ActionState, formData: FormD
     assertFinanceFull(role);
     await createCostCenter(tenantId, parsed.data);
   } catch (error) {
-    return { error: error instanceof Error ? error.message : "Could not create cost center" };
+    return { error: toActionError(error, "Could not create cost center") };
   }
 
   revalidatePath("/finance/accounts");
@@ -96,7 +97,7 @@ export async function createFiscalPeriodAction(_prev: ActionState, formData: For
     assertFinanceFull(role);
     await createFiscalPeriod(tenantId, { name: parsed.data.name, startAt: new Date(parsed.data.startAt), endAt: new Date(parsed.data.endAt) });
   } catch (error) {
-    return { error: error instanceof Error ? error.message : "Could not create fiscal period" };
+    return { error: toActionError(error, "Could not create fiscal period") };
   }
 
   revalidatePath("/finance/periods");
@@ -135,7 +136,7 @@ export async function createJournalEntryAction(
     assertFinanceWrite(role);
     await createJournalEntry(tenantId, { ...parsed.data, createdById: user.id });
   } catch (error) {
-    return { error: error instanceof Error ? error.message : "Could not create journal entry" };
+    return { error: toActionError(error, "Could not create journal entry") };
   }
 
   revalidatePath("/finance/journal");

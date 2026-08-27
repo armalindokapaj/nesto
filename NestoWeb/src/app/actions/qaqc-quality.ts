@@ -17,6 +17,7 @@ import {
   closeDefect,
   reopenDefect,
 } from "@/server/qaqc";
+import { toActionError } from "@/lib/errors";
 
 type ActionState = { error: string } | { ok: true } | undefined;
 
@@ -55,7 +56,7 @@ export async function createNcrAction(_prev: ActionState, formData: FormData): P
     assertQaqcWrite(role);
     await createNcr(tenantId, user.id, parsed.data);
   } catch (error) {
-    return { error: error instanceof Error ? error.message : "Could not create NCR" };
+    return { error: toActionError(error, "Could not create NCR") };
   }
   revalidatePath("/dashboard/qaqc/ncrs");
   return { ok: true };
@@ -100,7 +101,7 @@ export async function createDefectAction(_prev: ActionState, formData: FormData)
     assertQaqcWrite(role);
     await createDefect(tenantId, user.id, parsed.data);
   } catch (error) {
-    return { error: error instanceof Error ? error.message : "Could not create defect" };
+    return { error: toActionError(error, "Could not create defect") };
   }
   revalidatePath("/dashboard/qaqc/defects");
   return { ok: true };

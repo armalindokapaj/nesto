@@ -6,6 +6,7 @@ import { logUnitActivity } from "@/server/unit-activity";
 import { finalPrice, blendedPricePerM2, type AreaComponentInput } from "@/lib/unit-pricing";
 import { UNIT_MANUAL_TRANSITIONS } from "@/lib/constants";
 import type { UnitLifecycleStatus } from "@/lib/constants";
+import { toActionError } from "@/lib/errors";
 
 export type UnitFilters = {
   type?: string[];
@@ -351,7 +352,7 @@ export async function bulkUpdateUnits(
       }
       results.push({ unitId, ok: true });
     } catch (err) {
-      results.push({ unitId, ok: false, error: err instanceof Error ? err.message : "Unknown error" });
+      results.push({ unitId, ok: false, error: toActionError(err, "Unknown error") });
     }
   }
   return results;

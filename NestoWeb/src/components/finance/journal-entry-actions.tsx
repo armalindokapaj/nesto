@@ -4,6 +4,7 @@ import { useState, useTransition } from "react";
 import { postJournalEntryAction, reverseJournalEntryAction } from "@/app/actions/finance-module";
 import { Button } from "@/components/ui/button";
 import { useI18n } from "@/lib/i18n/locale-provider";
+import { toActionError } from "@/lib/errors";
 
 export function JournalEntryActions({ journalEntryId, status }: { journalEntryId: string; status: string }) {
   const { t } = useI18n();
@@ -16,7 +17,7 @@ export function JournalEntryActions({ journalEntryId, status }: { journalEntryId
       try {
         await action();
       } catch (err) {
-        setError(err instanceof Error ? err.message : "Could not complete this action.");
+        setError(toActionError(err, "Could not complete this action."));
       }
     });
   }

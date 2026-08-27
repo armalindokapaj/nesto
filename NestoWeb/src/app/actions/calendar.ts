@@ -7,6 +7,7 @@ import { createAgendaEvent, updateAgendaEvent, deleteAgendaEvent, saveReminderPr
 import { db } from "@/lib/db";
 import { REMINDER_ITEM_TYPES, THEMES } from "@/lib/constants";
 import type { ReminderItemType, Theme } from "@/lib/constants";
+import { toActionError } from "@/lib/errors";
 
 const AgendaEventSchema = z.object({
   title: z.string().min(1, "Enter a title"),
@@ -51,7 +52,7 @@ export async function updateAgendaEventAction(_prev: AgendaEventState, formData:
   try {
     await updateAgendaEvent(user.id, id, parsed.data);
   } catch (err) {
-    return { error: err instanceof Error ? err.message : "Something went wrong." };
+    return { error: toActionError(err, "Something went wrong.") };
   }
   revalidatePath("/calendar");
   return undefined;

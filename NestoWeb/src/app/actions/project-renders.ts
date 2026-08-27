@@ -5,6 +5,7 @@ import { getCurrentUser } from "@/lib/dal";
 import { assertAllowedUpload, IMAGE_MIME_TYPES } from "@/lib/uploads";
 import { can } from "@/lib/permissions";
 import { createProjectRender, pinProjectRender } from "@/server/project-renders";
+import { toActionError } from "@/lib/errors";
 
 const MAX_FILE_BYTES = 8 * 1024 * 1024;
 
@@ -39,7 +40,7 @@ export async function uploadProjectRenderAction(_prev: ActionState, formData: Fo
   try {
     file = await readUploadedFile(formData);
   } catch (err) {
-    return { error: err instanceof Error ? err.message : "Invalid file" };
+    return { error: toActionError(err, "Invalid file") };
   }
 
   try {
@@ -50,7 +51,7 @@ export async function uploadProjectRenderAction(_prev: ActionState, formData: Fo
       pin: formData.get("pin") === "on",
     });
   } catch (err) {
-    return { error: err instanceof Error ? err.message : "Could not upload render." };
+    return { error: toActionError(err, "Could not upload render.") };
   }
 
   revalidatePath(`/projects/${projectId}`);

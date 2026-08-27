@@ -6,6 +6,7 @@ import { saveTimesheetLinesAction, submitTimesheetAction } from "@/app/actions/h
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { useI18n } from "@/lib/i18n/locale-provider";
+import { toActionError } from "@/lib/errors";
 
 type DayLine = { date: string; projectId: string; hours: string };
 
@@ -62,7 +63,7 @@ export function TimesheetWeekEditor({
         try {
           await submitTimesheetAction(timesheetId);
         } catch (err) {
-          setError(err instanceof Error ? err.message : "Could not submit.");
+          setError(toActionError(err, "Could not submit."));
           return;
         }
       }

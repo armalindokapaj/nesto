@@ -4,6 +4,7 @@ import { useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
 import { createPurchaseOrderFromAwardAction } from "@/app/actions/procurement-comparison";
 import { Button } from "@/components/ui/button";
+import { toActionError } from "@/lib/errors";
 
 export function CreatePoFromAwardButton({ awardId }: { awardId: string }) {
   const router = useRouter();
@@ -22,7 +23,7 @@ export function CreatePoFromAwardButton({ awardId }: { awardId: string }) {
               const order = await createPurchaseOrderFromAwardAction(awardId);
               router.push(`/dashboard/procurement/orders/${order.id}`);
             } catch (err) {
-              setError(err instanceof Error ? err.message : "Could not create purchase order.");
+              setError(toActionError(err, "Could not create purchase order."));
             }
           })
         }

@@ -16,6 +16,7 @@ import {
   disputeMovementReceipt,
 } from "@/server/inventory-module";
 import type { MovementType } from "@/lib/inventory-constants";
+import { toActionError } from "@/lib/errors";
 
 // PRD_Inventory_Module — gated on PROCUREMENT:WRITE for day-to-day master
 // data and drafting movements, PROCUREMENT:FULL for posting/reversing (the
@@ -44,7 +45,7 @@ export async function createProductCategoryAction(_prev: ActionState, formData: 
     assertInventoryWrite(role);
     await createProductCategory(tenantId, parsed.data);
   } catch (error) {
-    return { error: error instanceof Error ? error.message : "Could not create category" };
+    return { error: toActionError(error, "Could not create category") };
   }
   revalidatePath("/dashboard/inventory/products");
   return { ok: true };
@@ -61,7 +62,7 @@ export async function createUnitOfMeasureAction(_prev: ActionState, formData: Fo
     assertInventoryWrite(role);
     await createUnitOfMeasure(tenantId, parsed.data);
   } catch (error) {
-    return { error: error instanceof Error ? error.message : "Could not create unit" };
+    return { error: toActionError(error, "Could not create unit") };
   }
   revalidatePath("/dashboard/inventory/products");
   return { ok: true };
@@ -94,7 +95,7 @@ export async function createProductAction(_prev: ActionState, formData: FormData
     assertInventoryWrite(role);
     await createProduct(tenantId, parsed.data);
   } catch (error) {
-    return { error: error instanceof Error ? error.message : "Could not create product" };
+    return { error: toActionError(error, "Could not create product") };
   }
   revalidatePath("/dashboard/inventory/products");
   return { ok: true };
@@ -116,7 +117,7 @@ export async function createWarehouseAction(_prev: ActionState, formData: FormDa
     assertInventoryFull(role);
     await createWarehouse(tenantId, parsed.data);
   } catch (error) {
-    return { error: error instanceof Error ? error.message : "Could not create warehouse" };
+    return { error: toActionError(error, "Could not create warehouse") };
   }
   revalidatePath("/dashboard/inventory/warehouses");
   return { ok: true };
@@ -159,7 +160,7 @@ export async function createMovementAction(
     assertInventoryWrite(role);
     await createMovement(tenantId, { ...parsed.data, type: parsed.data.type as MovementType, createdById: user.id });
   } catch (error) {
-    return { error: error instanceof Error ? error.message : "Could not create movement" };
+    return { error: toActionError(error, "Could not create movement") };
   }
   revalidatePath("/dashboard/inventory/movements");
   revalidatePath("/dashboard/inventory/receiving");

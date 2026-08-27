@@ -7,6 +7,7 @@ import { canManageUnits, canBulkManageUnits } from "@/lib/unit-access";
 import * as unitsRepo from "@/server/units";
 import { createProjectStructure, createProjectFloor } from "@/server/project-structures";
 import { UNIT_TYPES } from "@/lib/constants";
+import { toActionError } from "@/lib/errors";
 
 function collectTypeFields(formData: FormData): Record<string, string> {
   const fields: Record<string, string> = {};
@@ -68,7 +69,7 @@ export async function createUnitAction(_prev: UnitActionState, formData: FormDat
       typeFields: collectTypeFields(formData),
     });
   } catch (err) {
-    return { error: err instanceof Error ? err.message : "Could not create unit." };
+    return { error: toActionError(err, "Could not create unit.") };
   }
 
   revalidatePath(`/projects/${parsed.data.projectId}/units`);
@@ -118,7 +119,7 @@ export async function updateUnitAction(_prev: UnitActionState, formData: FormDat
     revalidatePath(`/projects/${updated?.projectId}/units/${unitId}`);
     revalidatePath(`/projects/${updated?.projectId}/units`);
   } catch (err) {
-    return { error: err instanceof Error ? err.message : "Could not update unit." };
+    return { error: toActionError(err, "Could not update unit.") };
   }
   return undefined;
 }
@@ -151,7 +152,7 @@ export async function duplicateUnitAction(_prev: UnitActionState, formData: Form
   try {
     await unitsRepo.duplicateUnit(tenantId, parsed.data.unitId, user.id, { code: parsed.data.code });
   } catch (err) {
-    return { error: err instanceof Error ? err.message : "Could not duplicate unit." };
+    return { error: toActionError(err, "Could not duplicate unit.") };
   }
   revalidatePath(`/projects/${parsed.data.projectId}/units`);
   return undefined;
@@ -206,7 +207,7 @@ export async function createProjectStructureAction(_prev: UnitActionState, formD
   try {
     await createProjectStructure(tenantId, parsed.data);
   } catch (err) {
-    return { error: err instanceof Error ? err.message : "Could not create structure." };
+    return { error: toActionError(err, "Could not create structure.") };
   }
   revalidatePath(`/projects/${parsed.data.projectId}/units`);
   return undefined;
@@ -231,7 +232,7 @@ export async function createProjectFloorAction(_prev: UnitActionState, formData:
   try {
     await createProjectFloor(tenantId, parsed.data);
   } catch (err) {
-    return { error: err instanceof Error ? err.message : "Could not create floor." };
+    return { error: toActionError(err, "Could not create floor.") };
   }
   revalidatePath(`/projects/${parsed.data.projectId}/units`);
   return undefined;

@@ -10,6 +10,7 @@ import { can } from "@/lib/permissions";
 import { ROLES, ASSIGNABLE_ACCESS_MODES } from "@/lib/constants";
 import { setMemberAccessMode } from "@/server/admin";
 import { logAudit } from "@/lib/audit";
+import { toActionError } from "@/lib/errors";
 
 const CreateUserSchema = z.object({
   fullName: z.string().min(2, "Enter a full name"),
@@ -126,7 +127,7 @@ export async function setMemberAccessModeAction(
   try {
     await setMemberAccessMode(tenantId, { id: actor.id, role: actorRole }, targetUserId, parsed.data, reason);
   } catch (err) {
-    return { error: err instanceof Error ? err.message : "Could not change access." };
+    return { error: toActionError(err, "Could not change access.") };
   }
 
   revalidatePath("/dashboard/admin");

@@ -6,6 +6,7 @@ import { startCountAction, recordCountLineAction, submitCountAction, approveCoun
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { useI18n } from "@/lib/i18n/locale-provider";
+import { toActionError } from "@/lib/errors";
 
 type CountLine = { id: string; productSku: string; productName: string; systemQty: number; countedQty: number | null };
 
@@ -23,7 +24,7 @@ export function CountDetailActions({ countId, status, lines, canApprove }: { cou
         await action();
         router.refresh();
       } catch (err) {
-        setError(err instanceof Error ? err.message : "Could not complete this action.");
+        setError(toActionError(err, "Could not complete this action."));
       }
     });
   }

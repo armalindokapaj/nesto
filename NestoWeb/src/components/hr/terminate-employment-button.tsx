@@ -6,6 +6,7 @@ import { terminateEmploymentAction } from "@/app/actions/hr";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { useI18n } from "@/lib/i18n/locale-provider";
+import { toActionError } from "@/lib/errors";
 
 export function TerminateEmploymentButton({ employmentId }: { employmentId: string }) {
   const { t } = useI18n();
@@ -32,7 +33,7 @@ export function TerminateEmploymentButton({ employmentId }: { employmentId: stri
               await terminateEmploymentAction(employmentId, date);
               router.refresh();
             } catch (err) {
-              setError(err instanceof Error ? err.message : "Could not terminate.");
+              setError(toActionError(err, "Could not terminate."));
             }
           })
         }

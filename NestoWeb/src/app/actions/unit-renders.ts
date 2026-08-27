@@ -5,6 +5,7 @@ import { getCurrentUser } from "@/lib/dal";
 import { assertAllowedUpload, IMAGE_MIME_TYPES } from "@/lib/uploads";
 import { canManageUnits } from "@/lib/unit-access";
 import { createUnitRender, pinUnitRender } from "@/server/unit-renders";
+import { toActionError } from "@/lib/errors";
 
 const MAX_FILE_BYTES = 8 * 1024 * 1024;
 
@@ -40,13 +41,13 @@ export async function uploadUnitRenderAction(_prev: ActionState, formData: FormD
   try {
     file = await readUploadedFile(formData);
   } catch (err) {
-    return { error: err instanceof Error ? err.message : "Invalid file" };
+    return { error: toActionError(err, "Invalid file") };
   }
 
   try {
     await createUnitRender(tenantId, { unitId, uploadedById: user.id, file, pin: formData.get("pin") === "on" });
   } catch (err) {
-    return { error: err instanceof Error ? err.message : "Could not upload render." };
+    return { error: toActionError(err, "Could not upload render.") };
   }
 
   revalidatePath(`/projects/${projectId}/units/${unitId}`);

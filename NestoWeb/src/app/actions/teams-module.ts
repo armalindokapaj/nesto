@@ -12,6 +12,7 @@ import {
   archiveTeam,
   restoreTeam,
 } from "@/server/teams-module";
+import { toActionError } from "@/lib/errors";
 
 // PRD_Teams_Module — additive actions on top of src/app/actions/admin.ts's
 // createTeamAction. Gated the same way that action already is: team
@@ -53,7 +54,7 @@ export async function updateTeamAction(_prev: ActionState, formData: FormData): 
       leadId: parsed.data.leadId === "" ? null : parsed.data.leadId,
     });
   } catch (error) {
-    return { error: error instanceof Error ? error.message : "Could not update team" };
+    return { error: toActionError(error, "Could not update team") };
   }
 
   revalidatePath(`/dashboard/admin/teams/${parsed.data.teamId}`);
@@ -76,7 +77,7 @@ export async function addTeamMemberAction(_prev: ActionState, formData: FormData
     assertTeamAdmin(role);
     await addTeamMember(tenantId, parsed.data);
   } catch (error) {
-    return { error: error instanceof Error ? error.message : "Could not add member" };
+    return { error: toActionError(error, "Could not add member") };
   }
 
   revalidatePath(`/dashboard/admin/teams/${parsed.data.teamId}`);

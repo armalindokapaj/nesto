@@ -6,6 +6,7 @@ import { verifyTimesheetAction, rejectTimesheetAction } from "@/app/actions/hr-t
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { useI18n } from "@/lib/i18n/locale-provider";
+import { toActionError } from "@/lib/errors";
 
 export function TimesheetVerifyActions({ id }: { id: string }) {
   const { t } = useI18n();
@@ -22,7 +23,7 @@ export function TimesheetVerifyActions({ id }: { id: string }) {
         await action();
         router.refresh();
       } catch (err) {
-        setError(err instanceof Error ? err.message : "Could not complete this action.");
+        setError(toActionError(err, "Could not complete this action."));
       }
     });
   }

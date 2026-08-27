@@ -11,6 +11,7 @@ import {
   verifyTimesheet,
   rejectTimesheet,
 } from "@/server/hr-timesheets";
+import { toActionError } from "@/lib/errors";
 
 type ActionState = { error: string } | { ok: true; timesheetId?: string } | undefined;
 
@@ -47,7 +48,7 @@ export async function saveTimesheetLinesAction(
   try {
     await saveTimesheetLines(tenantId, user.id, { ...parsed.data, lines: parsed.data.lines.filter((l) => l.hours > 0) });
   } catch (error) {
-    return { error: error instanceof Error ? error.message : "Could not save timesheet" };
+    return { error: toActionError(error, "Could not save timesheet") };
   }
   revalidatePath("/dashboard/hr/timesheets");
   return { ok: true, timesheetId: input.timesheetId };

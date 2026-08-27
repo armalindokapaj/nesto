@@ -5,6 +5,7 @@ import { useRouter } from "next/navigation";
 import { recordComparisonScoreAction, completeComparisonAction } from "@/app/actions/procurement-comparison";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { toActionError } from "@/lib/errors";
 
 const CRITERIA = ["PRICE", "LEAD_TIME", "COMPLIANCE", "QUALITY", "HSE", "WARRANTY", "PERFORMANCE", "RISK"] as const;
 
@@ -44,7 +45,7 @@ export function ComparisonScoreGrid({
         await recordComparisonScoreAction(comparisonId, quotationId, criterion as (typeof CRITERIA)[number], score);
         router.refresh();
       } catch (err) {
-        setError(err instanceof Error ? err.message : "Could not save score.");
+        setError(toActionError(err, "Could not save score."));
       }
     });
   }
@@ -102,7 +103,7 @@ export function ComparisonScoreGrid({
                 await completeComparisonAction(comparisonId);
                 router.refresh();
               } catch (err) {
-                setError(err instanceof Error ? err.message : "Could not complete comparison.");
+                setError(toActionError(err, "Could not complete comparison."));
               }
             })
           }
