@@ -1,4 +1,5 @@
 import Link from "next/link";
+import { redirect } from "next/navigation";
 import { FolderKanban, TrendingUp, ClipboardCheck, ShieldAlert } from "lucide-react";
 import { getCurrentUser } from "@/lib/dal";
 import { getExecutiveDashboardData } from "@/server/executive";
@@ -8,13 +9,26 @@ import { Badge } from "@/components/ui/badge";
 import { ProgressBar } from "@/components/ui/progress-bar";
 import { TrendLineChart } from "@/components/ui/charts/line-chart";
 import { DashboardGreeting } from "@/components/dashboards/dashboard-greeting";
-import { can } from "@/lib/permissions";
+import { can, isExternalRole, DASHBOARD_BY_ROLE } from "@/lib/permissions";
 import type { Role } from "@/lib/constants";
 import { formatCurrency } from "@/lib/utils";
 import { getT } from "@/lib/i18n/server";
 
 export default async function ExecutiveDashboardPage() {
   const { tenantId, role } = await getCurrentUser();
+
+  // Phase 8 — this console reports tenant-wide figures (active/at-risk counts
+  // across every project, subsidiary count, and the five most recent projects
+  // with the client name on each), so an external login must never reach it.
+  //
+  // The gate belongs here rather than at the 244 call sites that
+  // `redirect("/dashboard/executive")` on a failed permission check: those
+  // made this page the app's universal denied-access fallback, so a CLIENT or
+  // CONTRACTOR bounced off any restricted page landed on the full portfolio.
+  // Catching it at the destination closes all of them at once, and keeps the
+  // frozen Projects pages untouched.
+  if (isExternalRole(role)) redirect(DASHBOARD_BY_ROLE[role]);
+
   const canViewFinance = can(role, "FINANCE", "READ");
   const data = await getExecutiveDashboardData(tenantId, canViewFinance);
   const { t } = await getT();

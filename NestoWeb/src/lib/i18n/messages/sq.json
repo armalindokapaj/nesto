@@ -947,7 +947,15 @@
       "workInbox": "Detyra në pritje"
     },
     "recentActivity": "Aktiviteti i fundit",
-    "workInboxEmpty": "Asgjë në pritje për ju tani."
+    "workInboxEmpty": "Asgjë në pritje për ju tani.",
+    "portal": {
+      "activeProjects": "Projekte Aktive",
+      "needsAttention": "Kërkon Vëmendje",
+      "completed": "Të Përfunduara",
+      "yourProjects": "Projektet Tuaja",
+      "noAccessTitle": "Ende nuk ju është ndarë asnjë projekt.",
+      "noAccessHelper": "Ekipi i projektit jep akses për çdo projekt veç e veç. Kontaktojini nëse prisnit të shihnit diçka këtu."
+    }
   },
   "projects": {
     "title": "Projektet",

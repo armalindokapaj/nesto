@@ -969,7 +969,15 @@
       "workInbox": "Work Inbox"
     },
     "recentActivity": "Recent Activity",
-    "workInboxEmpty": "Nothing waiting on you right now."
+    "workInboxEmpty": "Nothing waiting on you right now.",
+    "portal": {
+      "activeProjects": "Active Projects",
+      "needsAttention": "Needs Attention",
+      "completed": "Completed",
+      "yourProjects": "Your Projects",
+      "noAccessTitle": "No projects have been shared with you yet.",
+      "noAccessHelper": "Your project team grants access per project. Contact them if you expected to see something here."
+    }
   },
   "projects": {
     "title": "Projects",

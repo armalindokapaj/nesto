@@ -79,7 +79,7 @@ import {
   Bug,
   Zap,
 } from "lucide-react";
-import { can, DASHBOARD_BY_ROLE, type Resource, type Level } from "@/lib/permissions";
+import { can, DASHBOARD_BY_ROLE, isExternalRole, type Resource, type Level } from "@/lib/permissions";
 import type { Role } from "@/lib/constants";
 import type { ModuleKey } from "@/lib/modules";
 
@@ -705,6 +705,20 @@ export const NAV_SECTIONS: Record<string, NavSection[]> = {
       ],
     },
   ],
+  // Phase 8 — same shape as `contractor` above, and for the same reason: an
+  // external client's workspace is one scoped console. This section has to
+  // exist, not just the page — workspaceKeyFromPath() falls back to
+  // "executive" for any role whose home key is missing from NAV_SECTIONS, so
+  // without it a CLIENT would render inside the executive sidebar and be
+  // offered Projects, Employee Directory and My Payslips (items with no
+  // `resource`, which the can() filter therefore never strips).
+  portal: [
+    {
+      items: [
+        { labelKey: "nav.dashboard", href: "/dashboard/portal", icon: LayoutDashboard },
+      ],
+    },
+  ],
 };
 
 // A dashboard subtree that belongs to a specific department resource — only
@@ -755,7 +769,18 @@ const SUBTREE_ROLES: Partial<Record<keyof typeof NAV_SECTIONS, readonly Role[]>>
 };
 
 export function workspaceKeyFromPath(pathname: string, role?: Role): keyof typeof NAV_SECTIONS {
-  const match = pathname.match(/^\/dashboard\/(executive|admin|finance|hr|architect|engineering|procurement|contractor|legal|hse|sales|inventory|qaqc)/);
+  // Phase 8 — an external role resolves to its own shell from any path. The
+  // page-level gate on /dashboard/executive already redirects them, but this
+  // rule must not live only there: every subtree below is opt-in by resource
+  // or role identity except "executive", which has neither and so is returned
+  // to whoever asks for that path. Enforcing it here too keeps the shell and
+  // the page gate from drifting apart.
+  if (role && isExternalRole(role)) {
+    const homeKey = DASHBOARD_BY_ROLE[role].replace("/dashboard/", "");
+    if (homeKey in NAV_SECTIONS) return homeKey as keyof typeof NAV_SECTIONS;
+  }
+
+  const match = pathname.match(/^\/dashboard\/(executive|admin|finance|hr|architect|engineering|procurement|contractor|portal|legal|hse|sales|inventory|qaqc)/);
   if (match) {
     const key = match[1] as keyof typeof NAV_SECTIONS;
     const allowedRoles = SUBTREE_ROLES[key];

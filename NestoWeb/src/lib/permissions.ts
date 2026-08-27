@@ -297,23 +297,42 @@ export const PERMISSION_MATRIX: Matrix = {
     CLIENTS: "NONE",
     HSE_REPORTS: "NONE",
     PROCUREMENT: "NONE",
-    DOCUMENTS: "READ",
+    // Phase 8 — was DOCUMENTS: "READ", which contradicted the paragraph above:
+    // listModuleDocuments() only uses its userId argument for the STARRED and
+    // MINE scopes, so the default "ALL" scope returned every document in the
+    // tenant. An external login browsing /documents saw the whole corpus.
+    DOCUMENTS: "NONE",
     LEGAL: "NONE",
   },
+  // Phase 8 — a client is an outside organization, so it gets the same
+  // treatment as CONTRACTOR above: its entire workspace is the scoped portal
+  // console (/dashboard/portal), and no general module at all.
+  //
+  // These were READ on PROJECTS/TASKS/CONTRACTS/COMPANY_NETWORK/DOCUMENTS.
+  // Resource-level READ with no row-level scoping is what made that a leak:
+  // /contracts runs listContracts(tenantId) and rendered every contract in
+  // the company with its value and counterparty; /documents returned the full
+  // corpus; both pages' project filters ran listProjects(tenantId). Only
+  // /tasks was genuinely row-scoped (canViewTask, PRD_10).
+  //
+  // Row-scoping those shared pages is not available as a fix here: Projects is
+  // frozen, and the portal grant layer (BusinessAccessRelationship) has no
+  // representation on any of them. Withholding the module is the honest state
+  // until a scoped client view of each is actually built.
   CLIENT: {
     COMPANY_SETTINGS: "NONE",
     USER_MANAGEMENT: "NONE",
-    PROJECTS: "READ",
-    TASKS: "READ",
+    PROJECTS: "NONE",
+    TASKS: "NONE",
     FINANCE: "NONE",
     HR: "NONE",
-    CONTRACTS: "READ",
+    CONTRACTS: "NONE",
     AUDIT_LOGS: "NONE",
-    COMPANY_NETWORK: "READ",
+    COMPANY_NETWORK: "NONE",
     CLIENTS: "NONE",
     HSE_REPORTS: "NONE",
     PROCUREMENT: "NONE",
-    DOCUMENTS: "READ",
+    DOCUMENTS: "NONE",
     LEGAL: "NONE",
   },
   VIEWER: {
@@ -368,6 +387,25 @@ export const DASHBOARD_BY_ROLE: Record<Role, string> = {
   QAQC: "/dashboard/qaqc",
   HSE: "/dashboard/hse",
   CONTRACTOR: "/dashboard/contractor",
-  CLIENT: "/dashboard/executive",
+  CLIENT: "/dashboard/portal",
   VIEWER: "/dashboard/executive",
 };
+
+// Roles belonging to an outside organization rather than the company. The set
+// is CLIENT/CONTRACTOR because that is exactly what the portal layer was built
+// against — see the ExternalOrganization schema comment, which reuses "the
+// existing CLIENT/CONTRACTOR UserIdentity login" rather than standing up a
+// second auth system. VIEWER is deliberately NOT here: it is labelled
+// "Viewer / Trainee", an internal read-only seat, so it keeps the company-wide
+// project visibility PRD_10 §5.1 grants every company member.
+//
+// An external role must never see tenant-wide aggregates. This matters well
+// beyond the dashboard each role lands on: 244 pages `redirect("/dashboard/
+// executive")` when a permission check fails, which made the executive console
+// the app's universal denied-access fallback. Gating that one page (see
+// dashboard/executive/page.tsx) closes every one of those paths at once.
+export const EXTERNAL_ROLES = ["CLIENT", "CONTRACTOR"] as const satisfies readonly Role[];
+
+export function isExternalRole(role: Role): boolean {
+  return (EXTERNAL_ROLES as readonly Role[]).includes(role);
+}
