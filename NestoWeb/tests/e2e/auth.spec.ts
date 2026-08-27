@@ -23,7 +23,7 @@ test("rejects invalid credentials", async ({ page }) => {
 test("logs in and lands on the executive dashboard", async ({ page }) => {
   await page.goto("/");
   await page.getByPlaceholder(/you@company.com or username/i).fill("arben.kola");
-  await page.getByPlaceholder(/enter your password/i).fill("Nesto2026!");
+  await page.getByPlaceholder(/enter your password/i).fill("1");
   await page.getByRole("button", { name: /sign in/i }).click();
   await expect(page).toHaveURL(/\/dashboard\/executive/);
   await expect(page.getByRole("heading", { level: 1 })).toBeVisible();

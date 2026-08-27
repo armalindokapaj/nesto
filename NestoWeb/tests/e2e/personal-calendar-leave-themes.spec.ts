@@ -43,7 +43,7 @@ test("Owner can add, edit and delete a personal agenda event", async ({ page }) 
 });
 
 test("Owner requests leave for themselves from Calendar, HR approves it, and it appears as approved leave", async ({ page }) => {
-  await loginAs(page, "arben.kola", "Nesto2026!");
+  await loginAs(page, "arben.kola", "1");
   await page.goto("/calendar");
 
   const tomorrow = new Date(Date.now() + 24 * 60 * 60 * 1000);
@@ -56,14 +56,14 @@ test("Owner requests leave for themselves from Calendar, HR approves it, and it 
   await page.getByRole("button", { name: "Create" }).click();
   await expect(page.getByRole("dialog")).not.toBeVisible();
 
-  await loginAs(page, "ana.krasniqi", "Nesto2026!");
+  await loginAs(page, "ana.krasniqi", "1");
   await page.goto("/dashboard/hr/leave");
   const row = page.locator("tr", { hasText: "Arben Kola" }).first();
   await expect(row).toBeVisible();
   await row.getByRole("button", { name: "Approve" }).click();
   await expect(row.getByText("APPROVED")).toBeVisible();
 
-  await loginAs(page, "arben.kola", "Nesto2026!");
+  await loginAs(page, "arben.kola", "1");
   await page.goto("/calendar");
   await expect(page.getByText("Approved leave").first()).toBeVisible();
 });

@@ -9,7 +9,7 @@ test.beforeEach(async ({ page, baseURL }) => {
 async function login(page: import("@playwright/test").Page, username: string) {
   await page.goto("/");
   await page.getByPlaceholder(/you@company.com or username/i).fill(username);
-  await page.getByPlaceholder(/enter your password/i).fill("Nesto2026!");
+  await page.getByPlaceholder(/enter your password/i).fill("1");
   await page.getByRole("button", { name: /sign in/i }).click();
   // Wait for the post-login redirect to land before navigating further —
   // otherwise an immediate page.goto() can race the server action's

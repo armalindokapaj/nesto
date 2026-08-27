@@ -36,7 +36,7 @@ test("An uninvolved colleague sees CV/certifications but not the work contract s
 });
 
 test("The profile owner can upload a CV/certification and it becomes visible to a colleague", async ({ page }) => {
-  await loginAs(page, "arben.kola", "Nesto2026!");
+  await loginAs(page, "arben.kola", "1");
   await page.goto(arbenProfileUrl);
   await expect(page.getByRole("button", { name: "Change Photo" })).toBeVisible();
 
@@ -59,7 +59,7 @@ test("The profile owner can upload a CV/certification and it becomes visible to 
 });
 
 test("Only HR can attach a work contract, and it stays hidden from an uninvolved colleague", async ({ page }) => {
-  await loginAs(page, "ana.krasniqi", "Nesto2026!");
+  await loginAs(page, "ana.krasniqi", "1");
   await page.goto(arbenProfileUrl);
   await expect(page.getByRole("heading", { name: "Work Contract" })).toBeVisible();
 
@@ -73,7 +73,7 @@ test("Only HR can attach a work contract, and it stays hidden from an uninvolved
   await expect(page.getByText(contractName)).toBeVisible();
 
   // The owner can see their own contract.
-  await loginAs(page, "arben.kola", "Nesto2026!");
+  await loginAs(page, "arben.kola", "1");
   await page.goto(arbenProfileUrl);
   await expect(page.getByText(contractName)).toBeVisible();
 
