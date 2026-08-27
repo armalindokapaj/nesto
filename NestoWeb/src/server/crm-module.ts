@@ -2,6 +2,7 @@ import "server-only";
 import { db } from "@/lib/db";
 import { assertTenant } from "@/lib/tenant";
 import { DEFAULT_PIPELINE_STAGES } from "@/lib/crm-constants";
+import { UNIT_RESERVE_ALLOWED_FROM, UNIT_SALE_ALLOWED_FROM, UNIT_RENT_ALLOWED_FROM } from "@/lib/constants";
 
 // PRD_CRM_Module — additive layer on top of the existing thin Client model
 // and src/server/clients.ts (which stays untouched and keeps serving the
@@ -442,6 +443,24 @@ export async function createReservation(
   }
 
   return db.$transaction(async (tx) => {
+    // Claim the unit BEFORE writing the relationship, and claim it with a
+    // conditional update rather than a bare one. The check above reads outside
+    // this transaction, so on its own it is a check-then-act: two racing
+    // reservations both read AVAILABLE, both passed, and both wrote — two
+    // clients holding an active reservation on the same apartment.
+    //
+    // `updateMany ... where lifecycleStatus IN (...)` compiles to a single
+    // conditional UPDATE, which is atomic even at Postgres's default READ
+    // COMMITTED isolation. Whoever loses matches no row and rolls back. Same
+    // compare-and-swap updateUnit() already uses for its version guard.
+    const claimed = await tx.unit.updateMany({
+      where: { id: unit.id, lifecycleStatus: { in: [...UNIT_RESERVE_ALLOWED_FROM] } },
+      data: { lifecycleStatus: "RESERVED", version: { increment: 1 } },
+    });
+    if (claimed.count === 0) {
+      throw new Error(`Unit ${unit.code} was just taken by someone else. Reload and try again.`);
+    }
+
     const rel = await tx.clientUnitRelationship.create({
       data: {
         tenantId,
@@ -457,7 +476,6 @@ export async function createReservation(
         createdById: input.actorId,
       },
     });
-    await tx.unit.update({ where: { id: unit.id }, data: { lifecycleStatus: "RESERVED", version: { increment: 1 } } });
     await tx.unitActivityEvent.create({
       data: { tenantId, unitId: unit.id, actorId: input.actorId, eventType: "STATUS_CHANGED", summary: "Reserved via CRM Sales Dashboard" },
     });
@@ -485,14 +503,21 @@ export async function releaseReservation(tenantId: string, input: { relationship
   if (rel.type !== "RESERVED" || rel.reservationStatus !== "ACTIVE") throw new Error("This reservation is not active.");
 
   return db.$transaction(async (tx) => {
-    const updated = await tx.clientUnitRelationship.update({
-      where: { id: rel.id },
+    // Conditional again: the status check above is outside the transaction, so
+    // a double-click released the same reservation twice and freed a unit that
+    // a second buyer may already have reserved in between.
+    const released = await tx.clientUnitRelationship.updateMany({
+      where: { id: rel.id, type: "RESERVED", reservationStatus: "ACTIVE" },
       data: { reservationStatus: "RELEASED" },
     });
+    if (released.count === 0) throw new Error("This reservation is not active.");
+    const updated = await tx.clientUnitRelationship.findUniqueOrThrow({ where: { id: rel.id } });
+
     const unit = await tx.unit.findUniqueOrThrow({ where: { id: rel.unitId } });
-    if (unit.lifecycleStatus === "RESERVED") {
-      await tx.unit.update({ where: { id: unit.id }, data: { lifecycleStatus: "AVAILABLE", version: { increment: 1 } } });
-    }
+    await tx.unit.updateMany({
+      where: { id: unit.id, lifecycleStatus: "RESERVED" },
+      data: { lifecycleStatus: "AVAILABLE", version: { increment: 1 } },
+    });
     await tx.unitActivityEvent.create({
       data: { tenantId, unitId: unit.id, actorId: input.actorId, eventType: "STATUS_CHANGED", summary: "Reservation released via CRM Sales Dashboard" },
     });
@@ -529,6 +554,43 @@ export async function recordUnitSale(
   const unit = assertTenant(await db.unit.findUnique({ where: { id: input.unitId } }), tenantId, "Unit");
 
   return db.$transaction(async (tx) => {
+    // This function used to never read lifecycleStatus at all, so a unit could
+    // be sold to a second buyer with no concurrency involved — two clicks in
+    // sequence. Claiming it with a conditional update fixes both that and the
+    // simultaneous case: whoever loses matches no row and rolls back.
+    const allowedFrom = input.type === "PURCHASED" ? UNIT_SALE_ALLOWED_FROM : UNIT_RENT_ALLOWED_FROM;
+    const claimed = await tx.unit.updateMany({
+      where: { id: unit.id, lifecycleStatus: { in: [...allowedFrom] } },
+      data: { lifecycleStatus: input.type === "PURCHASED" ? "SOLD" : "RENTED", version: { increment: 1 } },
+    });
+    if (claimed.count === 0) {
+      throw new Error(
+        `Unit ${unit.code} is ${unit.lifecycleStatus.toLowerCase().replace(/_/g, " ")} and cannot be ${input.type === "PURCHASED" ? "sold" : "rented"}.`
+      );
+    }
+
+    // RESERVED is an allowed starting state — a reservation is meant to become
+    // a sale — but only for the client who actually holds it. The conversion
+    // below is scoped to `input.clientId`, so without this a sale to someone
+    // else left the first buyer's reservation ACTIVE against a unit that had
+    // just been sold out from under them.
+    //
+    // Safe to read rather than write here: the unit is already claimed above,
+    // so no new reservation can be created against it while this runs.
+    const heldByAnother = await tx.clientUnitRelationship.findFirst({
+      where: {
+        tenantId,
+        unitId: unit.id,
+        type: "RESERVED",
+        reservationStatus: "ACTIVE",
+        clientId: { not: input.clientId },
+      },
+      include: { client: { select: { name: true } } },
+    });
+    if (heldByAnother) {
+      throw new Error(`Unit ${unit.code} is reserved by ${heldByAnother.client.name}. Release that reservation first.`);
+    }
+
     // A prior active reservation on this unit/client converts rather than
     // staying open — never two live rows disagreeing about the same unit.
     await tx.clientUnitRelationship.updateMany({
@@ -549,10 +611,7 @@ export async function recordUnitSale(
         createdById: input.actorId,
       },
     });
-    await tx.unit.update({
-      where: { id: unit.id },
-      data: { lifecycleStatus: input.type === "PURCHASED" ? "SOLD" : "RENTED", version: { increment: 1 } },
-    });
+    // (the lifecycleStatus move already happened as the claim above)
     await tx.unitActivityEvent.create({
       data: {
         tenantId,

@@ -797,6 +797,14 @@ export const UNIT_MANUAL_TRANSITIONS: Record<UnitLifecycleStatus, UnitLifecycleS
   ARCHIVED: [],
 };
 
+// Phase 16/17 — which lifecycle states a sales action may act on. Distinct
+// from UNIT_MANUAL_TRANSITIONS above, which covers only the moves a person can
+// make by hand; these are the preconditions the CRM sales paths enforce as a
+// conditional write, so two racing requests cannot both pass.
+export const UNIT_RESERVE_ALLOWED_FROM = ["AVAILABLE", "ON_HOLD"] as const satisfies readonly UnitLifecycleStatus[];
+export const UNIT_SALE_ALLOWED_FROM = ["AVAILABLE", "ON_HOLD", "RESERVED", "CONTRACTED"] as const satisfies readonly UnitLifecycleStatus[];
+export const UNIT_RENT_ALLOWED_FROM = ["AVAILABLE", "ON_HOLD", "RESERVED", "COMPANY_OWNED"] as const satisfies readonly UnitLifecycleStatus[];
+
 export const UNIT_CONSTRUCTION_STATUSES = ["PLANNED", "UNDER_CONSTRUCTION", "COMPLETED"] as const;
 export type UnitConstructionStatus = (typeof UNIT_CONSTRUCTION_STATUSES)[number];
 

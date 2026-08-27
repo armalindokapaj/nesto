@@ -230,7 +230,17 @@ export async function transitionUnitStatus(tenantId: string, unitId: string, act
   if (!allowed.includes(nextStatus as UnitLifecycleStatus)) {
     throw new Error(`Cannot move a unit from ${unit.lifecycleStatus} to ${nextStatus} without the sales workflow (holds/reservations/contracts).`);
   }
-  await db.unit.update({ where: { id: unitId }, data: { lifecycleStatus: nextStatus, version: { increment: 1 } } });
+  // Compare-and-swap on the status we validated against, not a bare update.
+  // Read-then-write let two callers both read AVAILABLE, both find their own
+  // target in the allowed list, and both write — last one wins silently.
+  // updateUnit() above already guards this way on `version`.
+  const result = await db.unit.updateMany({
+    where: { id: unitId, lifecycleStatus: unit.lifecycleStatus },
+    data: { lifecycleStatus: nextStatus, version: { increment: 1 } },
+  });
+  if (result.count === 0) {
+    throw new Error("This unit's status was changed by someone else. Reload and try again.");
+  }
   await logUnitActivity(tenantId, unitId, actorId, "STATUS_CHANGED", `Status changed from ${unit.lifecycleStatus} to ${nextStatus}.`);
 }
 
@@ -282,7 +292,17 @@ export async function duplicateUnit(tenantId: string, unitId: string, actorId: s
 
 export async function archiveUnit(tenantId: string, unitId: string, actorId: string) {
   assertTenant(await db.unit.findUnique({ where: { id: unitId } }), tenantId, "Unit");
-  await db.unit.update({ where: { id: unitId }, data: { archivedAt: new Date(), lifecycleStatus: "ARCHIVED", version: { increment: 1 } } });
+  // Conditional so a double-submit archives once rather than stamping a second
+  // archivedAt over the first. NOTE: this deliberately does not enforce
+  // UNIT_MANUAL_TRANSITIONS — that table forbids ARCHIVED from RESERVED/SOLD/
+  // CONTRACTED/HANDED_OVER/RENTED, but archiveUnit has always bypassed it and
+  // whether archiving a sold unit is legitimate is a business call, not a
+  // mechanical one. Flagged rather than silently decided here.
+  const archived = await db.unit.updateMany({
+    where: { id: unitId, archivedAt: null },
+    data: { archivedAt: new Date(), lifecycleStatus: "ARCHIVED", version: { increment: 1 } },
+  });
+  if (archived.count === 0) throw new Error("This unit is already archived.");
   await logUnitActivity(tenantId, unitId, actorId, "ARCHIVED", "Unit archived.");
 }
 
@@ -290,7 +310,15 @@ export async function restoreUnit(tenantId: string, unitId: string, actorId: str
   const unit = assertTenant(await db.unit.findUnique({ where: { id: unitId } }), tenantId, "Unit");
   const conflict = await db.unit.findFirst({ where: { tenantId, projectId: unit.projectId, code: unit.code, archivedAt: null, id: { not: unitId } } });
   if (conflict) throw new Error(`Unit code ${unit.code} is already in use — rename before restoring.`);
-  await db.unit.update({ where: { id: unitId }, data: { archivedAt: null, lifecycleStatus: "DRAFT", version: { increment: 1 } } });
+  // The archivedAt guard is the point: restore resets lifecycleStatus to DRAFT,
+  // so running it against a *live* unit silently discarded whatever state it
+  // was in — a SOLD unit would come back as an unsold draft. Nothing checked
+  // that the unit was archived at all before.
+  const restored = await db.unit.updateMany({
+    where: { id: unitId, archivedAt: { not: null } },
+    data: { archivedAt: null, lifecycleStatus: "DRAFT", version: { increment: 1 } },
+  });
+  if (restored.count === 0) throw new Error("This unit is not archived.");
   await logUnitActivity(tenantId, unitId, actorId, "RESTORED", "Unit restored from archive.");
 }
 

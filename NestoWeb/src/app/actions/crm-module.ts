@@ -318,12 +318,19 @@ export async function createReservationAction(_prev: ActionState, formData: Form
   return { ok: true };
 }
 
-export async function releaseReservationAction(relationshipId: string) {
+export async function releaseReservationAction(relationshipId: string): Promise<ActionState> {
   const { tenantId, role, user } = await getCurrentUser();
-  assertClientsWrite(role);
-  await releaseReservation(tenantId, { relationshipId, actorId: user.id });
+  try {
+    assertClientsWrite(role);
+    await releaseReservation(tenantId, { relationshipId, actorId: user.id });
+  } catch (error) {
+    // Was uncaught, so a double-click surfaced as an unhandled server-action
+    // rejection rather than a message. Its siblings above already do this.
+    return { error: error instanceof Error ? error.message : "Could not release reservation" };
+  }
   revalidatePath("/clients/reservations");
   revalidatePath("/dashboard/sales");
+  return { ok: true };
 }
 
 const RecordSaleSchema = z.object({
