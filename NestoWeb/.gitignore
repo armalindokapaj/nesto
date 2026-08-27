@@ -41,6 +41,9 @@ yarn-error.log*
 *.tsbuildinfo
 next-env.d.ts
 
+# local file storage (BLOB_DRIVER=local) — uploaded file content
+/.storage/
+
 # prisma
 /prisma/dev.db
 /prisma/dev.db-journal

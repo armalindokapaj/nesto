@@ -53,7 +53,7 @@ const CreateSpecificationSchema = z.object({
   category: z.string().optional(),
   scope: z.string().optional(),
   packageId: z.string().optional(),
-  fileDataUrl: z.string().optional(),
+  fileUrl: z.string().optional(),
 });
 
 export async function createSpecificationAction(_prev: ActionState, formData: FormData): Promise<ActionState> {
@@ -65,7 +65,7 @@ export async function createSpecificationAction(_prev: ActionState, formData: Fo
     category: formData.get("category") || undefined,
     scope: formData.get("scope") || undefined,
     packageId: formData.get("packageId") || undefined,
-    fileDataUrl: formData.get("fileDataUrl") || undefined,
+    fileUrl: formData.get("fileUrl") || undefined,
   });
   if (!parsed.success) return { error: parsed.error.issues[0]?.message ?? "Invalid input" };
   try {
@@ -87,7 +87,7 @@ const CreateCalculationSchema = z.object({
   assumptions: z.string().optional(),
   packageId: z.string().optional(),
   checkerId: z.string().optional(),
-  fileDataUrl: z.string().optional(),
+  fileUrl: z.string().optional(),
 });
 
 export async function createCalculationAction(_prev: ActionState, formData: FormData): Promise<ActionState> {
@@ -101,7 +101,7 @@ export async function createCalculationAction(_prev: ActionState, formData: Form
     assumptions: formData.get("assumptions") || undefined,
     packageId: formData.get("packageId") || undefined,
     checkerId: formData.get("checkerId") || undefined,
-    fileDataUrl: formData.get("fileDataUrl") || undefined,
+    fileUrl: formData.get("fileUrl") || undefined,
   });
   if (!parsed.success) return { error: parsed.error.issues[0]?.message ?? "Invalid input" };
   try {

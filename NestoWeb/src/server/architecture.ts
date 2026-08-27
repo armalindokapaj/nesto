@@ -33,14 +33,14 @@ export async function listDrawingRevisions(tenantId: string, drawingId: string) 
 export async function createDrawingRevision(
   tenantId: string,
   actorId: string,
-  input: { drawingId: string; code: string; description?: string; fileDataUrl?: string }
+  input: { drawingId: string; code: string; description?: string; fileUrl?: string }
 ) {
   const drawing = assertTenant(await db.drawing.findUnique({ where: { id: input.drawingId } }), tenantId, "Drawing");
   return db.$transaction(async (tx) => {
     // Prior current revision becomes superseded — never presented as current (§15.2).
     await tx.drawingRevision.updateMany({ where: { tenantId, drawingId: drawing.id, status: "APPROVED" }, data: { status: "SUPERSEDED" } });
     const revision = await tx.drawingRevision.create({
-      data: { tenantId, drawingId: drawing.id, code: input.code, description: input.description, fileDataUrl: input.fileDataUrl, authorId: actorId, status: "SUBMITTED" },
+      data: { tenantId, drawingId: drawing.id, code: input.code, description: input.description, fileUrl: input.fileUrl, authorId: actorId, status: "SUBMITTED" },
     });
     await tx.drawing.update({ where: { id: drawing.id }, data: { revisionCode: input.code, status: "IN_REVIEW" } });
     return revision;
@@ -82,7 +82,7 @@ export async function listSubmittals(tenantId: string, projectId?: string) {
 export async function createSubmittal(
   tenantId: string,
   actorId: string,
-  input: { projectId: string; type: string; title: string; discipline?: string; description?: string; dueDate?: Date; fileDataUrl?: string }
+  input: { projectId: string; type: string; title: string; discipline?: string; description?: string; dueDate?: Date; fileUrl?: string }
 ) {
   const number = await allocateNumber(tenantId, "SUBMITTAL");
   return db.submittal.create({ data: { tenantId, number, submitterId: actorId, ...input } });

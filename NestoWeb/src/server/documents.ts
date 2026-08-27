@@ -1,10 +1,11 @@
 import "server-only";
-import { createHash } from "crypto";
+import { randomUUID } from "crypto";
 import { db } from "@/lib/db";
 import { assertTenant, requireTenantProject, requireTenantClient, requireTenantTask, requireTenantUnit } from "@/lib/tenant";
 import { buildActorSnapshot } from "@/lib/actor-snapshot";
 import { emitDomainEvent, dispatchDomainEvents } from "@/lib/domain-events";
 import { can } from "@/lib/permissions";
+import { writeFileToStorage } from "@/lib/storage";
 import type { Role } from "@/lib/constants";
 
 // Documents — the per-record attachment API used by the Projects, Tasks,
@@ -76,11 +77,15 @@ export async function createDocument(
     input.unitId ? requireTenantUnit(tenantId, input.unitId) : null,
   ]);
 
-  const checksum = input.file ? createHash("sha256").update(input.file.data).digest("hex") : undefined;
+  const id = randomUUID();
+  const stored = input.file
+    ? await writeFileToStorage("documentFile", id, input.name, input.file.data, input.file.mimeType)
+    : undefined;
   const uploaderSnapshot = input.file ? await buildActorSnapshot(db, tenantId, input.uploadedById) : undefined;
 
   return db.documentFile.create({
     data: {
+      id,
       tenantId,
       name: input.name,
       category: input.category ?? "General",
@@ -89,10 +94,10 @@ export async function createDocument(
       clientId: input.clientId,
       unitId: input.unitId,
       uploadedById: input.uploadedById,
-      fileData: input.file?.data,
+      fileUrl: stored?.url,
       fileMimeType: input.file?.mimeType,
-      fileSize: input.file?.size,
-      checksum,
+      fileSize: stored?.size,
+      checksum: stored?.checksum,
       uploaderSnapshot: uploaderSnapshot ? JSON.stringify(uploaderSnapshot) : undefined,
     },
   });
@@ -174,12 +179,20 @@ export async function uploadDocumentRevision(
     throw new Error("This revision has already been superseded by a newer one.");
   }
 
-  const checksum = createHash("sha256").update(input.file.data).digest("hex");
+  const revisionId = randomUUID();
+  const stored = await writeFileToStorage(
+    "documentFile",
+    revisionId,
+    input.name ?? prev.name,
+    input.file.data,
+    input.file.mimeType
+  );
   const uploaderSnapshot = await buildActorSnapshot(db, tenantId, input.uploadedById);
 
   return db.$transaction(async (tx) => {
     const revision = await tx.documentFile.create({
       data: {
+        id: revisionId,
         tenantId,
         projectId: prev.projectId,
         taskId: prev.taskId,
@@ -192,10 +205,10 @@ export async function uploadDocumentRevision(
         status: "DRAFT",
         uploadedById: input.uploadedById,
         supersedesId: prev.id,
-        fileData: input.file.data,
+        fileUrl: stored.url,
         fileMimeType: input.file.mimeType,
-        fileSize: input.file.size,
-        checksum,
+        fileSize: stored.size,
+        checksum: stored.checksum,
         revisionComment: input.revisionComment,
         uploaderSnapshot: JSON.stringify(uploaderSnapshot),
       },

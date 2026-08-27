@@ -1,7 +1,8 @@
 import "server-only";
-import { createHash } from "crypto";
+import { randomUUID } from "crypto";
 import { db } from "@/lib/db";
 import { assertTenant, requireTenantProject } from "@/lib/tenant";
+import { writeFileToStorage } from "@/lib/storage";
 
 // Uint8Array<ArrayBuffer> (not Node's Buffer) — matches what Prisma's `Bytes`
 // scalar expects and what `file.arrayBuffer()` naturally produces, same
@@ -26,16 +27,18 @@ export async function createProjectRender(
   input: { projectId: string; uploadedById: string; file: UploadedFile; pin?: boolean }
 ) {
   await requireTenantProject(tenantId, input.projectId);
-  const checksum = createHash("sha256").update(input.file.data).digest("hex");
+  const id = randomUUID();
+  const stored = await writeFileToStorage("projectRender", id, `render-${id}`, input.file.data, input.file.mimeType);
 
   const render = await db.projectRender.create({
     data: {
+      id,
       tenantId,
       projectId: input.projectId,
-      fileData: input.file.data,
+      fileUrl: stored.url,
       fileMimeType: input.file.mimeType,
-      fileSize: input.file.size,
-      checksum,
+      fileSize: stored.size,
+      checksum: stored.checksum,
       uploadedById: input.uploadedById,
     },
   });

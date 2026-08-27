@@ -1,7 +1,8 @@
 import "server-only";
-import { createHash } from "crypto";
+import { randomUUID } from "crypto";
 import { db } from "@/lib/db";
 import { assertTenant, requireTenantProject } from "@/lib/tenant";
+import { writeFileToStorage } from "@/lib/storage";
 
 type UploadedFile = { data: Uint8Array<ArrayBuffer>; mimeType: string; size: number };
 
@@ -27,17 +28,19 @@ export async function createProjectPhoto(
     );
     if (wp.projectId !== input.projectId) throw new Error("Work package does not belong to this project.");
   }
-  const checksum = createHash("sha256").update(input.file.data).digest("hex");
+  const id = randomUUID();
+  const stored = await writeFileToStorage("projectPhoto", id, `photo-${id}`, input.file.data, input.file.mimeType);
 
   return db.projectPhoto.create({
     data: {
+      id,
       tenantId,
       projectId: input.projectId,
       workPackageId: input.workPackageId,
-      fileData: input.file.data,
+      fileUrl: stored.url,
       fileMimeType: input.file.mimeType,
-      fileSize: input.file.size,
-      checksum,
+      fileSize: stored.size,
+      checksum: stored.checksum,
       caption: input.caption,
       uploadedById: input.uploadedById,
     },

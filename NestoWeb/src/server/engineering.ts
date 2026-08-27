@@ -49,7 +49,7 @@ export async function listSpecifications(tenantId: string, projectId?: string) {
 export async function createSpecification(
   tenantId: string,
   actorId: string,
-  input: { projectId: string; title: string; discipline?: string; category?: string; scope?: string; packageId?: string; fileDataUrl?: string }
+  input: { projectId: string; title: string; discipline?: string; category?: string; scope?: string; packageId?: string; fileUrl?: string }
 ) {
   const code = await allocateNumber(tenantId, "SPECIFICATION");
   return db.specification.create({ data: { tenantId, code, authorId: actorId, ...input } });
@@ -83,7 +83,7 @@ export async function createCalculation(
     assumptions?: string;
     packageId?: string;
     checkerId?: string;
-    fileDataUrl?: string;
+    fileUrl?: string;
   }
 ) {
   const code = await allocateNumber(tenantId, "CALCULATION");

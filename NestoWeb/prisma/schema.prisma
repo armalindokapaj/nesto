@@ -818,7 +818,7 @@ model ProjectRender {
   tenant       Tenant       @relation(fields: [tenantId], references: [id], onDelete: Cascade)
   projectId    String
   project      Project      @relation("ProjectRenderGallery", fields: [projectId], references: [id], onDelete: Cascade)
-  fileData     Bytes
+  fileUrl  String   // Storage URL — see src/lib/storage.ts. Replaces the former fileData Bytes column.
   fileMimeType String
   fileSize     Int
   checksum     String
@@ -906,7 +906,7 @@ model ProjectPhoto {
   project       Project             @relation(fields: [projectId], references: [id], onDelete: Cascade)
   workPackageId String?
   workPackage   ProjectWorkPackage? @relation(fields: [workPackageId], references: [id])
-  fileData      Bytes
+  fileUrl  String   // Storage URL — see src/lib/storage.ts. Replaces the former fileData Bytes column.
   fileMimeType  String
   fileSize      Int
   checksum      String
@@ -1049,7 +1049,7 @@ model UnitRender {
   tenant       Tenant       @relation(fields: [tenantId], references: [id], onDelete: Cascade)
   unitId       String
   unit         Unit         @relation("UnitRenderGallery", fields: [unitId], references: [id], onDelete: Cascade)
-  fileData     Bytes
+  fileUrl  String   // Storage URL — see src/lib/storage.ts. Replaces the former fileData Bytes column.
   fileMimeType String
   fileSize     Int
   checksum     String
@@ -2213,7 +2213,7 @@ model Drawing {
   locationContext String? // building/floor/zone/unit free text
   authorId        String?
   author          UserIdentity? @relation("DrawingAuthor", fields: [authorId], references: [id])
-  fileDataUrl     String?
+  fileUrl     String?  // Storage URL — see src/lib/storage.ts. Replaces the former base64 fileDataUrl column.
   createdAt       DateTime      @default(now())
 
   revisions DrawingRevision[]
@@ -2231,7 +2231,7 @@ model DrawingRevision {
   code        String
   description String?
   status      String  @default("DRAFT") // DRAFT | SUBMITTED | RETURNED | APPROVED | SUPERSEDED
-  fileDataUrl String?
+  fileUrl     String?  // Storage URL — see src/lib/storage.ts. Replaces the former base64 fileDataUrl column.
 
   authorId String
   author   UserIdentity @relation("DrawingRevisionAuthor", fields: [authorId], references: [id])
@@ -2288,7 +2288,7 @@ model Submittal {
   title       String
   discipline  String?
   description String?
-  fileDataUrl String?
+  fileUrl     String?  // Storage URL — see src/lib/storage.ts. Replaces the former base64 fileDataUrl column.
 
   submitterId String
   submitter   UserIdentity  @relation("SubmittalSubmitter", fields: [submitterId], references: [id])
@@ -2350,7 +2350,7 @@ model Specification {
 
   authorId    String?
   author      UserIdentity? @relation("SpecificationAuthor", fields: [authorId], references: [id])
-  fileDataUrl String?
+  fileUrl     String?  // Storage URL — see src/lib/storage.ts. Replaces the former base64 fileDataUrl column.
 
   createdAt DateTime @default(now())
 
@@ -2379,7 +2379,7 @@ model Calculation {
   author      UserIdentity? @relation("CalculationAuthor", fields: [authorId], references: [id])
   checkerId   String?
   checker     UserIdentity? @relation("CalculationChecker", fields: [checkerId], references: [id])
-  fileDataUrl String?
+  fileUrl     String?  // Storage URL — see src/lib/storage.ts. Replaces the former base64 fileDataUrl column.
 
   createdAt DateTime @default(now())
 
@@ -4185,10 +4185,10 @@ model DocumentFile {
   // PRD_18 §12 Document Passport — the actual file. Nullable so the two
   // placeholder-document call sites (project/task creation "expected
   // document" checklist entries, no upload yet) keep working unmodified.
-  fileData         Bytes?
+  fileUrl  String?  // Storage URL — see src/lib/storage.ts. Replaces the former fileData Bytes column.
   fileMimeType     String?
   fileSize         Int?
-  checksum         String? // SHA-256 hex of fileData
+  checksum         String? // SHA-256 hex of the stored file — the integrity check against fileUrl
   // Mandatory (enforced at the action layer) when supersedesId is set —
   // "what changed and why" per §13's revision-submission rule.
   revisionComment  String?

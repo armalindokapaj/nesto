@@ -225,7 +225,7 @@ export default async function DocumentDetailPage({ params }: { params: Promise<{
                       )}
                     </dl>
 
-                    {revision.fileData ? (
+                    {revision.fileUrl ? (
                       <a
                         href={`/api/documents/${revision.id}/file`}
                         target="_blank"

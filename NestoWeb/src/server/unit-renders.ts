@@ -1,7 +1,8 @@
 import "server-only";
-import { createHash } from "crypto";
+import { randomUUID } from "crypto";
 import { db } from "@/lib/db";
 import { assertTenant } from "@/lib/tenant";
+import { writeFileToStorage } from "@/lib/storage";
 
 // Mirrors src/server/project-renders.ts exactly, scoped to a Unit instead of
 // a Project — same Brand Kit gallery pattern (PRD_Unit_Page §11 "one may be
@@ -22,16 +23,18 @@ export async function createUnitRender(
   input: { unitId: string; uploadedById: string; file: UploadedFile; pin?: boolean }
 ) {
   const unit = assertTenant(await db.unit.findUnique({ where: { id: input.unitId } }), tenantId, "Unit");
-  const checksum = createHash("sha256").update(input.file.data).digest("hex");
+  const id = randomUUID();
+  const stored = await writeFileToStorage("unitRender", id, `render-${id}`, input.file.data, input.file.mimeType);
 
   const render = await db.unitRender.create({
     data: {
+      id,
       tenantId,
       unitId: unit.id,
-      fileData: input.file.data,
+      fileUrl: stored.url,
       fileMimeType: input.file.mimeType,
-      fileSize: input.file.size,
-      checksum,
+      fileSize: stored.size,
+      checksum: stored.checksum,
       uploadedById: input.uploadedById,
     },
   });

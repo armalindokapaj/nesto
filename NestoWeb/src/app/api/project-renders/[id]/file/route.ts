@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { getCurrentUser } from "@/lib/dal";
 import { can } from "@/lib/permissions";
 import { db } from "@/lib/db";
+import { readFileFromStorage } from "@/lib/storage";
 
 export async function GET(_request: Request, context: { params: Promise<{ id: string }> }) {
   const { tenantId, role } = await getCurrentUser();
@@ -11,11 +12,14 @@ export async function GET(_request: Request, context: { params: Promise<{ id: st
 
   const { id } = await context.params;
   const render = await db.projectRender.findUnique({ where: { id } });
-  if (!render || render.tenantId !== tenantId) {
+  if (!render || render.tenantId !== tenantId || !render.fileUrl) {
     return NextResponse.json({ error: "Not found" }, { status: 404 });
   }
 
-  return new NextResponse(new Uint8Array(render.fileData), {
+  // The bytes live in storage, not the row. This route still streams them
+  // rather than redirecting, because that is what keeps the permission check
+  // above meaningful — a bare storage URL would bypass it.
+  return new NextResponse(await readFileFromStorage(render.fileUrl), {
     headers: {
       "Content-Type": render.fileMimeType,
       "Content-Length": String(render.fileSize),

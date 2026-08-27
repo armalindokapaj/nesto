@@ -81,7 +81,7 @@ const CreateRevisionSchema = z.object({
   drawingId: z.string().min(1),
   code: z.string().min(1, "Enter a revision code"),
   description: z.string().optional(),
-  fileDataUrl: z.string().optional(),
+  fileUrl: z.string().optional(),
 });
 
 export async function createDrawingRevisionAction(_prev: ActionState, formData: FormData): Promise<ActionState> {
@@ -90,7 +90,7 @@ export async function createDrawingRevisionAction(_prev: ActionState, formData: 
     drawingId: formData.get("drawingId"),
     code: formData.get("code"),
     description: formData.get("description") || undefined,
-    fileDataUrl: formData.get("fileDataUrl") || undefined,
+    fileUrl: formData.get("fileUrl") || undefined,
   });
   if (!parsed.success) return { error: parsed.error.issues[0]?.message ?? "Invalid input" };
   try {
@@ -145,7 +145,7 @@ const CreateSubmittalSchema = z.object({
   discipline: z.string().optional(),
   description: z.string().optional(),
   dueDate: z.coerce.date().optional(),
-  fileDataUrl: z.string().optional(),
+  fileUrl: z.string().optional(),
 });
 
 export async function createSubmittalAction(_prev: ActionState, formData: FormData): Promise<ActionState> {
@@ -157,7 +157,7 @@ export async function createSubmittalAction(_prev: ActionState, formData: FormDa
     discipline: formData.get("discipline") || undefined,
     description: formData.get("description") || undefined,
     dueDate: formData.get("dueDate") || undefined,
-    fileDataUrl: formData.get("fileDataUrl") || undefined,
+    fileUrl: formData.get("fileUrl") || undefined,
   });
   if (!parsed.success) return { error: parsed.error.issues[0]?.message ?? "Invalid input" };
   try {

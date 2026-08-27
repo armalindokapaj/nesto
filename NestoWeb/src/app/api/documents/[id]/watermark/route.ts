@@ -3,6 +3,7 @@ import sharp from "sharp";
 import { getCurrentUser } from "@/lib/dal";
 import { can } from "@/lib/permissions";
 import { db } from "@/lib/db";
+import { readFileFromStorage } from "@/lib/storage";
 
 // PRD_Documents_Module — watermark rendering, deferred item. Generated
 // on-demand (not stored as a new revision/derivative) using `sharp`, the one
@@ -18,7 +19,7 @@ export async function GET(request: Request, context: { params: Promise<{ id: str
 
   const { id } = await context.params;
   const file = await db.documentFile.findUnique({ where: { id } });
-  if (!file || file.tenantId !== tenantId || !file.fileData) {
+  if (!file || file.tenantId !== tenantId || !file.fileUrl) {
     return NextResponse.json({ error: "Not found" }, { status: 404 });
   }
   if (!file.fileMimeType?.startsWith("image/")) {
@@ -26,7 +27,7 @@ export async function GET(request: Request, context: { params: Promise<{ id: str
   }
 
   const label = new URL(request.url).searchParams.get("label") ?? `${user.displayName} — preview only`;
-  const image = sharp(Buffer.from(file.fileData));
+  const image = sharp(Buffer.from(await readFileFromStorage(file.fileUrl)));
   const meta = await image.metadata();
   const width = meta.width ?? 800;
   const height = meta.height ?? 600;
