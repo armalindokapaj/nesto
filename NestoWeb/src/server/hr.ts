@@ -96,7 +96,20 @@ export async function decideLeaveRequest(
 ) {
   const leave = await db.leaveRequest.findUnique({ where: { id: leaveRequestId } });
   if (!leave || leave.tenantId !== tenantId) throw new Error("Leave request not found.");
-  return db.leaveRequest.update({ where: { id: leaveRequestId }, data: { status: decision, decidedById } });
+  // The guard cancelApprovedLeave() uses sits a few lines below this, and the
+  // comment above it claims "both functions require the entry to already be
+  // APPROVED" — but only that one enforced anything. An approved leave (which
+  // by then has payroll and attendance consequences) could be silently flipped
+  // to REJECTED by a second call, or a rejected one flipped to APPROVED.
+  if (leave.status !== "PENDING") {
+    throw new Error(`This leave request has already been decided (status: ${leave.status}).`);
+  }
+  const result = await db.leaveRequest.updateMany({
+    where: { id: leaveRequestId, status: "PENDING" },
+    data: { status: decision, decidedById },
+  });
+  if (result.count === 0) throw new Error("This leave request was just decided by someone else.");
+  return db.leaveRequest.findUniqueOrThrow({ where: { id: leaveRequestId } });
 }
 
 // PRD_9 LEV-003 — "only HR shall be able to change or cancel an approved

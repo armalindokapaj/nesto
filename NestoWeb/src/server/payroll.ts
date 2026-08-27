@@ -57,16 +57,64 @@ export async function listPayrollRuns(tenantId: string, payrollGroupId?: string)
   });
 }
 
+/** Raised by both the pre-check and the unique index, so callers see one message. */
+class PayrollRunExistsError extends Error {
+  constructor(status?: string) {
+    super(
+      status
+        ? `A payroll run for this period already exists (status: ${status}).`
+        : "A payroll run for this period already exists."
+    );
+    this.name = "PayrollRunExistsError";
+  }
+}
+
 export async function createPayrollRun(
   tenantId: string,
   createdById: string,
   input: { payrollGroupId: string; periodStart: Date; periodEnd: Date; payDate: Date }
 ) {
-  return db.$transaction(async (tx) => {
-    const run = await tx.payrollRun.create({ data: { tenantId, createdById, ...input } });
-    await logPayrollActivity(tenantId, "PayrollRun", run.id, createdById, "CREATED", "Payroll run created (draft)", tx);
-    return run;
-  });
+  // Phase 10 — nothing stopped a double-click, or two admins who each thought
+  // they were starting this month's run, from creating two DRAFT runs for the
+  // same group and period. calculatePayrollRun() and lockPayrollRun() only ever
+  // check an individual run's own status, never whether a sibling covers the
+  // same period, so both could be calculated and locked: two sets of
+  // PayrollRunLine rows, and people paid twice.
+  //
+  // Two layers on purpose. This query gives a clear, specific message on the
+  // ordinary path; the partial unique index added alongside it
+  // (20260828000000_payroll_run_unique_period) is what actually holds, because
+  // this read and the insert below are separate statements and two simultaneous
+  // requests would both find nothing. A plain @@unique in the schema would not
+  // work here: a CANCELLED run can legitimately be re-created, and an
+  // adjustment run deliberately shares its original's period — hence a partial
+  // index excluding both, which Prisma's DSL cannot express.
+  try {
+    return await db.$transaction(async (tx) => {
+      const existing = await tx.payrollRun.findFirst({
+        where: {
+          tenantId,
+          payrollGroupId: input.payrollGroupId,
+          periodStart: input.periodStart,
+          periodEnd: input.periodEnd,
+          adjustsRunId: null,
+          status: { not: "CANCELLED" },
+        },
+      });
+      if (existing) {
+        throw new PayrollRunExistsError(existing.status);
+      }
+      const run = await tx.payrollRun.create({ data: { tenantId, createdById, ...input } });
+      await logPayrollActivity(tenantId, "PayrollRun", run.id, createdById, "CREATED", "Payroll run created (draft)", tx);
+      return run;
+    });
+  } catch (err) {
+    // The index fired instead of the query above — same situation, same message.
+    if (typeof err === "object" && err !== null && (err as { code?: string }).code === "P2002") {
+      throw new PayrollRunExistsError();
+    }
+    throw err;
+  }
 }
 
 export async function getPayrollRunDetail(tenantId: string, runId: string) {

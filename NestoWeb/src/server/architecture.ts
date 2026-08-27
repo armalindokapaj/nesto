@@ -89,11 +89,21 @@ export async function createSubmittal(
 }
 
 export async function decideSubmittal(tenantId: string, actorId: string, input: { id: string; decision: "APPROVED" | "REJECTED" | "RETURNED"; comment?: string }) {
-  assertTenant(await db.submittal.findUnique({ where: { id: input.id } }), tenantId, "Submittal");
-  return db.submittal.update({
-    where: { id: input.id },
+  const submittal = assertTenant(await db.submittal.findUnique({ where: { id: input.id } }), tenantId, "Submittal");
+  // Status is OPEN | IN_REVIEW | APPROVED | REJECTED | RETURNED. RETURNED is a
+  // resubmission state, not a terminal one, so it stays decidable — only the
+  // two final outcomes are blocked, otherwise an approved submittal could be
+  // silently flipped to rejected (or the reverse) with no record of the first
+  // decision.
+  if (submittal.status === "APPROVED" || submittal.status === "REJECTED") {
+    throw new Error(`This submittal has already been decided (status: ${submittal.status}).`);
+  }
+  const result = await db.submittal.updateMany({
+    where: { id: input.id, status: { notIn: ["APPROVED", "REJECTED"] } },
     data: { status: input.decision, reviewerId: actorId, decidedAt: new Date(), comment: input.comment },
   });
+  if (result.count === 0) throw new Error("This submittal was just decided by someone else.");
+  return db.submittal.findUniqueOrThrow({ where: { id: input.id } });
 }
 
 // ---------------------------------------------------------------------------

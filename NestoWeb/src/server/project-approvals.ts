@@ -63,11 +63,51 @@ export async function decideProjectApproval(
   decisionNote?: string
 ) {
   const approval = assertTenant(await db.projectApproval.findUnique({ where: { id: approvalId } }), tenantId, "ProjectApproval");
+
+  // This checked *who* may decide but never *whether it was already decided*,
+  // so a second call with the opposite decision silently overwrote status,
+  // decidedAt and decisionNote with no record that another decision was ever
+  // made. Its three siblings all guard this: workflow-engine's decide()
+  // (stage.status !== "ACTIVE"), procurement-comparison's decideAward()
+  // (award.status !== "SUBMITTED") and contract-lifecycle's approveContract()
+  // (assertTransition). These are cost/timeline/technical-impact change
+  // requests on a project — governance decisions, not cosmetic ones.
+  if (approval.status !== "PENDING") {
+    throw new Error(`This request has already been decided (status: ${approval.status}).`);
+  }
   if (approval.approverId !== decidedById) {
     throw new Error("Only the assigned approver can decide this request.");
   }
-  return db.projectApproval.update({
-    where: { id: approval.id },
+  // Separation of duties, mirroring decideAward() and the workflow engine.
+  // Belt-and-braces alongside the approverId check, since createProjectApproval
+  // does not stop requesterId and approverId being the same person.
+  if (approval.requesterId === decidedById) {
+    throw new Error("You cannot decide a request you submitted yourself.");
+  }
+
+  // Conditional write rather than a bare update, same reason as the unit sales
+  // paths: the read above is a separate statement, so two simultaneous
+  // decisions would both pass the PENDING check. Whoever loses matches no row.
+  const result = await db.projectApproval.updateMany({
+    where: { id: approval.id, status: "PENDING" },
     data: { status: decision, decidedAt: new Date(), decisionNote },
   });
+  if (result.count === 0) {
+    throw new Error("This request was just decided by someone else. Reload and try again.");
+  }
+
+  // ProjectApproval was absent from every AuditEvent write path, so this
+  // decision left no trail anywhere — unlike all three of its siblings.
+  await db.auditEvent.create({
+    data: {
+      tenantId,
+      actorId: decidedById,
+      action: `PROJECT_APPROVAL_${decision}`,
+      targetType: "ProjectApproval",
+      targetId: approval.id,
+      metadata: JSON.stringify({ decisionNote: decisionNote ?? null, projectId: approval.projectId }),
+    },
+  });
+
+  return db.projectApproval.findUniqueOrThrow({ where: { id: approval.id } });
 }

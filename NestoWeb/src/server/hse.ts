@@ -114,8 +114,18 @@ export async function createRiskAssessment(
 
 export async function approveRiskAssessment(tenantId: string, approvedById: string, riskAssessmentId: string) {
   const ra = assertTenant(await db.riskAssessment.findUnique({ where: { id: riskAssessmentId } }), tenantId, "RiskAssessment");
+  // Lower stakes than its siblings (there is no rejectRiskAssessment, so the
+  // bad outcome is a re-approval rather than a flip) but a RiskAssessment feeds
+  // the work-start safety gate, so quietly overwriting approvedById on a second
+  // call is the same "who approved this, and when" question in miniature.
+  if (ra.status === "APPROVED") throw new Error("This risk assessment is already approved.");
   return db.$transaction(async (tx) => {
-    const updated = await tx.riskAssessment.update({ where: { id: ra.id }, data: { status: "APPROVED", approvedById } });
+    const claimed = await tx.riskAssessment.updateMany({
+      where: { id: ra.id, status: { not: "APPROVED" } },
+      data: { status: "APPROVED", approvedById },
+    });
+    if (claimed.count === 0) throw new Error("This risk assessment is already approved.");
+    const updated = await tx.riskAssessment.findUniqueOrThrow({ where: { id: ra.id } });
     await logHseActivity(tenantId, "RiskAssessment", ra.id, approvedById, "APPROVED", "Risk assessment approved", tx);
     return updated;
   });

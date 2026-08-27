@@ -6324,6 +6324,19 @@ model PayrollRun {
 
   @@index([tenantId, payrollGroupId])
   @@index([tenantId, status])
+
+  // Phase 10 — there is ALSO a partial unique index on this table that Prisma
+  // cannot express here, created by hand in
+  // migrations/20260828000000_payroll_run_unique_period:
+  //
+  //   UNIQUE (tenantId, payrollGroupId, periodStart, periodEnd)
+  //     WHERE status <> 'CANCELLED' AND adjustsRunId IS NULL
+  //
+  // It stops two live runs covering the same period (people paid twice) while
+  // still allowing a re-run after cancellation and an adjustment run over its
+  // original's period. Because it is not in this schema, `prisma migrate dev`
+  // sees it as drift and will offer to drop it — keep it, and re-apply that
+  // migration's SQL if it ever disappears.
 }
 
 model PayrollRunLine {

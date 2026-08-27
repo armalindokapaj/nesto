@@ -308,6 +308,12 @@ export async function decideDocumentApproval(
 ) {
   const doc = assertTenant(await db.documentFile.findUnique({ where: { id: documentFileId } }), tenantId, "DocumentFile");
   if (doc.status === "SUPERSEDED") throw new Error("A superseded revision cannot be decided on.");
+  // The SUPERSEDED case was already blocked; the two terminal outcomes were
+  // not. CHANGES_REQUESTED deliberately stays decidable — resubmission after
+  // requested changes is the whole point of that status.
+  if (doc.status === "APPROVED" || doc.status === "REJECTED") {
+    throw new Error(`This document has already been decided (status: ${doc.status}).`);
+  }
   if (decision !== "APPROVE" && !comment?.trim()) {
     throw new Error("A comment is required when requesting changes or rejecting.");
   }
