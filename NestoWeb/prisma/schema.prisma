@@ -6588,6 +6588,10 @@ model NotificationPolicy {
   eventEntry   EventCatalogueEntry @relation(fields: [tenantId, eventKey], references: [tenantId, key], onDelete: Cascade)
   mandatory    Boolean             @default(false)
   inAppEnabled Boolean             @default(true)
+  // Phase 2 — per-event email opt-in. Defaults OFF deliberately: turning this
+  // on by default would email-blast every event in the catalogue the moment
+  // the channel exists.
+  emailEnabled Boolean             @default(false)
   updatedById  String?
   updatedAt    DateTime            @updatedAt
 

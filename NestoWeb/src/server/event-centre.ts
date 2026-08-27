@@ -1,4 +1,5 @@
 import { db } from "@/lib/db";
+import { sendEmail } from "@/lib/email";
 
 // PRD_Notifications_Event_Centre — Phase 1 "Core event + inbox" only. See
 // the schema comment above EventCatalogueEntry/NotificationPolicy for the
@@ -74,10 +75,38 @@ export async function publishEvent(
   await db.notification.createMany({
     data: targets.map((userId) => ({ tenantId, userId, type: eventKey, title: input.title, body: input.body, link: input.link })),
   });
+  // Phase 2 Track A — email as a second channel, gated by the same per-event
+  // policy that already governs in-app and defaulting off. Sent inline rather
+  // than queued: one transactional email is a few hundred milliseconds, the
+  // same order as the writes above, so a queue would solve a latency problem
+  // this does not have.
+  //
+  // Deliberately after the in-app rows are committed, and sendEmail() never
+  // throws: a notification channel that can fail the write which triggered it
+  // is worse than one that is merely unavailable.
+  const emailResult = policy?.emailEnabled
+    ? await sendEventEmail(tenantId, eventKey, targets, input)
+    : { delivered: 0, driver: "disabled" as const };
+
   await db.auditEvent.create({
-    data: { tenantId, actorId: input.actorId, action: "EVENT_PUBLISHED", targetType: "EventCatalogueEntry", targetId: eventKey, metadata: JSON.stringify({ recipientCount: targets.length }) },
+    data: { tenantId, actorId: input.actorId, action: "EVENT_PUBLISHED", targetType: "EventCatalogueEntry", targetId: eventKey, metadata: JSON.stringify({ recipientCount: targets.length, emailsDelivered: emailResult.delivered }) },
   });
-  return { published: targets.length, skipped: input.recipientIds.length - targets.length };
+  return { published: targets.length, skipped: input.recipientIds.length - targets.length, emailed: emailResult.delivered };
+}
+
+async function sendEventEmail(
+  tenantId: string,
+  eventKey: string,
+  targets: string[],
+  input: { title: string; body?: string; link?: string }
+) {
+  const users = await db.userIdentity.findMany({ where: { id: { in: targets } }, select: { email: true } });
+  const to = users.map((u) => u.email).filter(Boolean);
+  if (to.length === 0) return { delivered: 0, driver: "none" };
+
+  const base = process.env.APP_URL ?? "";
+  const lines = [input.body ?? input.title, input.link ? `\n\nOpen: ${base}${input.link}` : ""].join("");
+  return sendEmail({ to, subject: input.title, text: lines, tag: eventKey });
 }
 
 export async function getNotificationVolume(tenantId: string, days = 7) {

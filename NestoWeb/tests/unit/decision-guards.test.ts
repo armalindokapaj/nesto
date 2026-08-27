@@ -2,7 +2,7 @@ import { describe, it, expect, beforeAll, afterAll } from "vitest";
 import { db } from "@/lib/db";
 import { decideProjectApproval, createProjectApproval } from "@/server/project-approvals";
 import { decideLeaveRequest, cancelApprovedLeave, createLeaveRequest } from "@/server/hr";
-import { createPayrollRun } from "@/server/payroll";
+import { createPayrollRun, calculatePayrollRun } from "@/server/payroll";
 import { transferAsset } from "@/server/assets-module";
 
 // Phases 10, 11, 12 and 20 — one shared shape: a function that changes state
@@ -146,6 +146,44 @@ describe("decision and state guards", () => {
         where: { tenantId, payrollGroupId: groupId, periodStart: p2.periodStart, status: { not: "CANCELLED" } },
       });
       expect(count).toBe(1);
+    });
+
+    // Phase 2 Track B — calculatePayrollRun() ran one findFirst plus one create
+    // per employee, sequentially, inside the transaction.
+    it("calculates every employee's line without a query per employee", async () => {
+      const p4 = { periodStart: new Date("2027-02-01"), periodEnd: new Date("2027-02-28"), payDate: new Date("2027-03-05") };
+      const run = await createPayrollRun(tenantId, approver, { payrollGroupId: groupId, ...p4 });
+
+      const staff: string[] = [];
+      for (let i = 0; i < 5; i++) {
+        const e = await db.employee.create({
+          data: { tenantId, fullName: `Payroll Staff ${i}`, position: "Fitter", department: "ENGINEERING", hireDate: new Date("2024-01-01"), status: "ACTIVE" },
+        });
+        await db.salaryRecord.create({
+          data: { tenantId, employeeId: e.id, status: "CURRENT", grossSalary: 1000 + i, netSalary: 800 + i, currency: "EUR", effectiveStartDate: new Date("2025-01-01"), createdById: approver },
+        });
+        staff.push(e.id);
+      }
+
+      const calculated = await calculatePayrollRun(tenantId, approver, run.id);
+      expect(calculated.status).toBe("CALCULATED");
+      const lines = await db.payrollRunLine.findMany({ where: { tenantId, payrollRunId: run.id } });
+      expect(lines.length).toBeGreaterThanOrEqual(5);
+      // Each line still carries the right figures, not just the right count.
+      const mine = lines.filter((l) => staff.includes(l.employeeId));
+      expect(mine).toHaveLength(5);
+      expect(mine.every((l) => l.grossSalary >= 1000 && l.calculationTrace?.includes("SalaryRecord"))).toBe(true);
+    });
+
+    it("skips an employee with no compensation on file rather than inventing a figure", async () => {
+      const p5 = { periodStart: new Date("2027-03-01"), periodEnd: new Date("2027-03-31"), payDate: new Date("2027-04-05") };
+      const run = await createPayrollRun(tenantId, approver, { payrollGroupId: groupId, ...p5 });
+      const unpaid = await db.employee.create({
+        data: { tenantId, fullName: "No Salary On File", position: "Intern", department: "ENGINEERING", hireDate: new Date("2025-06-01"), status: "ACTIVE" },
+      });
+      await calculatePayrollRun(tenantId, approver, run.id);
+      const lines = await db.payrollRunLine.findMany({ where: { tenantId, payrollRunId: run.id } });
+      expect(lines.some((l) => l.employeeId === unpaid.id)).toBe(false);
     });
 
     it("allows a fresh run for a period whose previous run was cancelled", async () => {

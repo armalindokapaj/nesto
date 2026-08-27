@@ -170,32 +170,49 @@ export async function calculatePayrollRun(tenantId: string, actorId: string, run
     ...fallbackEmployees.map((e) => ({ employeeId: e.id, employmentRelationshipId: null })),
   ];
 
+  // Phase 2 Track B — this used to run one findFirst plus one create per
+  // employee, sequentially, INSIDE the transaction. For a run covering a few
+  // hundred people that is many hundreds of round-trips held inside a single
+  // open transaction in one serverless invocation: a real risk against both
+  // the function duration limit and Neon's pooler, which long-held
+  // transactions are precisely what pooling handles worst.
+  //
+  // No job queue needed, and none added — this was an N+1, not a workload too
+  // big for one request. Every salary is now read in one query outside the
+  // transaction, and the lines are written with a single createMany, so the
+  // transaction holds two statements regardless of headcount.
+  const salaries = await db.salaryRecord.findMany({
+    where: { tenantId, employeeId: { in: candidates.map((c) => c.employeeId) }, status: "CURRENT" },
+    orderBy: { effectiveStartDate: "desc" },
+  });
+  // findMany returns newest first, so the first row seen per employee is the
+  // one findFirst + orderBy desc would have picked.
+  const currentByEmployee = new Map<string, (typeof salaries)[number]>();
+  for (const salary of salaries) {
+    if (!currentByEmployee.has(salary.employeeId)) currentByEmployee.set(salary.employeeId, salary);
+  }
+
+  const lines = candidates.flatMap((candidate) => {
+    const currentSalary = currentByEmployee.get(candidate.employeeId);
+    // No compensation on file — nothing to pay, skip rather than fabricate a figure.
+    if (!currentSalary) return [];
+    return [{
+      tenantId,
+      payrollRunId: runId,
+      employeeId: candidate.employeeId,
+      employmentRelationshipId: candidate.employmentRelationshipId,
+      salaryRecordId: currentSalary.id,
+      grossSalary: currentSalary.grossSalary,
+      netSalary: currentSalary.netSalary,
+      currency: currentSalary.currency,
+      calculationTrace: `source: SalaryRecord ${currentSalary.id} (effective ${currentSalary.effectiveStartDate.toISOString().slice(0, 10)}); formula: pass-through, no deductions applied; rounding: none`,
+    }];
+  });
+
   return db.$transaction(async (tx) => {
     await tx.payrollRunLine.deleteMany({ where: { tenantId, payrollRunId: runId } });
-
-    let linesCreated = 0;
-    for (const candidate of candidates) {
-      const currentSalary = await tx.salaryRecord.findFirst({
-        where: { tenantId, employeeId: candidate.employeeId, status: "CURRENT" },
-        orderBy: { effectiveStartDate: "desc" },
-      });
-      if (!currentSalary) continue; // no compensation on file — nothing to pay, skip rather than fabricate a figure
-
-      await tx.payrollRunLine.create({
-        data: {
-          tenantId,
-          payrollRunId: runId,
-          employeeId: candidate.employeeId,
-          employmentRelationshipId: candidate.employmentRelationshipId,
-          salaryRecordId: currentSalary.id,
-          grossSalary: currentSalary.grossSalary,
-          netSalary: currentSalary.netSalary,
-          currency: currentSalary.currency,
-          calculationTrace: `source: SalaryRecord ${currentSalary.id} (effective ${currentSalary.effectiveStartDate.toISOString().slice(0, 10)}); formula: pass-through, no deductions applied; rounding: none`,
-        },
-      });
-      linesCreated += 1;
-    }
+    if (lines.length > 0) await tx.payrollRunLine.createMany({ data: lines });
+    const linesCreated = lines.length;
 
     const updated = await tx.payrollRun.update({ where: { id: runId }, data: { status: "CALCULATED" } });
     await logPayrollActivity(
