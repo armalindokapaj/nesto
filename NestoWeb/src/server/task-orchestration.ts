@@ -1,5 +1,6 @@
 import "server-only";
 import { db } from "@/lib/db";
+import { toPaginatedResult, type PageParams } from "@/lib/pagination";
 import { assertTenant, requireTenantMember, requireTenantContract, requireTenantContractor } from "@/lib/tenant";
 import {
   DEFAULT_WORKFLOW_STAGES,
@@ -1014,20 +1015,45 @@ export type TaskOrchestrationData = Awaited<ReturnType<typeof getTaskOrchestrati
 
 export type CeoTaskSummaryRow = Awaited<ReturnType<typeof getCeoOrchestrationSummary>>[number];
 
+const CEO_SUMMARY_INCLUDE = {
+  currentStage: true,
+  taskManager: true,
+  project: true,
+  departments: { include: { owner: true, deliverable: true } },
+  contractorAssignments: { include: { contractor: true } },
+  contractLinks: { include: { contract: true }, orderBy: { createdAt: "desc" as const }, take: 1 },
+} as const;
+
+function ceoSummaryWhere(tenantId: string) {
+  return { tenantId, currentStageId: { not: null } };
+}
+
+/**
+ * Paginated sibling — Phase 4 Priority 2. This one matters more than its row
+ * count suggests: every row pulls six relations, so the cost of the page grows
+ * with tasks × relations, not with tasks.
+ */
+export async function getCeoOrchestrationSummaryPage(tenantId: string, params: PageParams) {
+  const where = ceoSummaryWhere(tenantId);
+  const [tasks, total] = await Promise.all([
+    db.task.findMany({ where, include: CEO_SUMMARY_INCLUDE, orderBy: { createdAt: "desc" }, skip: params.skip, take: params.take }),
+    db.task.count({ where }),
+  ]);
+  return toPaginatedResult(summariseCeoTasks(tasks), total, params);
+}
+
 export async function getCeoOrchestrationSummary(tenantId: string) {
   const tasks = await db.task.findMany({
-    where: { tenantId, currentStageId: { not: null } },
-    include: {
-      currentStage: true,
-      taskManager: true,
-      project: true,
-      departments: { include: { owner: true, deliverable: true } },
-      contractorAssignments: { include: { contractor: true } },
-      contractLinks: { include: { contract: true }, orderBy: { createdAt: "desc" }, take: 1 },
-    },
+    where: ceoSummaryWhere(tenantId),
+    include: CEO_SUMMARY_INCLUDE,
     orderBy: { createdAt: "desc" },
   });
+  return summariseCeoTasks(tasks);
+}
 
+type CeoSummaryTask = Awaited<ReturnType<typeof db.task.findMany<{ where: { tenantId: string }; include: typeof CEO_SUMMARY_INCLUDE }>>>[number];
+
+function summariseCeoTasks(tasks: CeoSummaryTask[]) {
   const now = Date.now();
   return tasks.map((task) => {
     const ageDays = Math.floor((now - task.createdAt.getTime()) / 86_400_000);
@@ -1037,7 +1063,7 @@ export async function getCeoOrchestrationSummary(tenantId: string) {
     const blockingDeliverable = task.departments.find(
       (d) => d.deliverable && DELIVERABLE_STATUSES_BLOCKING_COMPLETION.includes(d.deliverable.status as DeliverableStatus)
     );
-    const contractValue = task.contractLinks[0]?.contract?.valueMinor ?? null;
+    const contractValueMinor = task.contractLinks[0]?.contract?.valueMinor ?? null;
 
     return {
       task,
@@ -1046,7 +1072,7 @@ export async function getCeoOrchestrationSummary(tenantId: string) {
       blocker: blockingDeliverable ? `${blockingDeliverable.department}: ${blockingDeliverable.deliverable?.requiredAction}` : null,
       nextResponsible: blockingDeliverable?.owner ?? task.taskManager,
       forecast: task.forecastDate ?? task.dueDate,
-      commercialImpact: contractValue,
+      commercialImpactMinor: contractValueMinor,
     };
   });
 }

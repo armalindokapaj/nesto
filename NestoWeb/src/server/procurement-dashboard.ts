@@ -1,5 +1,6 @@
 import "server-only";
 import { db } from "@/lib/db";
+import { toMinorUnits } from "@/lib/money";
 
 // PRD_Procurement_Dashboard §4/§5 — the exact six Primary Cues, My Work,
 // Pipeline, Demand/Sourcing, Orders/Delivery, Supplier Health, Commercial
@@ -63,7 +64,7 @@ export async function getProcurementDashboard(tenantId: string, actorId: string)
     },
     ordersAndDelivery: {
       openOrders: openOrders.length,
-      committedValue: openOrders.reduce((sum, po) => sum + po.amountMinor, 0),
+      committedValueMinor: openOrders.reduce((sum, po) => sum + po.amountMinor, 0),
       unacknowledgedOrders: openOrders.filter((po) => po.status === "ISSUED" && !po.acknowledgedAt).length,
       dueThisWeek: deliveries.filter((d) => d.expectedAt && d.expectedAt >= now && d.expectedAt <= new Date(now.getTime() + 7 * 86400000)).length,
       delayed: deliveries.filter((d) => d.status === "DELAYED").length,
@@ -74,8 +75,10 @@ export async function getProcurementDashboard(tenantId: string, actorId: string)
       total: suppliers.length,
     },
     commercialSummary: {
-      requested: requests.reduce((sum, r) => sum + r.estimatedAmount, 0),
-      committed: purchaseOrders.filter((po) => !["DRAFT", "CANCELLED", "ARCHIVED"].includes(po.status)).reduce((sum, po) => sum + po.amountMinor, 0),
+      // PurchaseRequest.estimatedAmount is still a decimal Float; converted so
+      // "requested" and "committed" sit next to each other in the same unit.
+      requestedMinor: requests.reduce((sum, r) => sum + toMinorUnits(r.estimatedAmount, r.currency ?? "EUR"), 0),
+      committedMinor: purchaseOrders.filter((po) => !["DRAFT", "CANCELLED", "ARCHIVED"].includes(po.status)).reduce((sum, po) => sum + po.amountMinor, 0),
     },
     upcoming: deliveries
       .filter((d) => d.expectedAt && d.expectedAt >= now && !["ACCEPTED", "REJECTED", "CLOSED"].includes(d.status))

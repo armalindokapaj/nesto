@@ -1,5 +1,6 @@
 import "server-only";
 import { db } from "@/lib/db";
+import { toMinorUnits } from "@/lib/money";
 import type { Role } from "@/lib/constants";
 import { can } from "@/lib/permissions";
 import { canViewTask, type TaskVisibilityRecord } from "@/lib/project-access";
@@ -94,9 +95,9 @@ export async function getCrmOverview(tenantId: string, viewer: CrmOverviewViewer
   // --- Financial summary / Revenue / Outstanding (Finance-owned, filtered) --
   const clientContractIds = clientContracts.map((c) => c.contractId);
   let financialSummary: {
-    contractValue: number;
-    amountPaid: number;
-    remainingBalance: number;
+    contractValueMinor: number;
+    amountPaidMinor: number;
+    remainingBalanceMinor: number;
     overdueCount: number;
     nextPaymentDue: Date | null;
   } | null = null;
@@ -105,7 +106,7 @@ export async function getCrmOverview(tenantId: string, viewer: CrmOverviewViewer
 
   if (canSeeFinance) {
     if (clientContractIds.length === 0) {
-      financialSummary = { contractValue: 0, amountPaid: 0, remainingBalance: 0, overdueCount: 0, nextPaymentDue: null };
+      financialSummary = { contractValueMinor: 0, amountPaidMinor: 0, remainingBalanceMinor: 0, overdueCount: 0, nextPaymentDue: null };
       revenue = 0;
       outstandingPayments = 0;
     } else {
@@ -118,22 +119,22 @@ export async function getCrmOverview(tenantId: string, viewer: CrmOverviewViewer
       ]);
       const paid = invoices.filter((i) => i.status === "POSTED" || i.status === "PAID" || i.status === "COMPLETED");
       const outstanding = invoices.filter((i) => i.status === "PENDING" || i.status === "SENT" || i.status === "OVERDUE" || i.status === "SUBMITTED");
-      const amountPaid = paid.reduce((sum, i) => sum + i.amountMinor, 0);
-      const outstandingAmount = outstanding.reduce((sum, i) => sum + i.amountMinor, 0);
-      const contractValue = contractValueAgg._sum.valueMinor ?? 0;
+      const amountPaidMinor = paid.reduce((sum, i) => sum + i.amountMinor, 0);
+      const outstandingAmountMinor = outstanding.reduce((sum, i) => sum + i.amountMinor, 0);
+      const contractValueMinor = contractValueAgg._sum.valueMinor ?? 0;
       const nextDue = outstanding
         .filter((i) => i.dueDate)
         .sort((a, b) => (a.dueDate!.getTime() ?? 0) - (b.dueDate!.getTime() ?? 0))[0]?.dueDate ?? null;
 
       financialSummary = {
-        contractValue,
-        amountPaid,
-        remainingBalance: Math.max(contractValue - amountPaid, 0),
+        contractValueMinor,
+        amountPaidMinor,
+        remainingBalanceMinor: Math.max(contractValueMinor - amountPaidMinor, 0),
         overdueCount: invoices.filter((i) => i.status === "OVERDUE").length,
         nextPaymentDue: nextDue,
       };
-      revenue = amountPaid;
-      outstandingPayments = outstandingAmount;
+      revenue = amountPaidMinor;
+      outstandingPayments = outstandingAmountMinor;
     }
   }
 
@@ -174,12 +175,14 @@ export async function getCrmOverview(tenantId: string, viewer: CrmOverviewViewer
       newLeads,
       qualifiedLeads,
       openOpportunities,
-      pipelineValue: pipelineValueAgg._sum.estimatedValue ?? 0,
+      // Opportunity.estimatedValue is still a decimal Float — converted so every
+      // money figure in this KPI block is in the same unit.
+      pipelineValueMinor: toMinorUnits(pipelineValueAgg._sum.estimatedValue ?? 0),
       reservations: activeReservations,
       contracts: contractsCount,
       unitsSold,
-      revenue,
-      outstandingPayments,
+      revenueMinor: revenue,
+      outstandingPaymentsMinor: outstandingPayments,
       conversionRate,
     },
     pipeline: {
@@ -215,12 +218,12 @@ export async function getCrmOverview(tenantId: string, viewer: CrmOverviewViewer
         ownerId: o.ownerId,
         ownerName: o.ownerId ? (ownerName.get(o.ownerId) ?? "Unassigned") : "Unassigned",
         count: o._count._all,
-        value: o._sum.estimatedValue ?? 0,
+        valueMinor: toMinorUnits(o._sum.estimatedValue ?? 0),
       })),
       leadSources: bySource.map((s) => ({ source: s.source ?? "Unspecified", count: s._count._all })),
       conversionRate,
-      pipelineValue: pipelineValueAgg._sum.estimatedValue ?? 0,
-      revenue,
+      pipelineValueMinor: toMinorUnits(pipelineValueAgg._sum.estimatedValue ?? 0),
+      revenueMinor: revenue,
       unitsSold,
     },
     recent_activity: recentActivityRaw.map((e) => ({

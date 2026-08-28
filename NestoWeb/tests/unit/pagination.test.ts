@@ -1,19 +1,32 @@
 import { describe, it, expect, beforeAll, afterAll } from "vitest";
 import { db } from "@/lib/db";
 import { parsePageParams, toPaginatedResult, DEFAULT_PAGE_SIZE, MAX_PAGE_SIZE } from "@/lib/pagination";
-import { listHseReportsPage, listHseReports } from "@/server/hse";
+import { listHseReportsPage, listHseReports, listIncidentsPage, listToolboxTalksPage } from "@/server/hse";
+import { listInvoicesByTypePage } from "@/server/finance";
 
 // Phase 4 — the lists that only ever grow were unbounded: every HSE page load
 // pulled the tenant's entire history, with related records included per row.
 describe("pagination", () => {
   describe("parsePageParams", () => {
     it("defaults to page 1 at the default size", () => {
-      expect(parsePageParams({})).toEqual({ page: 1, pageSize: DEFAULT_PAGE_SIZE, skip: 0, take: DEFAULT_PAGE_SIZE });
+      expect(parsePageParams({})).toEqual({ page: 1, pageSize: DEFAULT_PAGE_SIZE, skip: 0, take: DEFAULT_PAGE_SIZE, pageKey: "page" });
     });
 
     it("computes skip from the page number", () => {
       const p = parsePageParams({ page: "3", pageSize: "10" });
       expect(p).toMatchObject({ page: 3, pageSize: 10, skip: 20, take: 10 });
+    });
+
+    // A route showing two lists needs two independent pagers, or paging one
+    // silently pages the other and the second list looks empty.
+    it("reads a prefixed param so two lists on one page do not share a pager", () => {
+      const sp = { page: "2", talkPage: "4" };
+      expect(parsePageParams(sp)).toMatchObject({ page: 2, pageKey: "page" });
+      expect(parsePageParams(sp, "talk")).toMatchObject({ page: 4, pageKey: "talkPage" });
+    });
+
+    it("falls back to page 1 for a prefix that is absent from the URL", () => {
+      expect(parsePageParams({ page: "7" }, "talk")).toMatchObject({ page: 1, pageKey: "talkPage" });
     });
 
     // A hand-edited URL must clamp, not error and not let someone ask for the
@@ -53,6 +66,14 @@ describe("pagination", () => {
         data: { email: `pg-${stamp}@test.local`, username: `pg${stamp}`, displayName: "PG User", passwordHash: "x" },
       });
       userId = user.id;
+      await db.invoice.createMany({
+        data: [
+          { tenantId, projectId: project.id, number: `INV-${stamp}-1`, type: "INVOICE", amountMinor: 100_00, currency: "EUR", issuedDate: new Date() },
+          { tenantId, projectId: project.id, number: `INV-${stamp}-2`, type: "INVOICE", amountMinor: 200_00, currency: "EUR", issuedDate: new Date() },
+          { tenantId, projectId: project.id, number: `INV-${stamp}-3`, type: "INVOICE", amountMinor: 300_00, currency: "EUR", issuedDate: new Date() },
+          { tenantId, projectId: project.id, number: `BIL-${stamp}-1`, type: "BILL", amountMinor: 50_00, currency: "EUR", issuedDate: new Date() },
+        ],
+      });
       await db.hseReport.createMany({
         data: Array.from({ length: 7 }, (_, i) => ({
           tenantId, projectId: project.id, reportedById: user.id,
@@ -94,6 +115,29 @@ describe("pagination", () => {
 
     it("keeps the unbounded sibling available for callers that need every row", async () => {
       expect(await listHseReports(tenantId)).toHaveLength(7);
+    });
+
+    // The count must come from the same where clause as the rows. A paginated
+    // list whose total is counted over the whole table reports a page count
+    // that does not exist, and one counted over the page always says "1 of 1".
+    it("counts only the rows matching the same filter as the page", async () => {
+      const invoices = await listInvoicesByTypePage(tenantId, "INVOICE", parsePageParams({ pageSize: "2" }));
+      const bills = await listInvoicesByTypePage(tenantId, "BILL", parsePageParams({ pageSize: "2" }));
+      expect(invoices.total).toBe(3);
+      expect(invoices.items).toHaveLength(2);
+      expect(invoices.pageCount).toBe(2);
+      // Bills are in the same table and must not be counted into the invoice total.
+      expect(bills.total).toBe(1);
+      expect(bills.pageCount).toBe(1);
+    });
+
+    // The HSE inductions route renders two lists. Each carries the search-param
+    // name its own pager must write, or paging one would page the other.
+    it("carries the param name each list's pager should drive", async () => {
+      const incidents = await listIncidentsPage(tenantId, parsePageParams({}));
+      const talks = await listToolboxTalksPage(tenantId, parsePageParams({}, "talk"));
+      expect(incidents.pageKey).toBe("page");
+      expect(talks.pageKey).toBe("talkPage");
     });
   });
 });

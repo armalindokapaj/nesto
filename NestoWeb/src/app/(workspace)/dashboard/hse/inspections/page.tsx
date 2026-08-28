@@ -1,7 +1,7 @@
 import { redirect } from "next/navigation";
 import { getCurrentUser } from "@/lib/dal";
 import { can } from "@/lib/permissions";
-import { listInspections, listProjectsForPicker } from "@/server/hse";
+import { listInspectionsPage, listProjectsForPicker } from "@/server/hse";
 import { getConfigResolver } from "@/server/platform-config";
 import { Card, CardHeader, CardTitle, CardContent } from "@/components/ui/card";
 import { Table, THead, TBody, TRow, TH, TD } from "@/components/ui/table";
@@ -9,6 +9,8 @@ import { Badge } from "@/components/ui/badge";
 import { CreateInspectionDialog, CompleteInspectionActions } from "@/components/hse/hse-dialogs";
 import { formatDate } from "@/lib/utils";
 import { getT } from "@/lib/i18n/server";
+import { parsePageParams } from "@/lib/pagination";
+import { Pagination } from "@/components/ui/pagination";
 
 const OUTCOME_TONE: Record<string, "success" | "warning" | "danger" | "neutral"> = {
   PENDING: "neutral",
@@ -17,13 +19,15 @@ const OUTCOME_TONE: Record<string, "success" | "warning" | "danger" | "neutral">
   FAIL: "danger",
 };
 
-export default async function InspectionsPage() {
+export default async function InspectionsPage({ searchParams }: { searchParams: Promise<{ page?: string }> }) {
+  const params = parsePageParams(await searchParams);
   const { tenantId, role, company } = await getCurrentUser();
   if (!can(role, "HSE_REPORTS", "READ")) redirect("/dashboard/executive");
   if (!(await getConfigResolver(tenantId, company?.id))("hse.page.inspections")) redirect("/dashboard/hse");
   const canWrite = can(role, "HSE_REPORTS", "WRITE");
 
-  const [inspections, projects] = await Promise.all([listInspections(tenantId), listProjectsForPicker(tenantId)]);
+  const [inspectionsPage, projects] = await Promise.all([listInspectionsPage(tenantId, params), listProjectsForPicker(tenantId)]);
+  const inspections = inspectionsPage.items;
   const { t } = await getT();
 
   return (
@@ -66,6 +70,7 @@ export default async function InspectionsPage() {
               )}
             </TBody>
           </Table>
+          <Pagination page={inspectionsPage.page} pageCount={inspectionsPage.pageCount} total={inspectionsPage.total} pageSize={inspectionsPage.pageSize} />
         </CardContent>
       </Card>
     </div>

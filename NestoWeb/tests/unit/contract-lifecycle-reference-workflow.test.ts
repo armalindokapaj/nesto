@@ -68,7 +68,10 @@ describe("contract lifecycle reference workflow (audit 2)", () => {
 
     const financeStructure = await db.invoice.findFirst({ where: { tenantId, contractId: contract.id, type: "PAYMENT" } });
     expect(financeStructure).not.toBeNull();
-    expect(financeStructure!.amountMinor).toBe(100_000);
+    // The payment matches the contract exactly. This previously asserted
+    // 100_000 — the reaction was running toMinorUnits() over a payload field
+    // that already held minor units, and the test locked that 100x in.
+    expect(financeStructure!.amountMinor).toBe(contract.valueMinor);
     expect(financeStructure!.status).toBe("PENDING");
 
     const domainEvent = await db.domainEvent.findFirst({

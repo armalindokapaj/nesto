@@ -1,7 +1,7 @@
 import { redirect } from "next/navigation";
 import { getCurrentUser } from "@/lib/dal";
 import { can } from "@/lib/permissions";
-import { listObservations, listProjectsForPicker } from "@/server/hse";
+import { listObservationsPage, listProjectsForPicker } from "@/server/hse";
 import { getConfigResolver } from "@/server/platform-config";
 import { Card, CardHeader, CardTitle, CardContent } from "@/components/ui/card";
 import { Table, THead, TBody, TRow, TH, TD } from "@/components/ui/table";
@@ -9,6 +9,8 @@ import { Badge } from "@/components/ui/badge";
 import { CreateObservationDialog, CloseObservationButton } from "@/components/hse/hse-dialogs";
 import { formatDate } from "@/lib/utils";
 import { getT } from "@/lib/i18n/server";
+import { parsePageParams } from "@/lib/pagination";
+import { Pagination } from "@/components/ui/pagination";
 
 const STATUS_TONE: Record<string, "success" | "warning" | "danger" | "neutral"> = {
   OPEN: "warning",
@@ -16,13 +18,15 @@ const STATUS_TONE: Record<string, "success" | "warning" | "danger" | "neutral"> 
   CLOSED: "success",
 };
 
-export default async function ObservationsPage() {
+export default async function ObservationsPage({ searchParams }: { searchParams: Promise<{ page?: string }> }) {
+  const params = parsePageParams(await searchParams);
   const { tenantId, role, company } = await getCurrentUser();
   if (!can(role, "HSE_REPORTS", "READ")) redirect("/dashboard/executive");
   if (!(await getConfigResolver(tenantId, company?.id))("hse.page.observations")) redirect("/dashboard/hse");
   const canWrite = can(role, "HSE_REPORTS", "WRITE");
 
-  const [observations, projects] = await Promise.all([listObservations(tenantId), listProjectsForPicker(tenantId)]);
+  const [observationsPage, projects] = await Promise.all([listObservationsPage(tenantId, params), listProjectsForPicker(tenantId)]);
+  const observations = observationsPage.items;
   const { t } = await getT();
 
   return (
@@ -65,6 +69,7 @@ export default async function ObservationsPage() {
               )}
             </TBody>
           </Table>
+          <Pagination page={observationsPage.page} pageCount={observationsPage.pageCount} total={observationsPage.total} pageSize={observationsPage.pageSize} />
         </CardContent>
       </Card>
     </div>

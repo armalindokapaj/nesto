@@ -9,12 +9,15 @@ export function Pagination({
   pageCount,
   total,
   pageSize,
+  pageKey = "page",
   searchParams = {},
 }: {
   page: number;
   pageCount: number;
   total: number;
   pageSize: number;
+  /** Which search param drives this pager. Only differs from "page" when one route shows two lists. */
+  pageKey?: string;
   searchParams?: Record<string, string | undefined>;
 }) {
   if (pageCount <= 1) return null;
@@ -22,9 +25,9 @@ export function Pagination({
   const href = (target: number) => {
     const params = new URLSearchParams();
     for (const [k, v] of Object.entries(searchParams)) {
-      if (v !== undefined && k !== "page") params.set(k, v);
+      if (v !== undefined && k !== pageKey) params.set(k, v);
     }
-    params.set("page", String(target));
+    params.set(pageKey, String(target));
     return `?${params.toString()}`;
   };
 

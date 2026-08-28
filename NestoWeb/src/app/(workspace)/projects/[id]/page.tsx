@@ -154,7 +154,7 @@ export default async function ProjectDetailPage({ params }: { params: Promise<{ 
       </div>
 
       <FinanceSummary
-        data={financeData ?? { budget: null, committed: 0, expenses: 0, invoiced: 0, remaining: 0 }}
+        data={financeData ?? { budgetMinor: null, committedMinor: 0, expensesMinor: 0, invoicedMinor: 0, remainingMinor: 0 }}
         canView={canViewFinance}
       />
 

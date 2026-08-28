@@ -5,7 +5,8 @@ import { can } from "@/lib/permissions";
 import { getProjectFinancialPortfolio } from "@/server/finance-dashboard";
 import { Card, CardHeader, CardTitle, CardContent } from "@/components/ui/card";
 import { Table, THead, TBody, TRow, TH, TD } from "@/components/ui/table";
-import { formatCurrency } from "@/lib/utils";
+
+import { formatMinor } from "@/lib/money";
 import { getT } from "@/lib/i18n/server";
 
 export default async function ForecastPage() {
@@ -38,9 +39,9 @@ export default async function ForecastPage() {
                       {p.project.name}
                     </Link>
                   </TD>
-                  <TD className="text-ink-muted">{formatCurrency(p.budget)}</TD>
-                  <TD className="text-ink-muted">{formatCurrency(p.forecast)}</TD>
-                  <TD className={p.forecast - p.budget <= 0 ? "text-success" : "text-danger"}>{formatCurrency(p.forecast - p.budget)}</TD>
+                  <TD className="text-ink-muted">{formatMinor(p.budgetMinor)}</TD>
+                  <TD className="text-ink-muted">{formatMinor(p.forecastMinor)}</TD>
+                  <TD className={p.forecastMinor - p.budgetMinor <= 0 ? "text-success" : "text-danger"}>{formatMinor(p.forecastMinor - p.budgetMinor)}</TD>
                 </TRow>
               ))}
               {portfolio.length === 0 && (

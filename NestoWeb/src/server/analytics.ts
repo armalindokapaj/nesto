@@ -1,4 +1,5 @@
 import { db } from "@/lib/db";
+import { fromMinorUnits } from "@/lib/money";
 import { assertTenant } from "@/lib/tenant";
 import { listProjects } from "@/server/projects";
 import { getBudgetVsActualByProject } from "@/server/finance-dashboard";
@@ -65,9 +66,9 @@ export async function getAnalyticsOverview(
 
   return {
     projects: { activeCount: activeProjects.length, atRiskCount: atRiskProjects.length, total: projects.length },
-    finance: finance ? { rows: finance, totalBudget: finance.reduce((s, p) => s + p.budget, 0), totalActual: finance.reduce((s, p) => s + p.actualRevenue, 0) } : null,
+    finance: finance ? { rows: finance, totalBudgetMinor: finance.reduce((s, p) => s + p.budgetMinor, 0), totalActualMinor: finance.reduce((s, p) => s + p.actualRevenueMinor, 0) } : null,
     hr: employees ? { headcount: employees.length } : null,
-    procurement: procurement ? { committedSpend: procurement.committedSpend, openOrdersCount: procurement.openOrdersCount, qualifiedSuppliers: procurement.qualifiedSuppliers } : null,
+    procurement: procurement ? { committedSpendMinor: procurement.committedSpendMinor, openOrdersCount: procurement.openOrdersCount, qualifiedSuppliers: procurement.qualifiedSuppliers } : null,
     workProgress: workProgress ? { acceptedPct: workProgress.acceptedPct, submittedCount: workProgress.submittedCount } : null,
     hse: hse ? { openHazards: hse.openHazards, openIncidents: hse.openIncidents, activeStopWork: hse.activeStopWork } : null,
   };
@@ -123,7 +124,9 @@ export async function executeReport(
     case "FINANCE_BUDGET_VS_ACTUAL": {
       if (!access.finance) throw new Error("You do not have Finance access for this report.");
       const finance = await getBudgetVsActualByProject(tenantId);
-      rows = finance.map((f) => ({ Project: f.name, Budget: f.budget, "Actual Revenue": f.actualRevenue }));
+      // Exported cells are read by a human in a spreadsheet, so they carry the
+      // major-unit decimal, not the internal minor-unit integer.
+      rows = finance.map((f) => ({ Project: f.name, Budget: fromMinorUnits(f.budgetMinor), "Actual Revenue": fromMinorUnits(f.actualRevenueMinor) }));
       break;
     }
     case "HR_HEADCOUNT": {

@@ -11,7 +11,8 @@ import { TrendLineChart } from "@/components/ui/charts/line-chart";
 import { DashboardGreeting } from "@/components/dashboards/dashboard-greeting";
 import { can, isExternalRole, DASHBOARD_BY_ROLE } from "@/lib/permissions";
 import type { Role } from "@/lib/constants";
-import { formatCurrency } from "@/lib/utils";
+
+import { formatMinor } from "@/lib/money";
 import { getT } from "@/lib/i18n/server";
 
 export default async function ExecutiveDashboardPage() {
@@ -41,7 +42,7 @@ export default async function ExecutiveDashboardPage() {
         <StatTile label={t("dashboards.executive.activeProjects")} value={String(data.activeProjectCount)} icon={FolderKanban} iconColor="#2457C5" iconBg="#E4ECFB" href="/projects" />
         <StatTile
           label={t("dashboards.executive.revenue")}
-          value={data.revenue != null ? formatCurrency(data.revenue) : t("projects.restricted")}
+          value={data.revenueMinor != null ? formatMinor(data.revenueMinor) : t("projects.restricted")}
           icon={TrendingUp}
           iconColor="#1A7F4E"
           iconBg="#E2F4EA"
@@ -57,7 +58,7 @@ export default async function ExecutiveDashboardPage() {
               <CardTitle>{t("dashboards.executive.financialOverview")}</CardTitle>
             </CardHeader>
             <CardContent>
-              {data.cashFlowSeries.some((m) => m.actual > 0 || m.budget > 0) ? (
+              {data.cashFlowSeries.some((m) => m.actualMinor > 0 || m.budgetMinor > 0) ? (
                 <TrendLineChart
                   data={data.cashFlowSeries}
                   series={[

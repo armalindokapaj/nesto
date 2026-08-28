@@ -8,6 +8,7 @@ import { listEmployees } from "@/server/hr";
 import { Card, CardHeader, CardTitle, CardDescription, CardContent } from "@/components/ui/card";
 import { ExportCsvButton } from "@/components/ui/export-csv-button";
 import { formatCurrency, formatDate } from "@/lib/utils";
+import { formatMinor } from "@/lib/money";
 import { getT } from "@/lib/i18n/server";
 
 export default async function ReportsPage() {
@@ -34,8 +35,8 @@ export default async function ReportsPage() {
 
   const financeRows = budgetVsActual.map((p) => ({
     Project: p.name,
-    Budget: formatCurrency(p.budget),
-    "Actual Revenue": formatCurrency(p.actualRevenue),
+    Budget: formatMinor(p.budgetMinor),
+    "Actual Revenue": formatMinor(p.actualRevenueMinor),
   }));
 
   const hrRows = employees.map((e) => ({

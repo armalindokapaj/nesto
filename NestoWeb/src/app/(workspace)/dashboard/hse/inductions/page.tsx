@@ -1,7 +1,7 @@
 import { redirect } from "next/navigation";
 import { getCurrentUser } from "@/lib/dal";
 import { can } from "@/lib/permissions";
-import { listInductions, listToolboxTalks, listProjectsForPicker } from "@/server/hse";
+import { listInductionsPage, listToolboxTalksPage, listProjectsForPicker } from "@/server/hse";
 import { getConfigResolver } from "@/server/platform-config";
 import { Card, CardHeader, CardTitle, CardContent } from "@/components/ui/card";
 import { Table, THead, TBody, TRow, TH, TD } from "@/components/ui/table";
@@ -10,14 +10,27 @@ import { formatDate } from "@/lib/utils";
 import { getT } from "@/lib/i18n/server";
 import { isInductionValid } from "@/lib/hse";
 import { Badge } from "@/components/ui/badge";
+import { parsePageParams } from "@/lib/pagination";
+import { Pagination } from "@/components/ui/pagination";
 
-export default async function InductionsPage() {
+export default async function InductionsPage({ searchParams }: { searchParams: Promise<{ page?: string; talkPage?: string }> }) {
+  // Two independent lists on one route, so the toolbox-talk pager reads
+  // ?talkPage — sharing ?page would page both at once.
+  const sp = await searchParams;
+  const inductionParams = parsePageParams(sp);
+  const talkParams = parsePageParams(sp, "talk");
   const { tenantId, role, company } = await getCurrentUser();
   if (!can(role, "HSE_REPORTS", "READ")) redirect("/dashboard/executive");
   if (!(await getConfigResolver(tenantId, company?.id))("hse.page.inductions")) redirect("/dashboard/hse");
   const canWrite = can(role, "HSE_REPORTS", "WRITE");
 
-  const [inductions, talks, projects] = await Promise.all([listInductions(tenantId), listToolboxTalks(tenantId), listProjectsForPicker(tenantId)]);
+  const [inductionsPage, talksPage, projects] = await Promise.all([
+    listInductionsPage(tenantId, inductionParams),
+    listToolboxTalksPage(tenantId, talkParams),
+    listProjectsForPicker(tenantId),
+  ]);
+  const inductions = inductionsPage.items;
+  const talks = talksPage.items;
   const { t } = await getT();
 
   return (
@@ -63,6 +76,7 @@ export default async function InductionsPage() {
               )}
             </TBody>
           </Table>
+          <Pagination page={inductionsPage.page} pageCount={inductionsPage.pageCount} total={inductionsPage.total} pageSize={inductionsPage.pageSize} pageKey={inductionsPage.pageKey} searchParams={sp} />
         </CardContent>
       </Card>
 
@@ -92,6 +106,7 @@ export default async function InductionsPage() {
               )}
             </TBody>
           </Table>
+          <Pagination page={talksPage.page} pageCount={talksPage.pageCount} total={talksPage.total} pageSize={talksPage.pageSize} pageKey={talksPage.pageKey} searchParams={sp} />
         </CardContent>
       </Card>
     </div>

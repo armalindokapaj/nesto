@@ -78,7 +78,7 @@ export async function getProcurementDashboardData(tenantId: string) {
 
   const openOrders = purchaseOrders.filter((po) => !["CLOSED", "CANCELLED", "ARCHIVED"].includes(po.status));
   const openRequests = requests.filter((r) => !["CLOSED", "REJECTED", "CANCELLED", "ARCHIVED"].includes(r.status));
-  const committedSpend = purchaseOrders.filter((po) => !["DRAFT", "CANCELLED", "ARCHIVED"].includes(po.status)).reduce((sum, po) => sum + po.amountMinor, 0);
+  const committedSpendMinor = purchaseOrders.filter((po) => !["DRAFT", "CANCELLED", "ARCHIVED"].includes(po.status)).reduce((sum, po) => sum + po.amountMinor, 0);
   const dueDeliveries = deliveries.filter((d) => d.expectedAt && d.expectedAt >= now && d.expectedAt <= inSevenDays && !["ACCEPTED", "REJECTED", "CLOSED"].includes(d.status));
   const delayedDeliveries = deliveries.filter((d) => d.status === "DELAYED" || (d.expectedAt && d.expectedAt < now && !["ARRIVED", "ACCEPTED", "REJECTED", "CLOSED"].includes(d.status)));
   const openRfqs = rfqs.filter((r) => !["AWARDED", "CLOSED", "CANCELLED", "ARCHIVED"].includes(r.status));
@@ -94,7 +94,7 @@ export async function getProcurementDashboardData(tenantId: string) {
     responseRate: invitationCount ? Math.round((responseCount / invitationCount) * 100) : 0,
     openOrdersCount: openOrders.length,
     pendingApprovalCount: purchaseOrders.filter((po) => po.status === "DRAFT").length,
-    committedSpend,
+    committedSpendMinor,
     dueDeliveriesCount: dueDeliveries.length,
     delayedDeliveriesCount: delayedDeliveries.length,
     recentOrders: purchaseOrders.slice(0, 5),

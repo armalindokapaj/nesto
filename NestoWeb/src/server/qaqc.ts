@@ -3,6 +3,7 @@ import { db } from "@/lib/db";
 import { logAudit } from "@/lib/audit";
 import { assertTenant } from "@/lib/tenant";
 import { allocateNumber } from "@/server/number-series";
+import { toPaginatedResult, type PageParams } from "@/lib/pagination";
 
 // PRD_Engineer_Dashboard §20 — a genuine, minimal QA/QC Inspection module.
 // This is the single source of truth both the Engineer and (future) QA/QC
@@ -15,16 +16,35 @@ const LIST_INCLUDE = {
   inspector: { select: { id: true, displayName: true } },
 } as const;
 
-export async function listInspectionRequests(tenantId: string, filter?: { projectId?: string; status?: string | string[] }) {
+type QaqcFilter = { projectId?: string; status?: string | string[] };
+
+// Phase 4 — one where-builder per list, shared by the unbounded reader and its
+// paginated sibling. A count() built from a second, hand-copied where clause is
+// the classic way a paginated list ends up claiming a total it doesn't have.
+function inspectionRequestWhere(tenantId: string, filter?: QaqcFilter) {
+  return {
+    tenantId,
+    projectId: filter?.projectId,
+    ...(filter?.status ? { status: Array.isArray(filter.status) ? { in: filter.status } : filter.status } : {}),
+  };
+}
+
+export async function listInspectionRequests(tenantId: string, filter?: QaqcFilter) {
   return db.inspectionRequest.findMany({
-    where: {
-      tenantId,
-      projectId: filter?.projectId,
-      ...(filter?.status ? { status: Array.isArray(filter.status) ? { in: filter.status } : filter.status } : {}),
-    },
+    where: inspectionRequestWhere(tenantId, filter),
     orderBy: { createdAt: "desc" },
     include: LIST_INCLUDE,
   });
+}
+
+/** Paginated sibling — Phase 4 Priority 2. */
+export async function listInspectionRequestsPage(tenantId: string, params: PageParams, filter?: QaqcFilter) {
+  const where = inspectionRequestWhere(tenantId, filter);
+  const [items, total] = await Promise.all([
+    db.inspectionRequest.findMany({ where, orderBy: { createdAt: "desc" }, include: LIST_INCLUDE, skip: params.skip, take: params.take }),
+    db.inspectionRequest.count({ where }),
+  ]);
+  return toPaginatedResult(items, total, params);
 }
 
 export async function getInspectionRequest(tenantId: string, id: string) {
@@ -134,12 +154,24 @@ async function logQaqcActivity(input: { tenantId: string; entityType: string; en
 
 const NCR_STAGE_ORDER = ["DRAFT", "ISSUED", "CONTAINMENT", "ROOT_CAUSE", "CORRECTIVE_PLAN", "IMPLEMENTATION", "VERIFICATION", "CLOSED"] as const;
 
-export async function listNcrs(tenantId: string, filter?: { projectId?: string; status?: string | string[] }) {
-  return db.ncr.findMany({
-    where: { tenantId, projectId: filter?.projectId, ...(filter?.status ? { status: Array.isArray(filter.status) ? { in: filter.status } : filter.status } : {}) },
-    orderBy: { createdAt: "desc" },
-    include: { project: { select: { id: true, name: true } }, raisedBy: { select: { id: true, displayName: true } } },
-  });
+const NCR_LIST_INCLUDE = { project: { select: { id: true, name: true } }, raisedBy: { select: { id: true, displayName: true } } } as const;
+
+function ncrWhere(tenantId: string, filter?: QaqcFilter) {
+  return { tenantId, projectId: filter?.projectId, ...(filter?.status ? { status: Array.isArray(filter.status) ? { in: filter.status } : filter.status } : {}) };
+}
+
+export async function listNcrs(tenantId: string, filter?: QaqcFilter) {
+  return db.ncr.findMany({ where: ncrWhere(tenantId, filter), orderBy: { createdAt: "desc" }, include: NCR_LIST_INCLUDE });
+}
+
+/** Paginated sibling — Phase 4 Priority 2. No route reads this yet; the NCR register is still unbuilt. */
+export async function listNcrsPage(tenantId: string, params: PageParams, filter?: QaqcFilter) {
+  const where = ncrWhere(tenantId, filter);
+  const [items, total] = await Promise.all([
+    db.ncr.findMany({ where, orderBy: { createdAt: "desc" }, include: NCR_LIST_INCLUDE, skip: params.skip, take: params.take }),
+    db.ncr.count({ where }),
+  ]);
+  return toPaginatedResult(items, total, params);
 }
 
 export async function getNcrDetail(tenantId: string, id: string) {
@@ -203,12 +235,30 @@ export async function reopenNcr(tenantId: string, actorId: string, id: string, r
 // without deleting prior evidence" — rejectDefectVerification() does that.
 // ---------------------------------------------------------------------------
 
-export async function listDefects(tenantId: string, filter?: { projectId?: string; type?: string; status?: string | string[] }) {
-  return db.defect.findMany({
-    where: { tenantId, projectId: filter?.projectId, type: filter?.type, ...(filter?.status ? { status: Array.isArray(filter.status) ? { in: filter.status } : filter.status } : {}) },
-    orderBy: { createdAt: "desc" },
-    include: { project: { select: { id: true, name: true } }, assignedTo: { select: { id: true, displayName: true } }, raisedBy: { select: { id: true, displayName: true } } },
-  });
+type DefectFilter = QaqcFilter & { type?: string };
+
+const DEFECT_LIST_INCLUDE = {
+  project: { select: { id: true, name: true } },
+  assignedTo: { select: { id: true, displayName: true } },
+  raisedBy: { select: { id: true, displayName: true } },
+} as const;
+
+function defectWhere(tenantId: string, filter?: DefectFilter) {
+  return { tenantId, projectId: filter?.projectId, type: filter?.type, ...(filter?.status ? { status: Array.isArray(filter.status) ? { in: filter.status } : filter.status } : {}) };
+}
+
+export async function listDefects(tenantId: string, filter?: DefectFilter) {
+  return db.defect.findMany({ where: defectWhere(tenantId, filter), orderBy: { createdAt: "desc" }, include: DEFECT_LIST_INCLUDE });
+}
+
+/** Paginated sibling — Phase 4 Priority 2. No route reads this yet; the defect register is still unbuilt. */
+export async function listDefectsPage(tenantId: string, params: PageParams, filter?: DefectFilter) {
+  const where = defectWhere(tenantId, filter);
+  const [items, total] = await Promise.all([
+    db.defect.findMany({ where, orderBy: { createdAt: "desc" }, include: DEFECT_LIST_INCLUDE, skip: params.skip, take: params.take }),
+    db.defect.count({ where }),
+  ]);
+  return toPaginatedResult(items, total, params);
 }
 
 export async function getDefectDetail(tenantId: string, id: string) {

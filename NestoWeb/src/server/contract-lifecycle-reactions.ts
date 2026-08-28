@@ -3,7 +3,6 @@ import { db } from "@/lib/db";
 import { registerDomainEventHandler } from "@/lib/domain-events";
 import { allocateNumber } from "@/server/number-series";
 import { reconcileContractCompletion } from "@/server/contract-lifecycle";
-import { toMinorUnits } from "@/lib/money";
 
 // Reactions for the reference vertical workflow (Audit 2 §5): Contract
 // Approved -> Finance Structure -> Payment Recorded -> Contractor Profile.
@@ -15,11 +14,14 @@ import { toMinorUnits } from "@/lib/money";
 // change is visible on the profile the moment its own transaction commits.
 
 registerDomainEventHandler("ContractApproved", async (payload, event) => {
-  const { contractId, projectId, number, value, currency } = payload as {
+  const { contractId, projectId, number, valueMinor, currency } = payload as {
     contractId: string;
     projectId: string | null;
     number: string;
-    value: number;
+    // Named for its unit deliberately: the emitter sends Contract.valueMinor,
+    // and a payload field called plain `value` invited the toMinorUnits() call
+    // that used to sit here and made every generated payment 100x too large.
+    valueMinor: number;
     currency: string;
   };
 
@@ -32,7 +34,7 @@ registerDomainEventHandler("ContractApproved", async (payload, event) => {
       number: invoiceNumber,
       type: "PAYMENT",
       description: `Payment structure for contract ${number}`,
-      amountMinor: toMinorUnits(value, currency),
+      amountMinor: valueMinor,
       currency,
       status: "PENDING",
     },

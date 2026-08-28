@@ -38,11 +38,35 @@ export async function listInvoicesByType(tenantId: string, type: "INVOICE" | "BI
   });
 }
 
+/**
+ * Paginated sibling of listInvoicesByType. Phase 4 Priority 1 — an invoice
+ * table only ever grows, and three routes (invoices, bills, payments) all read
+ * the whole tenant's history through this one function.
+ */
+export async function listInvoicesByTypePage(tenantId: string, type: "INVOICE" | "BILL" | "PAYMENT", params: PageParams) {
+  const where = { tenantId, type };
+  const [items, total] = await Promise.all([
+    db.invoice.findMany({ where, orderBy: { issuedDate: "desc" }, include: { project: true }, skip: params.skip, take: params.take }),
+    db.invoice.count({ where }),
+  ]);
+  return toPaginatedResult(items, total, params);
+}
+
 export async function listTaxRelated(tenantId: string) {
   return db.invoice.findMany({
     where: { tenantId, OR: [{ description: { contains: "Tax", mode: "insensitive" as const } }, { number: { contains: "TAX", mode: "insensitive" as const } }] },
     orderBy: { issuedDate: "desc" },
   });
+}
+
+/** Paginated sibling of listTaxRelated — same growth profile as the invoice list it filters. */
+export async function listTaxRelatedPage(tenantId: string, params: PageParams) {
+  const where = { tenantId, OR: [{ description: { contains: "Tax", mode: "insensitive" as const } }, { number: { contains: "TAX", mode: "insensitive" as const } }] };
+  const [items, total] = await Promise.all([
+    db.invoice.findMany({ where, orderBy: { issuedDate: "desc" }, skip: params.skip, take: params.take }),
+    db.invoice.count({ where }),
+  ]);
+  return toPaginatedResult(items, total, params);
 }
 
 export async function listAssets(tenantId: string) {
@@ -431,14 +455,19 @@ export async function getBudget(tenantId: string, budgetId: string) {
     _sum: { amountMinor: true },
   });
   const actual = await db.spendingBill.aggregate({ where: { tenantId, budgetId, status: "PAID" }, _sum: { amountMinor: true } });
-  const committedAmount = committed._sum.amountMinor ?? 0;
-  const actualAmount = actual._sum.amountMinor ?? 0;
+  const committedAmountMinor = committed._sum.amountMinor ?? 0;
+  const actualAmountMinor = actual._sum.amountMinor ?? 0;
+  // Budget.baselineAmount is still a decimal Float while spending is in minor
+  // units; subtracting one from the other gave a "remaining" that was wrong by
+  // a factor of 100 and usually negative.
+  const baselineMinor = toMinorUnits(budget.baselineAmount, budget.currency);
   return {
     ...budget,
-    committed: committedAmount,
-    actual: actualAmount,
-    remaining: budget.baselineAmount - committedAmount - actualAmount,
-    variance: budget.baselineAmount - actualAmount,
+    baselineAmountMinor: baselineMinor,
+    committedMinor: committedAmountMinor,
+    actualMinor: actualAmountMinor,
+    remainingMinor: baselineMinor - committedAmountMinor - actualAmountMinor,
+    varianceMinor: baselineMinor - actualAmountMinor,
   };
 }
 
@@ -536,14 +565,20 @@ async function resolveActiveBudget(tenantId: string, companyId: string, projectI
   return db.budget.findFirst({ where: { tenantId, companyId, projectId: null, status: "ACTIVE" }, orderBy: { createdAt: "desc" } });
 }
 
-async function computeOverBudget(tenantId: string, budgetId: string, additionalAmount: number) {
+/**
+ * `additionalAmountMinor` and the aggregate are both integer minor units; the
+ * baseline is still a decimal Float, so it is converted rather than compared
+ * raw. Comparing minor-unit spend against a major-unit baseline flagged almost
+ * every bill as over budget, and that flag drives approval routing.
+ */
+async function computeOverBudget(tenantId: string, budgetId: string, additionalAmountMinor: number) {
   const budget = await db.budget.findUniqueOrThrow({ where: { id: budgetId } });
   const committed = await db.spendingBill.aggregate({
     where: { tenantId, budgetId, status: { in: ["PENDING_SUPERIOR", "PENDING_FINANCE", "APPROVED_FOR_PAYMENT", "PAID"] } },
     _sum: { amountMinor: true },
   });
-  const used = (committed._sum.amountMinor ?? 0) + additionalAmount;
-  return used > budget.baselineAmount;
+  const usedMinor = (committed._sum.amountMinor ?? 0) + additionalAmountMinor;
+  return usedMinor > toMinorUnits(budget.baselineAmount, budget.currency);
 }
 
 // ---------------------------------------------------------------------------
@@ -684,7 +719,8 @@ export async function markSpendingBillPaid(
         number,
         type: "PAYMENT",
         description: `Spending Bill ${bill.number} — ${bill.category}`,
-        amountMinor: toMinorUnits(bill.amountMinor, bill.currency),
+        // Already minor units on SpendingBill — converting again made the payment 100x the bill.
+        amountMinor: bill.amountMinor,
         currency: bill.currency,
         status: "COMPLETED",
         postedAt: new Date(),

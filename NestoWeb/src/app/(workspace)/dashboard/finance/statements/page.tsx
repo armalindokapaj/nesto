@@ -16,11 +16,11 @@ export default async function FinancialStatementsPage() {
   const { t } = await getT();
 
   const rows = [
-    [t("dashboards.finance.totalRevenue"), kpis.revenue],
-    [t("dashboards.finance.totalExpenses"), -kpis.expenses],
-    [t("dashboards.finance.grossProfit"), kpis.grossProfit],
-    [t("dashboards.finance.netProfit"), kpis.netProfit],
-    [t("dashboards.finance.ebitda"), kpis.ebitda],
+    [t("dashboards.finance.totalRevenue"), kpis.revenueMinor],
+    [t("dashboards.finance.totalExpenses"), -kpis.expensesMinor],
+    [t("dashboards.finance.grossProfit"), kpis.grossProfitMinor],
+    [t("dashboards.finance.netProfit"), kpis.netProfitMinor],
+    [t("dashboards.finance.ebitda"), kpis.ebitdaMinor],
   ] as const;
 
   return (

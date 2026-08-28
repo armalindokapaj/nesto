@@ -20,7 +20,7 @@ export async function getExecutiveDashboardData(tenantId: string, canViewFinance
 
   return {
     activeProjectCount: activeProjects.length,
-    revenue: invoices ? invoices.filter((i) => i.type === "INVOICE").reduce((s, i) => s + i.amountMinor, 0) : null,
+    revenueMinor: invoices ? invoices.filter((i) => i.type === "INVOICE").reduce((s, i) => s + i.amountMinor, 0) : null,
     pendingApprovals,
     risks,
     subsidiaryCount: childCompanies,
@@ -31,14 +31,14 @@ export async function getExecutiveDashboardData(tenantId: string, canViewFinance
 
 function buildMonthlySeries(invoices: { amountMinor: number; type: string; issuedDate: Date }[]) {
   const months = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
-  const byMonth = new Map<string, { budget: number; actual: number }>();
-  for (const m of months) byMonth.set(m, { budget: 0, actual: 0 });
+  const byMonth = new Map<string, { budgetMinor: number; actualMinor: number }>();
+  for (const m of months) byMonth.set(m, { budgetMinor: 0, actualMinor: 0 });
 
   for (const inv of invoices) {
     const label = months[inv.issuedDate.getMonth()];
     const entry = byMonth.get(label)!;
-    if (inv.type === "INVOICE") entry.actual += inv.amountMinor;
-    else entry.budget += Math.abs(inv.amountMinor);
+    if (inv.type === "INVOICE") entry.actualMinor += inv.amountMinor;
+    else entry.budgetMinor += Math.abs(inv.amountMinor);
   }
 
   const currentMonth = new Date().getMonth();

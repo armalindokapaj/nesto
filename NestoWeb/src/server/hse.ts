@@ -275,6 +275,16 @@ export async function listInspections(tenantId: string) {
   return db.hseInspection.findMany({ where: { tenantId }, include: { inspector: true, correctiveActions: true }, orderBy: { inspectedAt: "desc" } });
 }
 
+/** Paginated sibling — see the note above listHseReports(). */
+export async function listInspectionsPage(tenantId: string, params: PageParams) {
+  const where = { tenantId };
+  const [items, total] = await Promise.all([
+    db.hseInspection.findMany({ where, include: { inspector: true, correctiveActions: true }, orderBy: { inspectedAt: "desc" }, skip: params.skip, take: params.take }),
+    db.hseInspection.count({ where }),
+  ]);
+  return toPaginatedResult(items, total, params);
+}
+
 export async function createInspection(tenantId: string, inspectorId: string, input: { projectId: string; type?: string; location?: string; findings?: string; outcome?: string }) {
   const number = await allocateNumber(tenantId, "HSE_INSPECTION");
   return db.$transaction(async (tx) => {
@@ -297,6 +307,16 @@ export async function listObservations(tenantId: string) {
   return db.hseObservation.findMany({ where: { tenantId }, include: { reportedBy: true }, orderBy: { createdAt: "desc" } });
 }
 
+/** Paginated sibling — see the note above listHseReports(). */
+export async function listObservationsPage(tenantId: string, params: PageParams) {
+  const where = { tenantId };
+  const [items, total] = await Promise.all([
+    db.hseObservation.findMany({ where, include: { reportedBy: true }, orderBy: { createdAt: "desc" }, skip: params.skip, take: params.take }),
+    db.hseObservation.count({ where }),
+  ]);
+  return toPaginatedResult(items, total, params);
+}
+
 export async function createObservation(tenantId: string, reportedById: string, input: { projectId: string; type?: string; description: string; location?: string; severity?: string }) {
   const number = await allocateNumber(tenantId, "HSE_OBSERVATION");
   return db.$transaction(async (tx) => {
@@ -317,6 +337,16 @@ export async function closeObservation(tenantId: string, actorId: string, observ
 
 export async function listIncidents(tenantId: string) {
   return db.hseIncident.findMany({ where: { tenantId }, include: { reportedBy: true, investigator: true, correctiveActions: true }, orderBy: { occurredAt: "desc" } });
+}
+
+/** Paginated sibling — see the note above listHseReports(). */
+export async function listIncidentsPage(tenantId: string, params: PageParams) {
+  const where = { tenantId };
+  const [items, total] = await Promise.all([
+    db.hseIncident.findMany({ where, include: { reportedBy: true, investigator: true, correctiveActions: true }, orderBy: { occurredAt: "desc" }, skip: params.skip, take: params.take }),
+    db.hseIncident.count({ where }),
+  ]);
+  return toPaginatedResult(items, total, params);
 }
 
 export async function getIncidentDetail(tenantId: string, incidentId: string) {
@@ -383,6 +413,16 @@ export async function listInductions(tenantId: string) {
   return db.hseInduction.findMany({ where: { tenantId }, include: { conductedBy: true }, orderBy: { conductedAt: "desc" } });
 }
 
+/** Paginated sibling — see the note above listHseReports(). */
+export async function listInductionsPage(tenantId: string, params: PageParams) {
+  const where = { tenantId };
+  const [items, total] = await Promise.all([
+    db.hseInduction.findMany({ where, include: { conductedBy: true }, orderBy: { conductedAt: "desc" }, skip: params.skip, take: params.take }),
+    db.hseInduction.count({ where }),
+  ]);
+  return toPaginatedResult(items, total, params);
+}
+
 export async function createInduction(tenantId: string, conductedById: string, input: { projectId: string; workerName: string; workerCompany?: string; topicsCovered?: string; expiresAt?: Date }) {
   return db.$transaction(async (tx) => {
     const induction = await tx.hseInduction.create({ data: { tenantId, conductedById, ...input } });
@@ -393,6 +433,16 @@ export async function createInduction(tenantId: string, conductedById: string, i
 
 export async function listToolboxTalks(tenantId: string) {
   return db.hseToolboxTalk.findMany({ where: { tenantId }, include: { conductedBy: true }, orderBy: { conductedAt: "desc" } });
+}
+
+/** Paginated sibling — see the note above listHseReports(). */
+export async function listToolboxTalksPage(tenantId: string, params: PageParams) {
+  const where = { tenantId };
+  const [items, total] = await Promise.all([
+    db.hseToolboxTalk.findMany({ where, include: { conductedBy: true }, orderBy: { conductedAt: "desc" }, skip: params.skip, take: params.take }),
+    db.hseToolboxTalk.count({ where }),
+  ]);
+  return toPaginatedResult(items, total, params);
 }
 
 export async function createToolboxTalk(tenantId: string, conductedById: string, input: { projectId: string; topic: string; notes?: string; attendeeCount?: number }) {

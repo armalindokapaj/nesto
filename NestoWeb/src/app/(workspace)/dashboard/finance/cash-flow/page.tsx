@@ -5,7 +5,8 @@ import { getFinanceDashboardData } from "@/server/finance-dashboard";
 import { Card, CardHeader, CardTitle, CardContent } from "@/components/ui/card";
 import { Table, THead, TBody, TRow, TH, TD } from "@/components/ui/table";
 import { TrendLineChart } from "@/components/ui/charts/line-chart";
-import { formatCurrency } from "@/lib/utils";
+
+import { formatMinor } from "@/lib/money";
 import { getT } from "@/lib/i18n/server";
 
 export default async function CashFlowPage() {
@@ -57,10 +58,10 @@ export default async function CashFlowPage() {
               {data.cashFlowSeries.map((row) => (
                 <TRow key={row.label}>
                   <TD className="font-medium text-ink">{row.label}</TD>
-                  <TD className="text-success">{formatCurrency(row.revenue)}</TD>
-                  <TD className="text-danger">{formatCurrency(row.expenses)}</TD>
-                  <TD className={row.revenue - row.expenses >= 0 ? "text-success font-medium" : "text-danger font-medium"}>
-                    {formatCurrency(row.revenue - row.expenses)}
+                  <TD className="text-success">{formatMinor(row.revenueMinor)}</TD>
+                  <TD className="text-danger">{formatMinor(row.expensesMinor)}</TD>
+                  <TD className={row.revenueMinor - row.expensesMinor >= 0 ? "text-success font-medium" : "text-danger font-medium"}>
+                    {formatMinor(row.revenueMinor - row.expensesMinor)}
                   </TD>
                 </TRow>
               ))}

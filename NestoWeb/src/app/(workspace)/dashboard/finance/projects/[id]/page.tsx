@@ -9,7 +9,8 @@ import { Badge } from "@/components/ui/badge";
 import { DashboardGreeting } from "@/components/dashboards/dashboard-greeting";
 import { FinanceScopeBar } from "@/components/dashboards/finance-scope-bar";
 import { ProjectFinanceTabs } from "@/components/dashboards/project-finance-tabs";
-import { formatCurrency } from "@/lib/utils";
+
+import { formatMinor } from "@/lib/money";
 import { getT } from "@/lib/i18n/server";
 import { Wallet, TrendingUp, TrendingDown, Layers, Receipt, ArrowRightLeft } from "lucide-react";
 
@@ -37,17 +38,17 @@ export default async function ProjectFinanceOverviewPage({ params }: { params: P
       <ProjectFinanceTabs projectId={id} active="" />
 
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
-        <StatTile label={t("dashboards.finance.approvedBudget")} value={formatCurrency(data.portfolioRow.budget)} icon={Wallet} iconColor="#4a3aa7" iconBg="#EEEAFB" href={`/dashboard/finance/projects/${id}/budget`} />
-        <StatTile label={t("dashboards.finance.committedCost")} value={formatCurrency(data.portfolioRow.committed)} icon={Layers} iconColor="#B76E00" iconBg="#FBECD2" />
-        <StatTile label={t("dashboards.finance.actualCost")} value={formatCurrency(data.portfolioRow.actual)} icon={TrendingDown} iconColor="#1A7F4E" iconBg="#E2F4EA" />
-        <StatTile label={t("nav.spendings")} value={formatCurrency(data.portfolioRow.spendings)} icon={Receipt} iconColor="#B76E00" iconBg="#FBECD2" href={`/dashboard/finance/projects/${id}/spendings`} />
-        <StatTile label={t("dashboards.finance.revenue")} value={formatCurrency(data.portfolioRow.revenue)} icon={TrendingUp} iconColor="#2457C5" iconBg="#E4ECFB" href={`/dashboard/finance/projects/${id}/revenue`} />
-        <StatTile label={t("dashboards.finance.profit")} value={formatCurrency(data.portfolioRow.profit)} icon={Layers} iconColor="#4a3aa7" iconBg="#EEEAFB" />
-        <StatTile label={t("dashboards.finance.receivables")} value={formatCurrency(data.portfolioRow.receivables)} icon={TrendingUp} iconColor="#2457C5" iconBg="#E4ECFB" />
-        <StatTile label={t("dashboards.finance.payables")} value={formatCurrency(data.portfolioRow.payables)} icon={TrendingDown} iconColor="#B76E00" iconBg="#FBECD2" />
-        <StatTile label={t("dashboards.finance.cashFlow")} value={formatCurrency(data.cashFlow)} icon={ArrowRightLeft} iconColor="#1A7F4E" iconBg="#E2F4EA" />
-        <StatTile label={t("dashboards.finance.forecast")} value={formatCurrency(data.portfolioRow.forecast)} icon={TrendingUp} iconColor="#4a3aa7" iconBg="#EEEAFB" href={`/dashboard/finance/projects/${id}/forecast`} />
-        <StatTile label={t("dashboards.finance.costToComplete")} value={formatCurrency(data.portfolioRow.costToComplete)} icon={Layers} iconColor="#B76E00" iconBg="#FBECD2" />
+        <StatTile label={t("dashboards.finance.approvedBudget")} value={formatMinor(data.portfolioRow.budgetMinor)} icon={Wallet} iconColor="#4a3aa7" iconBg="#EEEAFB" href={`/dashboard/finance/projects/${id}/budget`} />
+        <StatTile label={t("dashboards.finance.committedCost")} value={formatMinor(data.portfolioRow.committedMinor)} icon={Layers} iconColor="#B76E00" iconBg="#FBECD2" />
+        <StatTile label={t("dashboards.finance.actualCost")} value={formatMinor(data.portfolioRow.actualMinor)} icon={TrendingDown} iconColor="#1A7F4E" iconBg="#E2F4EA" />
+        <StatTile label={t("nav.spendings")} value={formatMinor(data.portfolioRow.spendingsMinor)} icon={Receipt} iconColor="#B76E00" iconBg="#FBECD2" href={`/dashboard/finance/projects/${id}/spendings`} />
+        <StatTile label={t("dashboards.finance.revenue")} value={formatMinor(data.portfolioRow.revenueMinor)} icon={TrendingUp} iconColor="#2457C5" iconBg="#E4ECFB" href={`/dashboard/finance/projects/${id}/revenue`} />
+        <StatTile label={t("dashboards.finance.profit")} value={formatMinor(data.portfolioRow.profitMinor)} icon={Layers} iconColor="#4a3aa7" iconBg="#EEEAFB" />
+        <StatTile label={t("dashboards.finance.receivables")} value={formatMinor(data.portfolioRow.receivablesMinor)} icon={TrendingUp} iconColor="#2457C5" iconBg="#E4ECFB" />
+        <StatTile label={t("dashboards.finance.payables")} value={formatMinor(data.portfolioRow.payablesMinor)} icon={TrendingDown} iconColor="#B76E00" iconBg="#FBECD2" />
+        <StatTile label={t("dashboards.finance.cashFlow")} value={formatMinor(data.cashFlowMinor)} icon={ArrowRightLeft} iconColor="#1A7F4E" iconBg="#E2F4EA" />
+        <StatTile label={t("dashboards.finance.forecast")} value={formatMinor(data.portfolioRow.forecastMinor)} icon={TrendingUp} iconColor="#4a3aa7" iconBg="#EEEAFB" href={`/dashboard/finance/projects/${id}/forecast`} />
+        <StatTile label={t("dashboards.finance.costToComplete")} value={formatMinor(data.portfolioRow.costToCompleteMinor)} icon={Layers} iconColor="#B76E00" iconBg="#FBECD2" />
       </div>
 
       <Card>

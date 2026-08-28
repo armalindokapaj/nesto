@@ -2,19 +2,23 @@ import { redirect } from "next/navigation";
 import Link from "next/link";
 import { getCurrentUser } from "@/lib/dal";
 import { can } from "@/lib/permissions";
-import { listInvoicesByType } from "@/server/finance";
+import { listInvoicesByTypePage } from "@/server/finance";
 import { Card, CardContent } from "@/components/ui/card";
 import { Table, THead, TBody, TRow, TH, TD } from "@/components/ui/table";
 import { Badge } from "@/components/ui/badge";
 import { formatDate } from "@/lib/utils";
 import { getT } from "@/lib/i18n/server";
 import { formatMinor } from "@/lib/money";
+import { parsePageParams } from "@/lib/pagination";
+import { Pagination } from "@/components/ui/pagination";
 
-export default async function BillsPage() {
+export default async function BillsPage({ searchParams }: { searchParams: Promise<{ page?: string }> }) {
+  const params = parsePageParams(await searchParams);
   const { tenantId, role } = await getCurrentUser();
   if (!can(role, "FINANCE", "READ")) redirect("/dashboard/executive");
 
-  const bills = await listInvoicesByType(tenantId, "BILL");
+  const billsPage = await listInvoicesByTypePage(tenantId, "BILL", params);
+  const bills = billsPage.items;
   const { t } = await getT();
 
   return (
@@ -67,6 +71,7 @@ export default async function BillsPage() {
               )}
             </TBody>
           </Table>
+          <Pagination page={billsPage.page} pageCount={billsPage.pageCount} total={billsPage.total} pageSize={billsPage.pageSize} />
         </CardContent>
       </Card>
     </div>

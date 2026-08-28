@@ -2,7 +2,7 @@ import Link from "next/link";
 import { redirect } from "next/navigation";
 import { getCurrentUser } from "@/lib/dal";
 import { can } from "@/lib/permissions";
-import { listIncidents, listProjectsForPicker } from "@/server/hse";
+import { listIncidentsPage, listProjectsForPicker } from "@/server/hse";
 import { getConfigResolver } from "@/server/platform-config";
 import { Card, CardHeader, CardTitle, CardContent } from "@/components/ui/card";
 import { Table, THead, TBody, TRow, TH, TD } from "@/components/ui/table";
@@ -10,6 +10,8 @@ import { Badge } from "@/components/ui/badge";
 import { CreateIncidentDialog } from "@/components/hse/hse-dialogs";
 import { formatDate } from "@/lib/utils";
 import { getT } from "@/lib/i18n/server";
+import { parsePageParams } from "@/lib/pagination";
+import { Pagination } from "@/components/ui/pagination";
 
 const STATUS_TONE: Record<string, "success" | "warning" | "danger" | "neutral"> = {
   REPORTED: "warning",
@@ -18,13 +20,15 @@ const STATUS_TONE: Record<string, "success" | "warning" | "danger" | "neutral"> 
   CLOSED: "success",
 };
 
-export default async function IncidentsPage() {
+export default async function IncidentsPage({ searchParams }: { searchParams: Promise<{ page?: string }> }) {
+  const params = parsePageParams(await searchParams);
   const { tenantId, role, company } = await getCurrentUser();
   if (!can(role, "HSE_REPORTS", "READ")) redirect("/dashboard/executive");
   if (!(await getConfigResolver(tenantId, company?.id))("hse.page.incidents")) redirect("/dashboard/hse");
   const canWrite = can(role, "HSE_REPORTS", "WRITE");
 
-  const [incidents, projects] = await Promise.all([listIncidents(tenantId), listProjectsForPicker(tenantId)]);
+  const [incidentsPage, projects] = await Promise.all([listIncidentsPage(tenantId, params), listProjectsForPicker(tenantId)]);
+  const incidents = incidentsPage.items;
   const { t } = await getT();
 
   return (
@@ -67,6 +71,7 @@ export default async function IncidentsPage() {
               )}
             </TBody>
           </Table>
+          <Pagination page={incidentsPage.page} pageCount={incidentsPage.pageCount} total={incidentsPage.total} pageSize={incidentsPage.pageSize} />
         </CardContent>
       </Card>
     </div>

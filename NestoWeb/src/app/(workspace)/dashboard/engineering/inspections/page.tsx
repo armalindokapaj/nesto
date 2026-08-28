@@ -2,7 +2,7 @@ import { redirect } from "next/navigation";
 import Link from "next/link";
 import { getCurrentUser } from "@/lib/dal";
 import { can } from "@/lib/permissions";
-import { listInspectionRequests } from "@/server/qaqc";
+import { listInspectionRequestsPage } from "@/server/qaqc";
 import { listProjects } from "@/server/projects";
 import { Card, CardHeader, CardTitle, CardDescription, CardContent } from "@/components/ui/card";
 import { Table, THead, TBody, TRow, TH, TD } from "@/components/ui/table";
@@ -11,14 +11,18 @@ import { CreateInspectionRequestDialog } from "@/components/engineering/create-i
 import { InspectionActions } from "@/components/engineering/inspection-actions";
 import { formatDate } from "@/lib/utils";
 import { getT } from "@/lib/i18n/server";
+import { parsePageParams } from "@/lib/pagination";
+import { Pagination } from "@/components/ui/pagination";
 
 // PRD_Engineer_Dashboard §20 — Inspections, QA/QC-owned. This IS the QA/QC
 // module (src/server/qaqc.ts) — Engineering has no second inspection state.
-export default async function InspectionsPage() {
+export default async function InspectionsPage({ searchParams }: { searchParams: Promise<{ page?: string }> }) {
+  const params = parsePageParams(await searchParams);
   const { tenantId, role } = await getCurrentUser();
   if (!can(role, "PROJECTS", "READ")) redirect("/dashboard/executive");
   const canWrite = can(role, "PROJECTS", "WRITE");
-  const [inspections, projects] = await Promise.all([listInspectionRequests(tenantId), listProjects(tenantId)]);
+  const [inspectionsPage, projects] = await Promise.all([listInspectionRequestsPage(tenantId, params), listProjects(tenantId)]);
+  const inspections = inspectionsPage.items;
   const { t } = await getT();
 
   return (
@@ -82,6 +86,7 @@ export default async function InspectionsPage() {
               )}
             </TBody>
           </Table>
+          <Pagination page={inspectionsPage.page} pageCount={inspectionsPage.pageCount} total={inspectionsPage.total} pageSize={inspectionsPage.pageSize} />
         </CardContent>
       </Card>
     </div>

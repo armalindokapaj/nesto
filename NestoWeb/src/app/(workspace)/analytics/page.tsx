@@ -6,7 +6,8 @@ import { getAnalyticsOverview, ensureMetricCatalogue, listActiveProjectForecasts
 import { getConfigResolver } from "@/server/platform-config";
 import { Card, CardHeader, CardTitle, CardDescription, CardContent } from "@/components/ui/card";
 import { CreateCurrencyRateDialog } from "@/components/analytics/currency-rate-dialog";
-import { formatCurrency, formatDate } from "@/lib/utils";
+import { formatDate } from "@/lib/utils";
+import { formatMinor } from "@/lib/money";
 import { getT } from "@/lib/i18n/server";
 
 // PRD_Reporting_Analytics Phase 1 — Executive Overview. Live queries only
@@ -38,9 +39,9 @@ export default async function AnalyticsOverviewPage() {
   const tiles = [
     { label: t("analytics.activeProjects"), value: overview.projects.activeCount, tone: "text-ink" },
     { label: t("analytics.atRiskProjects"), value: overview.projects.atRiskCount, tone: "text-danger" },
-    ...(overview.finance ? [{ label: t("analytics.budgetVariance"), value: formatCurrency(overview.finance.totalActual - overview.finance.totalBudget), tone: overview.finance.totalActual >= overview.finance.totalBudget ? "text-success" : "text-warning" }] : []),
+    ...(overview.finance ? [{ label: t("analytics.budgetVariance"), value: formatMinor(overview.finance.totalActualMinor - overview.finance.totalBudgetMinor), tone: overview.finance.totalActualMinor >= overview.finance.totalBudgetMinor ? "text-success" : "text-warning" }] : []),
     ...(overview.hr ? [{ label: t("analytics.headcount"), value: overview.hr.headcount, tone: "text-ink" }] : []),
-    ...(overview.procurement ? [{ label: t("analytics.committedSpend"), value: formatCurrency(overview.procurement.committedSpend), tone: "text-ink" }] : []),
+    ...(overview.procurement ? [{ label: t("analytics.committedSpend"), value: formatMinor(overview.procurement.committedSpendMinor), tone: "text-ink" }] : []),
     ...(overview.workProgress ? [{ label: t("analytics.acceptedProgress"), value: `${overview.workProgress.acceptedPct.toFixed(1)}%`, tone: "text-ink" }] : []),
     ...(overview.hse ? [{ label: t("analytics.openIncidents"), value: overview.hse.openIncidents, tone: overview.hse.openIncidents > 0 ? "text-danger" : "text-success" }] : []),
   ];

@@ -3,22 +3,27 @@ import Link from "next/link";
 import { AlertTriangle } from "lucide-react";
 import { getCurrentUser } from "@/lib/dal";
 import { can } from "@/lib/permissions";
-import { getCeoOrchestrationSummary } from "@/server/task-orchestration";
+import { getCeoOrchestrationSummaryPage } from "@/server/task-orchestration";
 import { Card, CardContent } from "@/components/ui/card";
 import { Table, THead, TBody, TRow, TH, TD } from "@/components/ui/table";
 import { Badge } from "@/components/ui/badge";
-import { formatCurrency, formatDate } from "@/lib/utils";
+import { formatDate } from "@/lib/utils";
+import { formatMinor } from "@/lib/money";
+import { parsePageParams } from "@/lib/pagination";
+import { Pagination } from "@/components/ui/pagination";
 import { getT } from "@/lib/i18n/server";
 
 // PRD_4 §13.1/§13.3 — the CEO executive summary. Read-only: CTO-013/CTO-005
 // give the CEO (and other TASKS-privileged roles) full visibility into every
 // orchestrated task's status, blocker and forecast without adding them to
 // any approval queue.
-export default async function TaskOrchestrationOverviewPage() {
+export default async function TaskOrchestrationOverviewPage({ searchParams }: { searchParams: Promise<{ page?: string }> }) {
+  const params = parsePageParams(await searchParams);
   const { tenantId, role } = await getCurrentUser();
   if (!can(role, "TASKS", "READ")) redirect("/dashboard/executive");
 
-  const rows = await getCeoOrchestrationSummary(tenantId);
+  const rowsPage = await getCeoOrchestrationSummaryPage(tenantId, params);
+  const rows = rowsPage.items;
   const { t } = await getT();
 
   return (
@@ -43,7 +48,7 @@ export default async function TaskOrchestrationOverviewPage() {
               </TRow>
             </THead>
             <TBody>
-              {rows.map(({ task, ageDays, overdueDays, blocker, nextResponsible, forecast, commercialImpact }) => (
+              {rows.map(({ task, ageDays, overdueDays, blocker, nextResponsible, forecast, commercialImpactMinor }) => (
                 <TRow key={task.id}>
                   <TD>
                     <Link href={`/tasks/${task.id}`} className="font-medium text-ink hover:text-gold hover:underline">
@@ -66,7 +71,7 @@ export default async function TaskOrchestrationOverviewPage() {
                   </TD>
                   <TD className="text-ink-muted text-xs max-w-[220px]">{blocker ?? "—"}</TD>
                   <TD className="text-ink-muted">{forecast ? formatDate(forecast) : "—"}</TD>
-                  <TD className="text-ink-muted">{commercialImpact != null ? formatCurrency(commercialImpact) : "—"}</TD>
+                  <TD className="text-ink-muted">{commercialImpactMinor != null ? formatMinor(commercialImpactMinor) : "—"}</TD>
                 </TRow>
               ))}
               {rows.length === 0 && (
@@ -78,6 +83,7 @@ export default async function TaskOrchestrationOverviewPage() {
               )}
             </TBody>
           </Table>
+          <Pagination page={rowsPage.page} pageCount={rowsPage.pageCount} total={rowsPage.total} pageSize={rowsPage.pageSize} />
         </CardContent>
       </Card>
     </div>
