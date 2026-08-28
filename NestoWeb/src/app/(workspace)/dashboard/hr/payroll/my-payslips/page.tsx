@@ -34,8 +34,8 @@ export default async function MyPayslipsPage() {
               <TRow>
                 <TH>{t("payroll.period")}</TH>
                 <TH>{t("payroll.payDate")}</TH>
-                <TH className="text-right">{t("hr_sub.grossSalaryMinor")}</TH>
-                <TH className="text-right">{t("hr_sub.netSalaryMinor")}</TH>
+                <TH className="text-right">{t("hr_sub.grossSalary")}</TH>
+                <TH className="text-right">{t("hr_sub.netSalary")}</TH>
               </TRow>
             </THead>
             <TBody>

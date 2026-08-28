@@ -99,11 +99,11 @@ export function AddSalaryRecordForm({ employeeId }: { employeeId: string }) {
       </div>
       <div className="grid grid-cols-2 gap-3">
         <div className="space-y-1.5">
-          <Label htmlFor="grossSalary">{t("hr_sub.grossSalaryMinor")}</Label>
+          <Label htmlFor="grossSalary">{t("hr_sub.grossSalary")}</Label>
           <Input id="grossSalary" name="grossSalary" type="number" min={0} step="0.01" required />
         </div>
         <div className="space-y-1.5">
-          <Label htmlFor="netSalary">{t("hr_sub.netSalaryMinor")}</Label>
+          <Label htmlFor="netSalary">{t("hr_sub.netSalary")}</Label>
           <Input id="netSalary" name="netSalary" type="number" min={0} step="0.01" required />
         </div>
       </div>

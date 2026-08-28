@@ -125,8 +125,8 @@ export default async function HrEmployeeDetailPage({ params }: { params: Promise
             <Table>
               <THead>
                 <TRow>
-                  <TH>{t("hr_sub.grossSalaryMinor")}</TH>
-                  <TH>{t("hr_sub.netSalaryMinor")}</TH>
+                  <TH>{t("hr_sub.grossSalary")}</TH>
+                  <TH>{t("hr_sub.netSalary")}</TH>
                   <TH>{t("hr_sub.paymentFrequency")}</TH>
                   <TH>{t("common.status")}</TH>
                   <TH>{t("hr_sub.effectiveStartDate")}</TH>

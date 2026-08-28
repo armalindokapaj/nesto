@@ -71,8 +71,8 @@ export default async function PayrollRunDetailPage({ params }: { params: Promise
             <THead>
               <TRow>
                 <TH>{t("common.name")}</TH>
-                <TH className="text-right">{t("hr_sub.grossSalaryMinor")}</TH>
-                <TH className="text-right">{t("hr_sub.netSalaryMinor")}</TH>
+                <TH className="text-right">{t("hr_sub.grossSalary")}</TH>
+                <TH className="text-right">{t("hr_sub.netSalary")}</TH>
                 <TH>{t("payroll.calculationTrace")}</TH>
               </TRow>
             </THead>
