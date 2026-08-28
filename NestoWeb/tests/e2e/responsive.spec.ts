@@ -1,4 +1,5 @@
 import { test, expect } from "@playwright/test";
+import { signIn } from "./helpers";
 
 test.describe("responsive layout", () => {
   // Albanian is the app's default locale; these tests assert on English
@@ -14,10 +15,7 @@ test.describe("responsive layout", () => {
   });
 
   test("executive dashboard and mobile nav work end to end", async ({ page }, testInfo) => {
-    await page.goto("/");
-    await page.getByPlaceholder(/you@company.com or username/i).fill("arben.kola");
-    await page.getByPlaceholder(/enter your password/i).fill("1");
-    await page.getByRole("button", { name: /sign in/i }).click();
+    await signIn(page, "arben.kola");
     await expect(page).toHaveURL(/\/dashboard\/executive/);
     await page.screenshot({ path: `test-results/screenshots/executive-${testInfo.project.name}.png`, fullPage: true });
 
@@ -30,10 +28,7 @@ test.describe("responsive layout", () => {
   });
 
   test("company admin dashboard renders users table and create-user dialog", async ({ page }, testInfo) => {
-    await page.goto("/");
-    await page.getByPlaceholder(/you@company.com or username/i).fill("arben.kola");
-    await page.getByPlaceholder(/enter your password/i).fill("1");
-    await page.getByRole("button", { name: /sign in/i }).click();
+    await signIn(page, "arben.kola");
     await page.waitForURL(/\/dashboard\//);
     await page.goto("/dashboard/admin");
     await expect(page.getByRole("heading", { name: "Good morning, Admin Team" })).toBeVisible();

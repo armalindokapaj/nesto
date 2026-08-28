@@ -9,6 +9,15 @@ export async function listContractors(tenantId: string) {
   });
 }
 
+/** Just enough to fill a contractor picker — see listContractsForPicker(). */
+export async function listContractorsForPicker(tenantId: string) {
+  return db.contractor.findMany({
+    where: { tenantId },
+    select: { id: true, name: true, tradeType: true },
+    orderBy: { createdAt: "desc" },
+  });
+}
+
 export async function getContractor(tenantId: string, contractorId: string) {
   const contractor = await db.contractor.findUnique({
     where: { id: contractorId },

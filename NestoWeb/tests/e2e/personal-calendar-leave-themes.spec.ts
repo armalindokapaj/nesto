@@ -1,4 +1,5 @@
 import { test, expect, type Page } from "@playwright/test";
+import { signIn, useEnglish } from "./helpers";
 
 // Drives PRD_9's core scope (personal calendar, HR-governed leave workflow,
 // reminders, themes) — Team Availability and Google/Outlook sync are
@@ -7,12 +8,8 @@ test.describe.configure({ mode: "serial" });
 
 async function loginAs(page: Page, username: string, password = "1") {
   await page.context().clearCookies();
-  await page.context().addCookies([{ name: "nesto_locale", value: "en", domain: "localhost", path: "/" }]);
-  await page.goto("/");
-  await page.getByPlaceholder(/you@company.com or username/i).fill(username);
-  await page.getByPlaceholder(/enter your password/i).fill(password);
-  await page.getByRole("button", { name: /^sign in$/i }).click();
-  await page.waitForURL(/\/dashboard/);
+  await useEnglish(page);
+  await signIn(page, username, password);
 }
 
 test("Owner can reach Calendar from the topbar icon and it shows only their own items", async ({ page }) => {
@@ -83,20 +80,31 @@ function themeForm(page: Page) {
   return page.locator("form", { has: page.getByText("Platform Default", { exact: true }) });
 }
 
+/**
+ * Selecting a theme fires a server action; the attribute it controls lives in
+ * the root layout, so the change is only visible after a reload. Waiting a
+ * fixed 300ms was not enough for that round-trip and made this read as a bug
+ * in the app — reload until the effect lands instead of sleeping and hoping.
+ */
+async function selectTheme(page: Page, label: string, expected: string | null) {
+  await themeForm(page).getByText(label, { exact: true }).click();
+  await expect(async () => {
+    await page.reload();
+    const attribute = await page.locator("html").getAttribute("data-theme");
+    expect(attribute).toBe(expected);
+  }).toPass({ timeout: 15_000 });
+}
+
 test("Selecting a theme applies it immediately, with no separate Save step", async ({ page }) => {
   await loginAs(page, "Owner");
   await page.goto("/account");
 
-  const form = themeForm(page);
-  await form.getByText("Night Mode", { exact: true }).click();
-  await page.waitForTimeout(300);
-  await page.reload();
-  await expect(page.locator("html")).toHaveAttribute("data-theme", "dark");
-
-  await themeForm(page).getByText("Platform Default", { exact: true }).click();
-  await page.waitForTimeout(300);
-  await page.reload();
-  await expect(page.locator("html")).not.toHaveAttribute("data-theme", "dark");
+  // Start from a known state: an earlier run (or an earlier failure) can leave
+  // this user on Night Mode, and "switching to Night" proves nothing then.
+  await selectTheme(page, "Platform Default", null);
+  await selectTheme(page, "Night Mode", "dark");
+  // Switching back must REMOVE the attribute, not just set a different value.
+  await selectTheme(page, "Platform Default", null);
 });
 
 test("Creative User Type Theme is no longer offered", async ({ page }) => {

@@ -75,7 +75,10 @@ export function Sidebar({
           </button>
         </div>
 
-        <nav className="flex-1 overflow-y-auto py-3 px-2.5 space-y-4">
+        {/* Named so it is distinguishable from the per-page section navs,
+            which all carry their own aria-label. Without it a screen reader
+            announces two unlabelled "navigation" landmarks on every page. */}
+        <nav aria-label="Workspace" className="flex-1 overflow-y-auto py-3 px-2.5 space-y-4">
           {sections.map((section, si) => (
             <div key={si}>
               {section.titleKey && !collapsed && (

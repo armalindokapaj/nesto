@@ -8,9 +8,9 @@ import { canViewTask } from "@/lib/project-access";
 import type { Role } from "@/lib/constants";
 import { getTaskOrchestration, getCompletionGateStatus } from "@/server/task-orchestration";
 import { listComments } from "@/server/comments";
-import { listAllMembers } from "@/server/admin";
-import { listContractors } from "@/server/contractors";
-import { listContracts } from "@/server/contracts";
+import { listMembersForPicker } from "@/server/admin";
+import { listContractorsForPicker } from "@/server/contractors";
+import { listContractsForPicker } from "@/server/contracts";
 import { listChecklistItems, isTaskStarred, isTaskWatched, listTaskLinks, getTaskRecurrence } from "@/server/tasks-module";
 import { StartOrchestrationCard } from "@/components/projects/start-orchestration-card";
 import { TaskOrchestrationView } from "@/components/projects/task-orchestration-view";
@@ -85,7 +85,7 @@ export default async function TaskDetailPage({ params }: { params: Promise<{ id:
   );
 
   if (!task.currentStageId) {
-    const [members, comments] = await Promise.all([listAllMembers(tenantId), listComments(tenantId, "Task", id)]);
+    const [members, comments] = await Promise.all([listMembersForPicker(tenantId), listComments(tenantId, "Task", id)]);
     return (
       <div className="space-y-6">
         <Link href={backHref} className="inline-flex items-center gap-1.5 text-sm text-ink-muted hover:text-ink">
@@ -117,11 +117,14 @@ export default async function TaskDetailPage({ params }: { params: Promise<{ id:
     );
   }
 
+  // Picker-shaped queries, not full rows: this page re-renders inside every
+  // server action performed on it, so anything loaded here is loaded again on
+  // each interaction.
   const [comments, members, contractors, contracts, gate] = await Promise.all([
     listComments(tenantId, "Task", id),
-    listAllMembers(tenantId),
-    listContractors(tenantId),
-    listContracts(tenantId),
+    listMembersForPicker(tenantId),
+    listContractorsForPicker(tenantId),
+    listContractsForPicker(tenantId),
     getCompletionGateStatus(tenantId, id),
   ]);
 

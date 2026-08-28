@@ -1,4 +1,5 @@
 import { test, expect } from "@playwright/test";
+import { signIn } from "./helpers";
 
 // Albanian is the app's default locale; these tests assert on English copy,
 // so force the locale cookie before the first navigation in each test.
@@ -7,14 +8,7 @@ test.beforeEach(async ({ page, baseURL }) => {
 });
 
 async function login(page: import("@playwright/test").Page, username: string) {
-  await page.goto("/");
-  await page.getByPlaceholder(/you@company.com or username/i).fill(username);
-  await page.getByPlaceholder(/enter your password/i).fill("1");
-  await page.getByRole("button", { name: /sign in/i }).click();
-  // Wait for the post-login redirect to land before navigating further —
-  // otherwise an immediate page.goto() can race the server action's
-  // redirect and fire before the session cookie is set.
-  await page.waitForURL(/\/dashboard\//);
+  await signIn(page, username);
 }
 
 test("Architect lands on the architect dashboard and cannot open Finance", async ({ page }) => {

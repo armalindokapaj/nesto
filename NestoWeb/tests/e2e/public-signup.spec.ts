@@ -1,4 +1,5 @@
 import { test, expect, type Page } from "@playwright/test";
+import { fillCredentials, submitSignIn } from "./helpers";
 
 // Drives the full PRD_6 loop: public sign-up -> email verification ->
 // profile onboarding -> submission -> Platform Admin approval -> the
@@ -96,9 +97,8 @@ test("Applicant verifies email and completes the professional profile", async ({
 test("Platform Admin approves the application", async ({ page }) => {
   await setEnglishLocale(page);
   await page.goto("/");
-  await page.getByPlaceholder(/you@company.com or username/i).fill("Owner");
-  await page.getByPlaceholder(/enter your password/i).fill("1");
-  await page.getByRole("button", { name: /^sign in$/i }).click();
+  await fillCredentials(page, "Owner");
+  await submitSignIn(page);
   await page.waitForURL(/\/dashboard/);
 
   await page.goto("/platform/applications");

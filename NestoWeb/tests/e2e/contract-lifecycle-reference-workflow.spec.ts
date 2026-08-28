@@ -1,4 +1,5 @@
 import { test, expect, type Page } from "@playwright/test";
+import { signIn, useEnglish } from "./helpers";
 
 // End-to-end coverage for the Audit 2 reference workflow: Contract Approved
 // -> Finance Structure -> Payment Recorded -> Contractor Profile. Walks the
@@ -14,12 +15,8 @@ import { test, expect, type Page } from "@playwright/test";
 
 async function loginAs(page: Page, username: string, password = "1") {
   await page.context().clearCookies();
-  await page.context().addCookies([{ name: "nesto_locale", value: "en", domain: "localhost", path: "/" }]);
-  await page.goto("/");
-  await page.getByPlaceholder(/you@company.com or username/i).fill(username);
-  await page.getByPlaceholder(/enter your password/i).fill(password);
-  await page.getByRole("button", { name: /^sign in$/i }).click();
-  await page.waitForURL(/\/dashboard/);
+  await useEnglish(page);
+  await signIn(page, username, password);
 }
 
 test("approving a contract creates its Finance Structure payment, and posting it in full completes the contract", async ({ page }) => {

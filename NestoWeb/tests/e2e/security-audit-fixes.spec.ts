@@ -1,4 +1,5 @@
 import { test, expect, type Page } from "@playwright/test";
+import { signIn, useEnglish } from "./helpers";
 
 // Regression coverage for the Nesto_Code_Audit_Initial.pdf critical findings
 // fixed on 2026-08-03. Findings requiring a real DB/action-level check
@@ -9,18 +10,16 @@ import { test, expect, type Page } from "@playwright/test";
 
 async function loginAs(page: Page, username: string, password = "1") {
   await page.context().clearCookies();
-  await page.context().addCookies([{ name: "nesto_locale", value: "en", domain: "localhost", path: "/" }]);
-  await page.goto("/");
-  await page.getByPlaceholder(/you@company.com or username/i).fill(username);
-  await page.getByPlaceholder(/enter your password/i).fill(password);
-  await page.getByRole("button", { name: /^sign in$/i }).click();
-  await page.waitForURL(/\/dashboard/);
+  await useEnglish(page);
+  await signIn(page, username, password);
 }
 
 test("C1: a role without Finance access sees Restricted, not real revenue, on the shared executive dashboard", async ({ page }) => {
-  // Stock has FINANCE: NONE and lands on the shared executive dashboard.
+  // Stock has FINANCE: NONE. It now lands on its own Inventory dashboard, so
+  // the shared executive console has to be opened explicitly — the point of
+  // this test is what Stock sees THERE, not where it lands.
   await loginAs(page, "Stock");
-  await page.waitForURL(/\/dashboard\/executive/);
+  await page.goto("/dashboard/executive");
   const revenueTile = page.locator("div", { hasText: "Revenue" }).last();
   await expect(page.getByText("Restricted").first()).toBeVisible();
   await expect(revenueTile.getByText(/€[\d,]/)).not.toBeVisible();
@@ -28,7 +27,7 @@ test("C1: a role without Finance access sees Restricted, not real revenue, on th
 
 test("C1: a role WITH Finance access still sees the real revenue figure", async ({ page }) => {
   await loginAs(page, "Owner");
-  await page.waitForURL(/\/dashboard\/executive/);
+  await page.goto("/dashboard/executive");
   await expect(page.getByRole("heading", { name: "Financial Overview" })).toBeVisible();
 });
 

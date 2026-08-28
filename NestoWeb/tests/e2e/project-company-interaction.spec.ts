@@ -1,4 +1,5 @@
 import { test, expect, type Page } from "@playwright/test";
+import { signIn, useEnglish } from "./helpers";
 
 // Drives PRD_10's core contract: every project is company-wide discoverable,
 // but task visibility, Finance figures, and deep links still obey their own
@@ -16,12 +17,8 @@ let privateTaskUrl = "";
 
 async function loginAs(page: Page, username: string) {
   await page.context().clearCookies();
-  await page.context().addCookies([{ name: "nesto_locale", value: "en", domain: "localhost", path: "/" }]);
-  await page.goto("/");
-  await page.getByPlaceholder(/you@company.com or username/i).fill(username);
-  await page.getByPlaceholder(/enter your password/i).fill("1");
-  await page.getByRole("button", { name: /^sign in$/i }).click();
-  await page.waitForURL(/\/dashboard/);
+  await useEnglish(page);
+  await signIn(page, username, "1");
 }
 
 test("Owner creates a project with a budget and three tasks of different visibility", async ({ page }) => {
@@ -31,9 +28,12 @@ test("Owner creates a project with a budget and three tasks of different visibil
   await page.getByLabel("Project name").fill(projectName);
   await page.getByLabel("Budget (EUR)").fill("500000");
   await page.getByRole("button", { name: "Create" }).click();
-  await expect(page.getByText(projectName)).toBeVisible();
+  // By role, not by text: the project name also appears in the card subtitle,
+  // so a bare text locator is a strict-mode violation.
+  const projectLink = page.getByRole("link", { name: projectName }).first();
+  await expect(projectLink).toBeVisible();
 
-  await page.getByText(projectName).click();
+  await projectLink.click();
   await page.waitForURL(/\/projects\//);
   projectUrl = page.url();
 

@@ -733,22 +733,34 @@ type CompletionGateStatus = { canComplete: boolean; blockers: string[] };
 
 export async function getCompletionGateStatus(tenantId: string, taskId: string): Promise<CompletionGateStatus> {
   const task = await getOrchestratedTask(tenantId, taskId);
-  const blockers: string[] = [];
   if (!task.currentStageId) {
     return { canComplete: false, blockers: ["This task is not under orchestration."] };
   }
+
+  // Six independent reads. They used to run one after another, which on a
+  // remote database is six times the round-trip latency for no reason — none
+  // of them depends on another's result. The blockers are still assembled in
+  // a fixed order below, so the message list a user sees is unchanged.
+  const [stages, departments, contractGateOk, assignments, inspections, openApprovals] = await Promise.all([
+    db.taskStage.findMany({ where: { taskId } }),
+    db.taskDepartment.findMany({ where: { taskId, isMandatory: true }, include: { deliverable: true } }),
+    contractGatePassed(tenantId, taskId),
+    db.taskContractorAssignment.findMany({ where: { taskId } }),
+    db.taskInspection.findMany({ where: { taskId }, orderBy: { createdAt: "desc" } }),
+    db.taskApproval.findMany({ where: { taskId, action: "APPROVE_WITH_CONDITIONS", conditionsMet: false } }),
+  ]);
+
+  const blockers: string[] = [];
 
   // FINAL_VERIFICATION is the terminal stage completeTask() itself resolves
   // (same for the PM department's own always-on coordination deliverable
   // below) — neither can be "done" before completion without a chicken-and-
   // egg deadlock, so both are excluded from blocking the gate they satisfy.
-  const stages = await db.taskStage.findMany({ where: { taskId } });
   const openStages = stages.filter(
     (s) => s.key !== "FINAL_VERIFICATION" && (s.status === "PENDING" || s.status === "ACTIVE" || s.status === "WAITING" || s.status === "REJECTED")
   );
   for (const s of openStages) blockers.push(`Stage not resolved: ${s.label}`);
 
-  const departments = await db.taskDepartment.findMany({ where: { taskId, isMandatory: true }, include: { deliverable: true } });
   for (const d of departments) {
     if (d.department === "PM") continue;
     const status = d.deliverable?.status as DeliverableStatus | undefined;
@@ -757,16 +769,14 @@ export async function getCompletionGateStatus(tenantId: string, taskId: string):
     }
   }
 
-  if (!(await contractGatePassed(tenantId, taskId))) {
+  if (!contractGateOk) {
     blockers.push("Contract gate not passed.");
   }
 
-  const assignments = await db.taskContractorAssignment.findMany({ where: { taskId } });
   for (const a of assignments) {
     if (a.status !== "COMPLETED") blockers.push(`Contractor work not complete: ${a.scope}`);
   }
 
-  const inspections = await db.taskInspection.findMany({ where: { taskId }, orderBy: { createdAt: "desc" } });
   if (inspections.length > 0) {
     const latest = inspections[0];
     if (!latest.result || latest.result === "FAILED" || latest.result === "REWORK_REQUIRED" || latest.result === "ADDITIONAL_INSPECTION_REQUIRED") {
@@ -774,7 +784,6 @@ export async function getCompletionGateStatus(tenantId: string, taskId: string):
     }
   }
 
-  const openApprovals = await db.taskApproval.findMany({ where: { taskId, action: "APPROVE_WITH_CONDITIONS", conditionsMet: false } });
   for (const a of openApprovals) blockers.push(`Approval conditions not yet satisfied (approval ${a.id.slice(-6)}).`);
 
   return { canComplete: blockers.length === 0, blockers };
@@ -981,6 +990,12 @@ export async function acknowledgeEscalation(tenantId: string, escalationId: stri
 
 export async function getTaskOrchestration(tenantId: string, taskId: string) {
   const task = await db.task.findUnique({
+    // One SQL statement with lateral joins instead of one round-trip per
+    // relation. There are ~16 relations below, and Prisma's default strategy
+    // issues a separate query for each — against a remote database that is
+    // ~16 x the network latency before any work happens, and this view
+    // re-renders inside every server action performed on the task.
+    relationLoadStrategy: "join",
     where: { id: taskId },
     include: {
       project: true,

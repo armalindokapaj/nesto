@@ -1,4 +1,5 @@
 import { test, expect } from "@playwright/test";
+import { signIn } from "./helpers";
 
 // Platform Configuration end-to-end. The unit tests pin the cascade logic;
 // these confirm the surface actually renders and that switching a module off
@@ -9,29 +10,7 @@ import { test, expect } from "@playwright/test";
 // renders in the tenant's locale (Albanian by default here), so copy-based
 // locators are not stable.
 async function loginAsOwner(page: import("@playwright/test").Page) {
-  await page.goto("/");
-
-  const identifier = page.locator('input[name="identifier"]');
-  const password = page.locator('input[name="password"]');
-
-  // Both inputs are controlled by React state, so a fill that lands before
-  // hydration is silently discarded on the next render. Fill, then assert the
-  // value actually stuck before submitting.
-  await identifier.waitFor({ state: "visible" });
-  await expect(async () => {
-    await identifier.fill("arben.kola");
-    await password.fill("1");
-    await expect(identifier).toHaveValue("arben.kola");
-    await expect(password).toHaveValue("1");
-  }).toPass({ timeout: 15_000 });
-
-  await page
-    .locator("form")
-    .filter({ has: identifier })
-    .getByRole("button")
-    .last()
-    .click();
-  await page.waitForURL(/\/dashboard\//, { timeout: 20_000 });
+  await signIn(page, "arben.kola");
 }
 
 test("configuration page lists the toggle catalog grouped by module", async ({ page }) => {

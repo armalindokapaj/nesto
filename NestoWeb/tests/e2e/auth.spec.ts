@@ -1,9 +1,10 @@
 import { test, expect } from "@playwright/test";
+import { fillCredentials, signIn, submitSignIn, useEnglish } from "./helpers";
 
 // Albanian is the app's default locale; these tests assert on English copy,
 // so force the locale cookie before the first navigation in each test.
 test.beforeEach(async ({ page, baseURL }) => {
-  await page.context().addCookies([{ name: "nesto_locale", value: "en", url: baseURL }]);
+  await useEnglish(page, baseURL);
 });
 
 test("landing page shows the Nesto login card", async ({ page }) => {
@@ -14,17 +15,13 @@ test("landing page shows the Nesto login card", async ({ page }) => {
 
 test("rejects invalid credentials", async ({ page }) => {
   await page.goto("/");
-  await page.getByPlaceholder(/you@company.com or username/i).fill("arben.kola");
-  await page.getByPlaceholder(/enter your password/i).fill("wrong-password");
-  await page.getByRole("button", { name: /sign in/i }).click();
+  await fillCredentials(page, "arben.kola", "wrong-password");
+  await submitSignIn(page);
   await expect(page.getByText(/invalid credentials/i)).toBeVisible();
 });
 
 test("logs in and lands on the executive dashboard", async ({ page }) => {
-  await page.goto("/");
-  await page.getByPlaceholder(/you@company.com or username/i).fill("arben.kola");
-  await page.getByPlaceholder(/enter your password/i).fill("1");
-  await page.getByRole("button", { name: /sign in/i }).click();
+  await signIn(page, "arben.kola");
   await expect(page).toHaveURL(/\/dashboard\/executive/);
   await expect(page.getByRole("heading", { level: 1 })).toBeVisible();
   await expect(page.getByRole("heading", { name: /financial overview/i })).toBeVisible();

@@ -1,21 +1,30 @@
-import { test, expect, type Page, type Locator } from "@playwright/test";
+import { test, expect as baseExpect, type Page, type Locator } from "@playwright/test";
+
+import { signIn, useEnglish } from "./helpers";
+
+// Every assertion in this file waits on a re-render of the orchestrated task
+// view, which the server action performs as part of its response. Configured
+// once here rather than annotating thirty individual assertions — see the
+// timeout note on describe.configure below for why it is slow.
+const expect = baseExpect.configure({ timeout: 20_000 });
+
 
 // Drives the PRD_4 §15 facade-repair reference workflow end-to-end through
 // real logins for every role involved, verifying the acceptance criteria in
 // §18.1/§18.2 along the way. Serial: each step depends on state the previous
 // step created (a real multi-department case, not independent tests).
-test.describe.configure({ mode: "serial" });
+// Raised for this file only, not globally. Each step signs in, loads the
+// orchestrated task view and performs an action that re-renders it. Against a
+// remote database (~138ms per round-trip from a development machine, ~1ms
+// co-located in production) that adds up past the 30s default even after
+// getTaskOrchestration was changed to fetch its relations in one query
+// instead of sixteen.
+test.describe.configure({ mode: "serial", timeout: 120_000 });
 
 async function loginAs(page: Page, username: string) {
   await page.context().clearCookies();
-  await page.context().addCookies([
-    { name: "nesto_locale", value: "en", domain: "localhost", path: "/" },
-  ]);
-  await page.goto("/");
-  await page.getByPlaceholder(/you@company.com or username/i).fill(username);
-  await page.getByPlaceholder(/enter your password/i).fill("1");
-  await page.getByRole("button", { name: /^sign in$/i }).click();
-  await page.waitForURL(/\/dashboard/);
+  await useEnglish(page);
+  await signIn(page, username);
 }
 
 // Radix Tabs.Content elements pick up an accessible name from their trigger
@@ -28,17 +37,25 @@ function dialog(page: Page): Locator {
 
 let taskUrl = "";
 
+// Stamped, not hardcoded. A fixed title left one more task behind on every
+// run — eight of them by the time this was looked at — and then every locator
+// for it became a strict-mode violation. The desktop and mobile projects run
+// this file concurrently against the same database too, so they need distinct
+// rows regardless.
+const taskTitle = `Facade Repair Required — E2E ${Date.now().toString(36)}`;
+
 test("PM creates the task and starts orchestration", async ({ page }) => {
   await loginAs(page, "Pm");
   await page.goto("/tasks");
   await page.getByRole("button", { name: "New Task" }).click();
   await dialog(page).getByLabel("Project").selectOption({ label: "Skyline Apartments" });
-  await dialog(page).getByLabel("Title").fill("Facade Repair Required — E2E");
+  await dialog(page).getByLabel("Title").fill(taskTitle);
   await dialog(page).getByLabel("Priority").selectOption("HIGH");
   await dialog(page).getByRole("button", { name: "Create" }).click();
-  await expect(page.getByText("Facade Repair Required — E2E")).toBeVisible();
+  const taskLink = page.getByRole("link", { name: taskTitle });
+  await expect(taskLink).toBeVisible();
 
-  await page.getByText("Facade Repair Required — E2E").click();
+  await taskLink.click();
   await page.waitForURL(/\/tasks\/[a-z0-9]+$/);
   taskUrl = page.url();
 
@@ -46,7 +63,7 @@ test("PM creates the task and starts orchestration", async ({ page }) => {
   await page.getByLabel("Task Manager").selectOption({ label: "Pm" });
   await page.getByRole("button", { name: "Start Orchestration" }).click();
   await expect(page.getByText("Current Stage: PM Triage")).toBeVisible();
-  await expect(page.getByRole("heading", { name: "Facade Repair Required — E2E" })).toBeVisible();
+  await expect(page.getByRole("heading", { name: taskTitle })).toBeVisible();
 });
 
 test("PM activates Engineering and Engineer submits the assessment", async ({ page }) => {
@@ -200,10 +217,10 @@ test("QAQC inspects, PM completes the task, export renders", async ({ page }) =>
 
   // Export renders as a real page (browser Print > Save as PDF from here).
   await page.goto(`${taskUrl}/export`);
-  await expect(page.getByRole("heading", { name: "Facade Repair Required — E2E" })).toBeVisible();
+  await expect(page.getByRole("heading", { name: taskTitle })).toBeVisible();
   await expect(page.getByText("Approval Record")).toBeVisible();
 
   // CEO/executive overview lists the completed case with no open blocker.
   await page.goto("/tasks/orchestration");
-  await expect(page.getByText("Facade Repair Required — E2E")).toBeVisible();
+  await expect(page.getByText(taskTitle)).toBeVisible();
 });

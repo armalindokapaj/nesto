@@ -559,6 +559,15 @@ async function main() {
     await db.companyMembership.create({
       data: { tenantId: tenant.id, userId: user.id, role, department: "Testing", position: `${name} Test Account` },
     });
+
+    // The CONTRACTOR tier is the one role whose console shows nothing without a
+    // second link: getContractorWorkPackages() finds work through
+    // Contractor.userId, not through the membership. Without this the demo
+    // Contractor login signs in successfully to a permanently empty dashboard,
+    // which reads as a broken feature rather than as missing demo data.
+    if (role === "CONTRACTOR") {
+      await db.contractor.update({ where: { id: elektro.id }, data: { userId: user.id } });
+    }
   }
 
   // --- Platform Admin test accounts -------------------------------------

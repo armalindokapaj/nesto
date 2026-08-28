@@ -54,6 +54,19 @@ export async function listAllMembers(tenantId: string) {
   });
 }
 
+/**
+ * Just enough to fill a member picker. listAllMembers() includes the entire
+ * UserIdentity row per membership — password hash, contact details and all —
+ * for pages that only ever render a name.
+ */
+export async function listMembersForPicker(tenantId: string) {
+  return db.companyMembership.findMany({
+    where: { tenantId },
+    select: { role: true, user: { select: { id: true, displayName: true } } },
+    orderBy: { createdAt: "desc" },
+  });
+}
+
 export async function listAllInvitations(tenantId: string) {
   return db.invitation.findMany({ where: { tenantId }, orderBy: { invitedAt: "desc" } });
 }

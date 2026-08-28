@@ -26,6 +26,22 @@ export async function listContracts(tenantId: string) {
   });
 }
 
+/**
+ * Just enough to fill a contract picker.
+ *
+ * The full listContracts() joins project and contractor onto every row. The
+ * task orchestration page needed three columns and was pulling all of it,
+ * which is most of why that page took seconds to render — and it renders again
+ * inside every server action on it, so the cost was paid on each interaction.
+ */
+export async function listContractsForPicker(tenantId: string) {
+  return db.contract.findMany({
+    where: { tenantId },
+    select: { id: true, number: true, title: true },
+    orderBy: { createdAt: "desc" },
+  });
+}
+
 export async function listContractsByProject(tenantId: string, projectId: string) {
   return db.contract.findMany({
     where: { tenantId, projectId },

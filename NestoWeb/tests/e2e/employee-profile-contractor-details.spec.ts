@@ -1,4 +1,5 @@
 import { test, expect, type Page } from "@playwright/test";
+import { signIn, useEnglish } from "./helpers";
 
 test.describe.configure({ mode: "serial" });
 
@@ -6,12 +7,8 @@ const stamp = Date.now().toString(36);
 
 async function loginAs(page: Page, username: string, password = "1") {
   await page.context().clearCookies();
-  await page.context().addCookies([{ name: "nesto_locale", value: "en", domain: "localhost", path: "/" }]);
-  await page.goto("/");
-  await page.getByPlaceholder(/you@company.com or username/i).fill(username);
-  await page.getByPlaceholder(/enter your password/i).fill(password);
-  await page.getByRole("button", { name: /^sign in$/i }).click();
-  await page.waitForURL(/\/dashboard/);
+  await useEnglish(page);
+  await signIn(page, username, password);
 }
 
 let arbenProfileUrl = "";
