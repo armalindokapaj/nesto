@@ -11,7 +11,7 @@ import { Table, THead, TBody, TRow, TH, TD } from "@/components/ui/table";
 import { Button } from "@/components/ui/button";
 import { ProjectFinanceTabHeader } from "@/components/dashboards/project-finance-tab-header";
 import { formatCurrency, formatDate } from "@/lib/utils";
-import { formatMinor } from "@/lib/money";
+import { formatMinorWhole } from "@/lib/money";
 import { getT } from "@/lib/i18n/server";
 
 export default async function ProjectBudgetTabPage({ params }: { params: Promise<{ id: string }> }) {
@@ -48,15 +48,15 @@ export default async function ProjectBudgetTabPage({ params }: { params: Promise
                 </div>
                 <div>
                   <p className="text-xs text-ink-muted">{t("dashboards.finance.committed")}</p>
-                  <p className="text-lg font-semibold text-ink">{formatMinor(budget.committedMinor, budget.currency)}</p>
+                  <p className="text-lg font-semibold text-ink">{formatMinorWhole(budget.committedMinor, budget.currency)}</p>
                 </div>
                 <div>
                   <p className="text-xs text-ink-muted">{t("dashboards.finance.actual")}</p>
-                  <p className="text-lg font-semibold text-ink">{formatMinor(budget.actualMinor, budget.currency)}</p>
+                  <p className="text-lg font-semibold text-ink">{formatMinorWhole(budget.actualMinor, budget.currency)}</p>
                 </div>
                 <div>
                   <p className="text-xs text-ink-muted">{t("dashboards.finance.remaining")}</p>
-                  <p className={`text-lg font-semibold ${budget.remainingMinor >= 0 ? "text-success" : "text-danger"}`}>{formatMinor(budget.remainingMinor, budget.currency)}</p>
+                  <p className={`text-lg font-semibold ${budget.remainingMinor >= 0 ? "text-success" : "text-danger"}`}>{formatMinorWhole(budget.remainingMinor, budget.currency)}</p>
                 </div>
               </div>
               <p className="text-sm font-medium text-ink mb-2">{t("dashboards.finance.revisionHistory")}</p>

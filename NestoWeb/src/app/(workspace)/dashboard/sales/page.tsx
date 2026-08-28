@@ -24,7 +24,7 @@ import { Badge } from "@/components/ui/badge";
 import { DashboardGreeting } from "@/components/dashboards/dashboard-greeting";
 import { SalesQuickActions } from "@/components/dashboards/sales-quick-actions";
 import { formatCurrency, formatDate } from "@/lib/utils";
-import { formatMinor } from "@/lib/money";
+import { formatMinorWhole } from "@/lib/money";
 import { getT } from "@/lib/i18n/server";
 
 // PRD_Sales_Dashboard v1.0 — the Sales role's locked home workspace.
@@ -51,13 +51,13 @@ export default async function SalesDashboardPage() {
         <StatTile label={t("dashboards.sales.newLeads")} value={String(data.kpis.newLeads)} icon={UserPlus} iconColor="#B76E00" iconBg="#FBECD2" href="/clients/leads" />
         <StatTile label={t("dashboards.sales.qualifiedLeads")} value={String(data.kpis.qualifiedLeads)} icon={BadgeCheck} iconColor="#4a3aa7" iconBg="#EEEAFB" href="/clients/leads?status=QUALIFIED" />
         <StatTile label={t("dashboards.sales.openOpportunities")} value={String(data.kpis.openOpportunities)} icon={Target} iconColor="#2457C5" iconBg="#E4ECFB" href="/clients/opportunities" />
-        <StatTile label={t("dashboards.sales.pipelineValue")} value={formatMinor(data.kpis.pipelineValueMinor)} icon={TrendingUp} iconColor="#1A7F4E" iconBg="#E2F4EA" href="/clients/pipeline" />
+        <StatTile label={t("dashboards.sales.pipelineValue")} value={formatMinorWhole(data.kpis.pipelineValueMinor)} icon={TrendingUp} iconColor="#1A7F4E" iconBg="#E2F4EA" href="/clients/pipeline" />
         <StatTile label={t("dashboards.sales.reservations")} value={String(data.kpis.reservations)} icon={CalendarRange} iconColor="#B76E00" iconBg="#FBECD2" href="/clients/reservations" />
         <StatTile label={t("dashboards.sales.contracts")} value={String(data.kpis.contracts)} icon={ScrollText} iconColor="#4a3aa7" iconBg="#EEEAFB" href="/contracts" />
         <StatTile label={t("dashboards.sales.unitsSold")} value={String(data.kpis.unitsSold)} icon={Building2} iconColor="#2457C5" iconBg="#E4ECFB" href="/units" />
         <StatTile
           label={t("dashboards.sales.revenue")}
-          value={data.kpis.revenueMinor === null ? t("dashboards.sales.restricted") : formatMinor(data.kpis.revenueMinor)}
+          value={data.kpis.revenueMinor === null ? t("dashboards.sales.restricted") : formatMinorWhole(data.kpis.revenueMinor)}
           icon={Wallet}
           iconColor="#1A7F4E"
           iconBg="#E2F4EA"
@@ -65,7 +65,7 @@ export default async function SalesDashboardPage() {
         />
         <StatTile
           label={t("dashboards.sales.outstandingPayments")}
-          value={data.kpis.outstandingPaymentsMinor === null ? t("dashboards.sales.restricted") : formatMinor(data.kpis.outstandingPaymentsMinor)}
+          value={data.kpis.outstandingPaymentsMinor === null ? t("dashboards.sales.restricted") : formatMinorWhole(data.kpis.outstandingPaymentsMinor)}
           icon={Receipt}
           iconColor="#B76E00"
           iconBg="#FBECD2"
@@ -218,15 +218,15 @@ export default async function SalesDashboardPage() {
             <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
               <div>
                 <p className="text-xs text-ink-muted">{t("dashboards.sales.contractValue")}</p>
-                <p className="text-lg font-semibold text-ink">{formatMinor(data.financial_summary.contractValueMinor)}</p>
+                <p className="text-lg font-semibold text-ink">{formatMinorWhole(data.financial_summary.contractValueMinor)}</p>
               </div>
               <div>
                 <p className="text-xs text-ink-muted">{t("dashboards.sales.amountPaid")}</p>
-                <p className="text-lg font-semibold text-ink">{formatMinor(data.financial_summary.amountPaidMinor)}</p>
+                <p className="text-lg font-semibold text-ink">{formatMinorWhole(data.financial_summary.amountPaidMinor)}</p>
               </div>
               <div>
                 <p className="text-xs text-ink-muted">{t("dashboards.sales.remainingBalance")}</p>
-                <p className="text-lg font-semibold text-ink">{formatMinor(data.financial_summary.remainingBalanceMinor)}</p>
+                <p className="text-lg font-semibold text-ink">{formatMinorWhole(data.financial_summary.remainingBalanceMinor)}</p>
               </div>
               <div>
                 <p className="text-xs text-ink-muted">{t("dashboards.sales.nextPaymentDue")}</p>
@@ -298,7 +298,7 @@ export default async function SalesDashboardPage() {
                   {data.performance.byOwner.map((o) => (
                     <li key={o.ownerId ?? "unassigned"} className="flex items-center justify-between text-sm">
                       <span>{o.ownerName}</span>
-                      <span className="text-ink-muted">{o.count} · {formatMinor(o.valueMinor)}</span>
+                      <span className="text-ink-muted">{o.count} · {formatMinorWhole(o.valueMinor)}</span>
                     </li>
                   ))}
                 </ul>

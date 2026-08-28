@@ -6,7 +6,7 @@ import { getProjectHeaderInfo, getSingleProjectFinanceOverview } from "@/server/
 import { Card, CardHeader, CardTitle, CardContent } from "@/components/ui/card";
 import { ProjectFinanceTabHeader } from "@/components/dashboards/project-finance-tab-header";
 import { formatCurrency } from "@/lib/utils";
-import { formatMinor } from "@/lib/money";
+import { formatMinorWhole } from "@/lib/money";
 import { getT } from "@/lib/i18n/server";
 
 export default async function ProjectForecastTabPage({ params }: { params: Promise<{ id: string }> }) {
@@ -29,15 +29,15 @@ export default async function ProjectForecastTabPage({ params }: { params: Promi
         <CardContent className="grid grid-cols-2 sm:grid-cols-4 gap-4">
           <div>
             <p className="text-xs text-ink-muted">{t("dashboards.finance.budget")}</p>
-            <p className="text-lg font-semibold text-ink">{formatMinor(data.portfolioRow.budgetMinor)}</p>
+            <p className="text-lg font-semibold text-ink">{formatMinorWhole(data.portfolioRow.budgetMinor)}</p>
           </div>
           <div>
             <p className="text-xs text-ink-muted">{t("dashboards.finance.actual")}</p>
-            <p className="text-lg font-semibold text-ink">{formatMinor(data.portfolioRow.actualMinor)}</p>
+            <p className="text-lg font-semibold text-ink">{formatMinorWhole(data.portfolioRow.actualMinor)}</p>
           </div>
           <div>
             <p className="text-xs text-ink-muted">{t("dashboards.finance.forecast")}</p>
-            <p className="text-lg font-semibold text-ink">{formatMinor(data.portfolioRow.forecastMinor)}</p>
+            <p className="text-lg font-semibold text-ink">{formatMinorWhole(data.portfolioRow.forecastMinor)}</p>
           </div>
           <div>
             <p className="text-xs text-ink-muted">{t("dashboards.finance.forecastVariance")}</p>
@@ -45,7 +45,7 @@ export default async function ProjectForecastTabPage({ params }: { params: Promi
           </div>
           <div>
             <p className="text-xs text-ink-muted">{t("dashboards.finance.costToComplete")}</p>
-            <p className="text-lg font-semibold text-ink">{formatMinor(data.portfolioRow.costToCompleteMinor)}</p>
+            <p className="text-lg font-semibold text-ink">{formatMinorWhole(data.portfolioRow.costToCompleteMinor)}</p>
           </div>
         </CardContent>
       </Card>

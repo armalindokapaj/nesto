@@ -8,7 +8,7 @@ import { getConfigResolver } from "@/server/platform-config";
 import { StatTile } from "@/components/ui/stat-tile";
 import { Card, CardHeader, CardTitle, CardContent } from "@/components/ui/card";
 import { formatDate } from "@/lib/utils";
-import { formatMinor } from "@/lib/money";
+import { formatMinorWhole } from "@/lib/money";
 import { ProcurementNav, ProcurementPageHeader } from "@/components/procurement/procurement-nav";
 
 // PRD_Procurement_Dashboard §4/§5/§6 — the exact six Primary Cues (Open
@@ -53,7 +53,7 @@ export default async function ProcurementDashboardPage() {
         </CardContent></Card>
 
         <Card><CardHeader><CardTitle>Orders & Delivery</CardTitle></CardHeader><CardContent className="space-y-3 text-sm">
-          <Metric label="Committed Value" value={formatMinor(data.ordersAndDelivery.committedValueMinor)} />
+          <Metric label="Committed Value" value={formatMinorWhole(data.ordersAndDelivery.committedValueMinor)} />
           <Metric label="Unacknowledged POs" value={data.ordersAndDelivery.unacknowledgedOrders} />
           <Metric label="Due This Week" value={data.ordersAndDelivery.dueThisWeek} />
           <Metric label="Delayed" value={data.ordersAndDelivery.delayed} tone={data.ordersAndDelivery.delayed ? "danger" : "neutral"} />
@@ -67,8 +67,8 @@ export default async function ProcurementDashboardPage() {
         </CardContent></Card>
 
         <Card><CardHeader><CardTitle>Commercial Summary</CardTitle></CardHeader><CardContent className="space-y-3 text-sm">
-          <Metric label="Requested" value={formatMinor(data.commercialSummary.requestedMinor)} />
-          <Metric label="Committed" value={formatMinor(data.commercialSummary.committedMinor)} />
+          <Metric label="Requested" value={formatMinorWhole(data.commercialSummary.requestedMinor)} />
+          <Metric label="Committed" value={formatMinorWhole(data.commercialSummary.committedMinor)} />
         </CardContent></Card>
 
         <Card><CardHeader><CardTitle>Upcoming</CardTitle></CardHeader><CardContent>

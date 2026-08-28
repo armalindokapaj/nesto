@@ -9,7 +9,7 @@ import { Table, THead, TBody, TRow, TH, TD } from "@/components/ui/table";
 import { DashboardGreeting } from "@/components/dashboards/dashboard-greeting";
 import { FinanceScopeBar } from "@/components/dashboards/finance-scope-bar";
 
-import { formatMinor } from "@/lib/money";
+import { formatMinorWhole } from "@/lib/money";
 import { getT } from "@/lib/i18n/server";
 import { Wallet, TrendingUp, TrendingDown, Layers, PieChart } from "lucide-react";
 
@@ -30,14 +30,14 @@ export default async function AllProjectsFinancePage() {
       <FinanceScopeBar mode="all-projects" />
 
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
-        <StatTile label={t("dashboards.finance.totalBudgets")} value={formatMinor(totals.budgetMinor)} icon={PieChart} iconColor="#4a3aa7" iconBg="#EEEAFB" />
-        <StatTile label={t("dashboards.finance.totalCommitted")} value={formatMinor(totals.committedMinor)} icon={Wallet} iconColor="#B76E00" iconBg="#FBECD2" />
-        <StatTile label={t("dashboards.finance.totalActual")} value={formatMinor(totals.actualMinor)} icon={TrendingDown} iconColor="#1A7F4E" iconBg="#E2F4EA" />
-        <StatTile label={t("dashboards.finance.totalProjectRevenue")} value={formatMinor(totals.revenueMinor)} icon={TrendingUp} iconColor="#2457C5" iconBg="#E4ECFB" />
-        <StatTile label={t("dashboards.finance.totalProfit")} value={formatMinor(totals.profitMinor)} icon={Layers} iconColor="#4a3aa7" iconBg="#EEEAFB" />
-        <StatTile label={t("dashboards.finance.totalReceivables")} value={formatMinor(totals.receivablesMinor)} icon={TrendingUp} iconColor="#2457C5" iconBg="#E4ECFB" />
-        <StatTile label={t("dashboards.finance.totalPayables")} value={formatMinor(totals.payablesMinor)} icon={TrendingDown} iconColor="#B76E00" iconBg="#FBECD2" />
-        <StatTile label={t("dashboards.finance.totalForecast")} value={formatMinor(totals.forecastMinor)} icon={TrendingUp} iconColor="#1A7F4E" iconBg="#E2F4EA" />
+        <StatTile label={t("dashboards.finance.totalBudgets")} value={formatMinorWhole(totals.budgetMinor)} icon={PieChart} iconColor="#4a3aa7" iconBg="#EEEAFB" />
+        <StatTile label={t("dashboards.finance.totalCommitted")} value={formatMinorWhole(totals.committedMinor)} icon={Wallet} iconColor="#B76E00" iconBg="#FBECD2" />
+        <StatTile label={t("dashboards.finance.totalActual")} value={formatMinorWhole(totals.actualMinor)} icon={TrendingDown} iconColor="#1A7F4E" iconBg="#E2F4EA" />
+        <StatTile label={t("dashboards.finance.totalProjectRevenue")} value={formatMinorWhole(totals.revenueMinor)} icon={TrendingUp} iconColor="#2457C5" iconBg="#E4ECFB" />
+        <StatTile label={t("dashboards.finance.totalProfit")} value={formatMinorWhole(totals.profitMinor)} icon={Layers} iconColor="#4a3aa7" iconBg="#EEEAFB" />
+        <StatTile label={t("dashboards.finance.totalReceivables")} value={formatMinorWhole(totals.receivablesMinor)} icon={TrendingUp} iconColor="#2457C5" iconBg="#E4ECFB" />
+        <StatTile label={t("dashboards.finance.totalPayables")} value={formatMinorWhole(totals.payablesMinor)} icon={TrendingDown} iconColor="#B76E00" iconBg="#FBECD2" />
+        <StatTile label={t("dashboards.finance.totalForecast")} value={formatMinorWhole(totals.forecastMinor)} icon={TrendingUp} iconColor="#1A7F4E" iconBg="#E2F4EA" />
       </div>
 
       <Card>
@@ -69,16 +69,16 @@ export default async function AllProjectsFinancePage() {
                       {p.project.name}
                     </Link>
                   </TD>
-                  <TD className="text-ink-muted">{formatMinor(p.budgetMinor)}</TD>
-                  <TD className="text-ink-muted">{formatMinor(p.committedMinor)}</TD>
-                  <TD className="text-ink-muted">{formatMinor(p.actualMinor)}</TD>
-                  <TD className="text-ink-muted">{formatMinor(p.spendingsMinor)}</TD>
-                  <TD className="text-ink-muted">{formatMinor(p.revenueMinor)}</TD>
-                  <TD className={p.profitMinor >= 0 ? "text-success font-medium" : "text-danger font-medium"}>{formatMinor(p.profitMinor)}</TD>
-                  <TD className="text-ink-muted">{formatMinor(p.receivablesMinor)}</TD>
-                  <TD className="text-ink-muted">{formatMinor(p.payablesMinor)}</TD>
-                  <TD className="text-ink-muted">{formatMinor(p.forecastMinor)}</TD>
-                  <TD className="text-ink-muted">{formatMinor(p.costToCompleteMinor)}</TD>
+                  <TD className="text-ink-muted">{formatMinorWhole(p.budgetMinor)}</TD>
+                  <TD className="text-ink-muted">{formatMinorWhole(p.committedMinor)}</TD>
+                  <TD className="text-ink-muted">{formatMinorWhole(p.actualMinor)}</TD>
+                  <TD className="text-ink-muted">{formatMinorWhole(p.spendingsMinor)}</TD>
+                  <TD className="text-ink-muted">{formatMinorWhole(p.revenueMinor)}</TD>
+                  <TD className={p.profitMinor >= 0 ? "text-success font-medium" : "text-danger font-medium"}>{formatMinorWhole(p.profitMinor)}</TD>
+                  <TD className="text-ink-muted">{formatMinorWhole(p.receivablesMinor)}</TD>
+                  <TD className="text-ink-muted">{formatMinorWhole(p.payablesMinor)}</TD>
+                  <TD className="text-ink-muted">{formatMinorWhole(p.forecastMinor)}</TD>
+                  <TD className="text-ink-muted">{formatMinorWhole(p.costToCompleteMinor)}</TD>
                 </TRow>
               ))}
               {portfolio.length === 0 && (

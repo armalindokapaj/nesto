@@ -70,3 +70,20 @@ export function allocateMinor(totalMinor: number, shares: number): number[] {
 export function formatMinor(minor: number, currency = "EUR"): string {
   return new Intl.NumberFormat("de-DE", { style: "currency", currency }).format(fromMinorUnits(minor, currency));
 }
+
+/**
+ * Whole units, no cents — the presentation `formatCurrency` gives, for the
+ * dashboard tiles and summary rows that used it before the money migration.
+ *
+ * Keeping both matters: an invoice or a payslip line must show its cents,
+ * because that is the figure someone is paid or owed. A budget tile reading
+ * "500.000,00 €" is two characters of noise on a number nobody tracks to the
+ * cent, and switching those to formatMinor silently changed 85 of them.
+ */
+export function formatMinorWhole(minor: number, currency = "EUR"): string {
+  return new Intl.NumberFormat("de-DE", {
+    style: "currency",
+    currency,
+    maximumFractionDigits: 0,
+  }).format(fromMinorUnits(minor, currency));
+}

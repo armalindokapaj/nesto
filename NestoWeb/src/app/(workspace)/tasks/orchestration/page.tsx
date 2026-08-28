@@ -8,7 +8,7 @@ import { Card, CardContent } from "@/components/ui/card";
 import { Table, THead, TBody, TRow, TH, TD } from "@/components/ui/table";
 import { Badge } from "@/components/ui/badge";
 import { formatDate } from "@/lib/utils";
-import { formatMinor } from "@/lib/money";
+import { formatMinorWhole } from "@/lib/money";
 import { parsePageParams } from "@/lib/pagination";
 import { Pagination } from "@/components/ui/pagination";
 import { getT } from "@/lib/i18n/server";
@@ -71,7 +71,7 @@ export default async function TaskOrchestrationOverviewPage({ searchParams }: { 
                   </TD>
                   <TD className="text-ink-muted text-xs max-w-[220px]">{blocker ?? "—"}</TD>
                   <TD className="text-ink-muted">{forecast ? formatDate(forecast) : "—"}</TD>
-                  <TD className="text-ink-muted">{commercialImpactMinor != null ? formatMinor(commercialImpactMinor) : "—"}</TD>
+                  <TD className="text-ink-muted">{commercialImpactMinor != null ? formatMinorWhole(commercialImpactMinor) : "—"}</TD>
                 </TRow>
               ))}
               {rows.length === 0 && (

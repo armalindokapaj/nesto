@@ -5,7 +5,7 @@ import { getBudgetVsActualByProject } from "@/server/finance-dashboard";
 import { Card, CardHeader, CardTitle, CardDescription, CardContent } from "@/components/ui/card";
 import { ProgressBar } from "@/components/ui/progress-bar";
 import { formatCurrency } from "@/lib/utils";
-import { formatMinor } from "@/lib/money";
+import { formatMinorWhole } from "@/lib/money";
 import { getT } from "@/lib/i18n/server";
 
 export default async function BudgetVsActualPage() {
@@ -32,7 +32,7 @@ export default async function BudgetVsActualPage() {
                 <div>
                   <CardTitle>{row.name}</CardTitle>
                   <CardDescription>
-                    {formatMinor(row.actualExpensesMinor)} / {formatMinor(row.budgetMinor)} {t("projects.budget").toLowerCase()}
+                    {formatMinorWhole(row.actualExpensesMinor)} / {formatMinorWhole(row.budgetMinor)} {t("projects.budget").toLowerCase()}
                   </CardDescription>
                 </div>
               </CardHeader>
@@ -41,11 +41,11 @@ export default async function BudgetVsActualPage() {
                 <div className="grid grid-cols-3 gap-4 text-sm">
                   <div>
                     <p className="text-xs text-ink-muted">{t("dashboards.finance.totalRevenue")}</p>
-                    <p className="font-medium text-success mt-0.5">{formatMinor(row.actualRevenueMinor)}</p>
+                    <p className="font-medium text-success mt-0.5">{formatMinorWhole(row.actualRevenueMinor)}</p>
                   </div>
                   <div>
                     <p className="text-xs text-ink-muted">{t("dashboards.finance.totalExpenses")}</p>
-                    <p className="font-medium text-danger mt-0.5">{formatMinor(row.actualExpensesMinor)}</p>
+                    <p className="font-medium text-danger mt-0.5">{formatMinorWhole(row.actualExpensesMinor)}</p>
                   </div>
                   <div>
                     <p className="text-xs text-ink-muted">{t("dashboards.finance.netProfit")}</p>

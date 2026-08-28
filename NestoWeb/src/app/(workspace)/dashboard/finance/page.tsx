@@ -22,7 +22,7 @@ import { DashboardGreeting } from "@/components/dashboards/dashboard-greeting";
 import { FinanceScopeBar } from "@/components/dashboards/finance-scope-bar";
 import { formatDate } from "@/lib/utils";
 import { getT } from "@/lib/i18n/server";
-import { formatMinor } from "@/lib/money";
+import { formatMinor, formatMinorWhole } from "@/lib/money";
 
 // PRD_Finance_Dashboard §6 — Company Overview, the default Finance scope
 // mode. §5 "Company Overview / All Projects / Single Project" are separate
@@ -43,14 +43,14 @@ export default async function FinanceDashboardPage() {
 
       {/* §6.1 — exactly twelve company KPI cards */}
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
-        <StatTile label={t("dashboards.finance.cashPosition")} value={formatMinor(data.kpis.cashPositionMinor)} icon={Wallet} iconColor="#B76E00" iconBg="#FBECD2" href="/dashboard/finance/banking" />
-        <StatTile label={t("dashboards.finance.totalRevenue")} value={formatMinor(data.kpis.revenueMinor)} icon={TrendingUp} iconColor="#2457C5" iconBg="#E4ECFB" href="/dashboard/finance/revenue" />
-        <StatTile label={t("dashboards.finance.totalExpenses")} value={formatMinor(data.kpis.expensesMinor)} icon={TrendingDown} iconColor="#1A7F4E" iconBg="#E2F4EA" href="/dashboard/finance/expenses" />
-        <StatTile label={t("dashboards.finance.grossProfit")} value={formatMinor(data.kpis.grossProfitMinor)} icon={Layers} iconColor="#4a3aa7" iconBg="#EEEAFB" href="/dashboard/finance/statements" />
-        <StatTile label={t("dashboards.finance.netProfit")} value={formatMinor(data.kpis.netProfitMinor)} icon={Layers} iconColor="#4a3aa7" iconBg="#EEEAFB" href="/dashboard/finance/statements" />
-        <StatTile label={t("dashboards.finance.ebitda")} value={formatMinor(data.kpis.ebitdaMinor)} icon={BarChart3} iconColor="#4a3aa7" iconBg="#EEEAFB" href="/dashboard/finance/statements" />
-        <StatTile label={t("dashboards.finance.receivables")} value={formatMinor(data.kpis.receivablesMinor)} icon={TrendingUp} iconColor="#2457C5" iconBg="#E4ECFB" href="/dashboard/finance/receivables" />
-        <StatTile label={t("dashboards.finance.payables")} value={formatMinor(data.kpis.payablesMinor)} icon={TrendingDown} iconColor="#B76E00" iconBg="#FBECD2" href="/dashboard/finance/payables" />
+        <StatTile label={t("dashboards.finance.cashPosition")} value={formatMinorWhole(data.kpis.cashPositionMinor)} icon={Wallet} iconColor="#B76E00" iconBg="#FBECD2" href="/dashboard/finance/banking" />
+        <StatTile label={t("dashboards.finance.totalRevenue")} value={formatMinorWhole(data.kpis.revenueMinor)} icon={TrendingUp} iconColor="#2457C5" iconBg="#E4ECFB" href="/dashboard/finance/revenue" />
+        <StatTile label={t("dashboards.finance.totalExpenses")} value={formatMinorWhole(data.kpis.expensesMinor)} icon={TrendingDown} iconColor="#1A7F4E" iconBg="#E2F4EA" href="/dashboard/finance/expenses" />
+        <StatTile label={t("dashboards.finance.grossProfit")} value={formatMinorWhole(data.kpis.grossProfitMinor)} icon={Layers} iconColor="#4a3aa7" iconBg="#EEEAFB" href="/dashboard/finance/statements" />
+        <StatTile label={t("dashboards.finance.netProfit")} value={formatMinorWhole(data.kpis.netProfitMinor)} icon={Layers} iconColor="#4a3aa7" iconBg="#EEEAFB" href="/dashboard/finance/statements" />
+        <StatTile label={t("dashboards.finance.ebitda")} value={formatMinorWhole(data.kpis.ebitdaMinor)} icon={BarChart3} iconColor="#4a3aa7" iconBg="#EEEAFB" href="/dashboard/finance/statements" />
+        <StatTile label={t("dashboards.finance.receivables")} value={formatMinorWhole(data.kpis.receivablesMinor)} icon={TrendingUp} iconColor="#2457C5" iconBg="#E4ECFB" href="/dashboard/finance/receivables" />
+        <StatTile label={t("dashboards.finance.payables")} value={formatMinorWhole(data.kpis.payablesMinor)} icon={TrendingDown} iconColor="#B76E00" iconBg="#FBECD2" href="/dashboard/finance/payables" />
         <StatTile
           label={t("dashboards.finance.overdueInvoices")}
           value={String(data.kpis.overdueInvoices.count)}
@@ -69,8 +69,8 @@ export default async function FinanceDashboardPage() {
           iconBg="#EEEAFB"
           href="/dashboard/finance/budgets"
         />
-        <StatTile label={t("dashboards.finance.forecastVariance")} value={formatMinor(data.kpis.forecastVarianceMinor)} icon={TrendingUp} iconColor="#1A7F4E" iconBg="#E2F4EA" href="/dashboard/finance/forecast" />
-        <StatTile label={t("dashboards.finance.taxLiabilities")} value={formatMinor(data.kpis.taxLiabilitiesMinor)} icon={Percent} iconColor="#B76E00" iconBg="#FBECD2" href="/dashboard/finance/tax" />
+        <StatTile label={t("dashboards.finance.forecastVariance")} value={formatMinorWhole(data.kpis.forecastVarianceMinor)} icon={TrendingUp} iconColor="#1A7F4E" iconBg="#E2F4EA" href="/dashboard/finance/forecast" />
+        <StatTile label={t("dashboards.finance.taxLiabilities")} value={formatMinorWhole(data.kpis.taxLiabilitiesMinor)} icon={Percent} iconColor="#B76E00" iconBg="#FBECD2" href="/dashboard/finance/tax" />
       </div>
 
       {/* §6.2 Spending Control */}
@@ -83,17 +83,17 @@ export default async function FinanceDashboardPage() {
             <Link href="/dashboard/finance/spendings?status=PENDING" className="rounded-lg border border-border p-3 hover:border-gold/60 transition-colors">
               <p className="text-lg font-semibold text-ink">{data.spendingControl.pendingApprovalCount}</p>
               <p className="text-xs text-ink-muted mt-0.5">{t("dashboards.finance.pendingApproval")}</p>
-              <p className="text-xs text-ink-faint">{formatMinor(data.spendingControl.pendingApprovalAmountMinor)}</p>
+              <p className="text-xs text-ink-faint">{formatMinorWhole(data.spendingControl.pendingApprovalAmountMinor)}</p>
             </Link>
             <Link href="/dashboard/finance/spendings?status=APPROVED_FOR_PAYMENT" className="rounded-lg border border-border p-3 hover:border-gold/60 transition-colors">
               <p className="text-lg font-semibold text-ink">{data.spendingControl.approvedForPaymentCount}</p>
               <p className="text-xs text-ink-muted mt-0.5">{t("dashboards.finance.approvedForPayment")}</p>
-              <p className="text-xs text-ink-faint">{formatMinor(data.spendingControl.approvedForPaymentAmountMinor)}</p>
+              <p className="text-xs text-ink-faint">{formatMinorWhole(data.spendingControl.approvedForPaymentAmountMinor)}</p>
             </Link>
             <Link href="/dashboard/finance/spendings?status=PAID" className="rounded-lg border border-border p-3 hover:border-gold/60 transition-colors">
               <p className="text-lg font-semibold text-ink">{data.spendingControl.paidCount}</p>
               <p className="text-xs text-ink-muted mt-0.5">{t("dashboards.finance.paidThisPeriod")}</p>
-              <p className="text-xs text-ink-faint">{formatMinor(data.spendingControl.paidAmountMinor)}</p>
+              <p className="text-xs text-ink-faint">{formatMinorWhole(data.spendingControl.paidAmountMinor)}</p>
             </Link>
             <Link href="/dashboard/finance/spendings?overBudget=true" className="rounded-lg border border-border p-3 hover:border-gold/60 transition-colors">
               <p className="text-lg font-semibold text-ink">{data.spendingControl.overBudgetCount}</p>
@@ -134,13 +134,13 @@ export default async function FinanceDashboardPage() {
                       {p.project.name}
                     </Link>
                   </TD>
-                  <TD className="text-ink-muted">{formatMinor(p.budgetMinor)}</TD>
-                  <TD className="text-ink-muted">{formatMinor(p.committedMinor)}</TD>
-                  <TD className="text-ink-muted">{formatMinor(p.actualMinor)}</TD>
-                  <TD className="text-ink-muted">{formatMinor(p.spendingsMinor)}</TD>
-                  <TD className="text-ink-muted">{formatMinor(p.revenueMinor)}</TD>
-                  <TD className={p.profitMinor >= 0 ? "text-success font-medium" : "text-danger font-medium"}>{formatMinor(p.profitMinor)}</TD>
-                  <TD className="text-ink-muted">{formatMinor(p.forecastMinor)}</TD>
+                  <TD className="text-ink-muted">{formatMinorWhole(p.budgetMinor)}</TD>
+                  <TD className="text-ink-muted">{formatMinorWhole(p.committedMinor)}</TD>
+                  <TD className="text-ink-muted">{formatMinorWhole(p.actualMinor)}</TD>
+                  <TD className="text-ink-muted">{formatMinorWhole(p.spendingsMinor)}</TD>
+                  <TD className="text-ink-muted">{formatMinorWhole(p.revenueMinor)}</TD>
+                  <TD className={p.profitMinor >= 0 ? "text-success font-medium" : "text-danger font-medium"}>{formatMinorWhole(p.profitMinor)}</TD>
+                  <TD className="text-ink-muted">{formatMinorWhole(p.forecastMinor)}</TD>
                 </TRow>
               ))}
               {data.projectPortfolio.length === 0 && (

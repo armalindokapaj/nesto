@@ -66,7 +66,9 @@ test("Owner (creator) sees all three tasks and the real budget", async ({ page }
   await expect(page.getByText(publicTaskTitle)).toBeVisible();
   await expect(page.getByText(privateTaskTitle)).toBeVisible();
   await expect(page.getByText(deptTaskTitle)).toBeVisible();
-  await expect(page.getByText("500.000 €")).toBeVisible();
+  // Appears twice — as the budget and as the remaining balance, which are
+  // equal while nothing has been spent against this project.
+  await expect(page.getByText("500.000 €").first()).toBeVisible();
 });
 
 test("An uninvolved Architect sees the public task but not the private or Finance-only tasks, and the budget is restricted", async ({ page }) => {

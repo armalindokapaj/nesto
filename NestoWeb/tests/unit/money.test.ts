@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vitest";
-import { toMinorUnits, fromMinorUnits, sumMinor, allocateMinor, formatMinor, minorUnitFactor } from "@/lib/money";
+import { toMinorUnits, fromMinorUnits, sumMinor, allocateMinor, formatMinor, formatMinorWhole, minorUnitFactor } from "@/lib/money";
 import { calculateProcurementTotalsMinor } from "@/lib/procurement";
 
 // Phase 14 — money was Float in 114 schema fields and Decimal in none. The bug
@@ -145,5 +145,35 @@ describe("money in minor units", () => {
       expect(minor.taxMinor).toBe(250);
       expect(minor.totalMinor).toBe(10_000 - 500 + 250);
     });
+  });
+});
+
+describe("presentation", () => {
+  // Intl puts a non-breaking space before the currency symbol, so comparing
+  // against a normally-typed literal fails while showing two identical-looking
+  // strings. Normalise it rather than embedding \u00A0 in every expectation.
+  const money = (s: string) => s.replace(/\u00A0/g, " ");
+
+  // The two formatters exist for different readers and the difference is not
+  // cosmetic. Converting formatCurrency call sites to formatMinor during the
+  // migration silently added cents to 85 dashboard figures — a budget tile went
+  // from "500.000 €" to "500.000,00 €", which an e2e assertion caught and a
+  // human would otherwise have filed as a visual regression.
+  it("formatMinorWhole drops the cents, formatMinor keeps them", () => {
+    expect(money(formatMinorWhole(50_000_000))).toBe("500.000 €");
+    expect(money(formatMinor(50_000_000))).toBe("500.000,00 €");
+  });
+
+  it("rounds rather than truncates when dropping the cents", () => {
+    // €19.99 without cents reads as 20, not 19 — rounded for display only.
+    expect(money(formatMinorWhole(1_999))).toBe("20 €");
+    expect(money(formatMinor(1_999))).toBe("19,99 €");
+  });
+
+  it("both take minor units, so neither is safe on a decimal amount", () => {
+    // The whole point of the naming convention: passing 19.99 to either of
+    // these is the bug, not passing 1999.
+    expect(money(formatMinorWhole(19.99))).toBe("0 €");
+    expect(money(formatMinor(19.99))).toBe("0,20 €");
   });
 });

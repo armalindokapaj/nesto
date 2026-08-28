@@ -12,7 +12,7 @@ import { DashboardGreeting } from "@/components/dashboards/dashboard-greeting";
 import { can, isExternalRole, DASHBOARD_BY_ROLE } from "@/lib/permissions";
 import type { Role } from "@/lib/constants";
 
-import { formatMinor } from "@/lib/money";
+import { formatMinorWhole } from "@/lib/money";
 import { getT } from "@/lib/i18n/server";
 
 export default async function ExecutiveDashboardPage() {
@@ -42,7 +42,7 @@ export default async function ExecutiveDashboardPage() {
         <StatTile label={t("dashboards.executive.activeProjects")} value={String(data.activeProjectCount)} icon={FolderKanban} iconColor="#2457C5" iconBg="#E4ECFB" href="/projects" />
         <StatTile
           label={t("dashboards.executive.revenue")}
-          value={data.revenueMinor != null ? formatMinor(data.revenueMinor) : t("projects.restricted")}
+          value={data.revenueMinor != null ? formatMinorWhole(data.revenueMinor) : t("projects.restricted")}
           icon={TrendingUp}
           iconColor="#1A7F4E"
           iconBg="#E2F4EA"
