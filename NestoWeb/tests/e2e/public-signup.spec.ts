@@ -1,5 +1,5 @@
 import { test, expect, type Page } from "@playwright/test";
-import { fillCredentials, submitSignIn } from "./helpers";
+import { fillCredentials, submitSignIn, verificationTokenFor } from "./helpers";
 
 // Drives the full PRD_6 loop: public sign-up -> email verification ->
 // profile onboarding -> submission -> Platform Admin approval -> the
@@ -43,17 +43,13 @@ test("Applicant verifies email and completes the professional profile", async ({
   // Sign back in (session cookie is isolated to the prior test's browser
   // context) to reach the verification link again via resend.
   await page.getByRole("button", { name: "Sign In" }).click();
-  await page.getByLabel("Company Email or Username").fill(username);
+  await page.getByLabel("Email or Username").fill(username);
   await page.getByLabel("Password").fill("SuperSecret123");
   await page.getByRole("button", { name: "Sign In" }).click();
   await page.waitForURL(/\/apply\/verify/);
 
   await page.getByRole("button", { name: "Get a new verification link" }).click();
-  const verifyLink = page.getByRole("link", { name: /\/apply\/verify\?token=/ });
-  await expect(verifyLink).toBeVisible();
-  const href = await verifyLink.getAttribute("href");
-  expect(href).toBeTruthy();
-  await page.goto(href!);
+  await page.goto(`/apply/verify?token=${await verificationTokenFor(email)}`);
   await page.waitForURL(/\/apply\/onboarding/);
 
   // Step 1: Profile
@@ -97,7 +93,10 @@ test("Applicant verifies email and completes the professional profile", async ({
 test("Platform Admin approves the application", async ({ page }) => {
   await setEnglishLocale(page);
   await page.goto("/");
-  await fillCredentials(page, "Owner");
+  // The platform console gates on UserIdentity.isPlatformAdmin, which the
+  // per-role test accounts do not carry — "Owner" is a tenant role, not a
+  // platform one, and lands on the workspace instead.
+  await fillCredentials(page, "PlatformAdmin");
   await submitSignIn(page);
   await page.waitForURL(/\/dashboard/);
 
@@ -116,7 +115,7 @@ test("Applicant sees the approved status and permanent profile number", async ({
   await page.goto("/apply");
   await page.getByText("Already have an account?").isVisible();
   await page.getByRole("button", { name: "Sign In" }).click();
-  await page.getByLabel("Company Email or Username").fill(username);
+  await page.getByLabel("Email or Username").fill(username);
   await page.getByLabel("Password").fill("SuperSecret123");
   await page.getByRole("button", { name: "Sign In" }).click();
   await page.waitForURL(/\/apply\/pending/);

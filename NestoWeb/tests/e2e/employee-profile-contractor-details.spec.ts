@@ -1,5 +1,5 @@
 import { test, expect, type Page } from "@playwright/test";
-import { signIn, useEnglish } from "./helpers";
+import { signIn, setEnglishLocale } from "./helpers";
 
 test.describe.configure({ mode: "serial" });
 
@@ -7,7 +7,7 @@ const stamp = Date.now().toString(36);
 
 async function loginAs(page: Page, username: string, password = "1") {
   await page.context().clearCookies();
-  await useEnglish(page);
+  await setEnglishLocale(page);
   await signIn(page, username, password);
 }
 

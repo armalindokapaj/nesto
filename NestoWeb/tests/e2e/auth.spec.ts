@@ -1,10 +1,10 @@
 import { test, expect } from "@playwright/test";
-import { fillCredentials, signIn, submitSignIn, useEnglish } from "./helpers";
+import { fillCredentials, signIn, submitSignIn, setEnglishLocale } from "./helpers";
 
 // Albanian is the app's default locale; these tests assert on English copy,
 // so force the locale cookie before the first navigation in each test.
 test.beforeEach(async ({ page, baseURL }) => {
-  await useEnglish(page, baseURL);
+  await setEnglishLocale(page, baseURL);
 });
 
 test("landing page shows the Nesto login card", async ({ page }) => {

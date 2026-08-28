@@ -1,5 +1,5 @@
 import { test, expect, type Page } from "@playwright/test";
-import { signIn, useEnglish } from "./helpers";
+import { signIn, setEnglishLocale } from "./helpers";
 
 // Drives PRD_10's core contract: every project is company-wide discoverable,
 // but task visibility, Finance figures, and deep links still obey their own
@@ -17,7 +17,7 @@ let privateTaskUrl = "";
 
 async function loginAs(page: Page, username: string) {
   await page.context().clearCookies();
-  await useEnglish(page);
+  await setEnglishLocale(page);
   await signIn(page, username, "1");
 }
 

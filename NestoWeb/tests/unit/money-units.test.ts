@@ -18,10 +18,6 @@ import { join } from "node:path";
  * the type checker cannot.
  */
 
-const MINOR_FIELDS = [
-  "amountMinor", "discountMinor", "freightMinor", "grossSalaryMinor", "lineTotalMinor",
-  "netSalaryMinor", "subtotalMinor", "taxMinor", "totalMinor", "unitPriceMinor", "valueMinor",
-];
 
 /** Money columns still stored as decimal Float, per prisma/schema.prisma. */
 const FLOAT_MONEY = [

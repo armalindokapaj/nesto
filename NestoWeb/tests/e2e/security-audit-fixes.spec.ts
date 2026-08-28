@@ -1,5 +1,5 @@
 import { test, expect, type Page } from "@playwright/test";
-import { signIn, useEnglish } from "./helpers";
+import { signIn, setEnglishLocale } from "./helpers";
 
 // Regression coverage for the Nesto_Code_Audit_Initial.pdf critical findings
 // fixed on 2026-08-03. Findings requiring a real DB/action-level check
@@ -10,7 +10,7 @@ import { signIn, useEnglish } from "./helpers";
 
 async function loginAs(page: Page, username: string, password = "1") {
   await page.context().clearCookies();
-  await useEnglish(page);
+  await setEnglishLocale(page);
   await signIn(page, username, password);
 }
 

@@ -1,5 +1,5 @@
 import { test, expect, type Page } from "@playwright/test";
-import { signIn, useEnglish } from "./helpers";
+import { signIn, setEnglishLocale } from "./helpers";
 
 // End-to-end coverage for the Audit 2 reference workflow: Contract Approved
 // -> Finance Structure -> Payment Recorded -> Contractor Profile. Walks the
@@ -15,7 +15,7 @@ import { signIn, useEnglish } from "./helpers";
 
 async function loginAs(page: Page, username: string, password = "1") {
   await page.context().clearCookies();
-  await useEnglish(page);
+  await setEnglishLocale(page);
   await signIn(page, username, password);
 }
 

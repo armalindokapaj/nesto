@@ -1,6 +1,6 @@
 import { test, expect as baseExpect, type Page, type Locator } from "@playwright/test";
 
-import { signIn, useEnglish } from "./helpers";
+import { signIn, setEnglishLocale } from "./helpers";
 
 // Every assertion in this file waits on a re-render of the orchestrated task
 // view, which the server action performs as part of its response. Configured
@@ -23,7 +23,7 @@ test.describe.configure({ mode: "serial", timeout: 120_000 });
 
 async function loginAs(page: Page, username: string) {
   await page.context().clearCookies();
-  await useEnglish(page);
+  await setEnglishLocale(page);
   await signIn(page, username);
 }
 

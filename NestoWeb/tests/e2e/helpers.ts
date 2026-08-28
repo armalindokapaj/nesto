@@ -30,7 +30,7 @@ async function dismissDemoPicker(page: Page) {
 }
 
 /** Force English before the first navigation — Albanian is the app default and the specs assert English copy. */
-export async function useEnglish(page: Page, baseURL?: string) {
+export async function setEnglishLocale(page: Page, baseURL?: string) {
   await page.context().addCookies([
     baseURL
       ? { name: "nesto_locale", value: "en", url: baseURL }
@@ -84,4 +84,33 @@ export async function signIn(page: Page, username: string, password: string = SE
   await fillCredentials(page, username, password);
   await submitSignIn(page);
   await page.waitForURL(/\/dashboard/, { timeout: 20_000 });
+}
+
+/**
+ * The current verification token for a signup, read straight from the database.
+ *
+ * The app deliberately stops showing this on screen once it is running a
+ * production build (src/server/public-signup.ts): revealing a token it may
+ * have failed to email would make the "verified" checkmark meaningless, and a
+ * Platform Admin reads that checkmark as proof the applicant controls the
+ * address. This suite runs a production build, so the link is correctly
+ * absent — the test has to get the token the way an operator would, out of
+ * band, rather than the app being loosened to hand it back.
+ */
+export async function verificationTokenFor(email: string): Promise<string> {
+  const { PrismaClient } = await import("../../src/generated/prisma/index.js");
+  const db = new PrismaClient();
+  try {
+    const account = await db.publicAccount.findFirst({ where: { email }, select: { id: true } });
+    if (!account) throw new Error(`No public account for ${email}`);
+    const token = await db.emailVerificationToken.findFirst({
+      where: { publicAccountId: account.id, consumedAt: null },
+      orderBy: { createdAt: "desc" },
+      select: { token: true },
+    });
+    if (!token) throw new Error(`No unconsumed verification token for ${email}`);
+    return token.token;
+  } finally {
+    await db.$disconnect();
+  }
 }

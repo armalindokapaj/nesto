@@ -1,5 +1,5 @@
 import { test, expect, type Page } from "@playwright/test";
-import { signIn, useEnglish } from "./helpers";
+import { signIn, setEnglishLocale } from "./helpers";
 
 // Drives PRD_9's core scope (personal calendar, HR-governed leave workflow,
 // reminders, themes) — Team Availability and Google/Outlook sync are
@@ -8,7 +8,7 @@ test.describe.configure({ mode: "serial" });
 
 async function loginAs(page: Page, username: string, password = "1") {
   await page.context().clearCookies();
-  await useEnglish(page);
+  await setEnglishLocale(page);
   await signIn(page, username, password);
 }
 

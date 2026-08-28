@@ -1,4 +1,5 @@
 import { test, expect, type Page } from "@playwright/test";
+import { signIn, verificationTokenFor } from "./helpers";
 
 // PRD_6 end-to-end: public sign-up -> multi-step onboarding -> submission ->
 // Platform Admin review -> approval -> the applicant sees the outcome.
@@ -29,13 +30,11 @@ test("visitor registers, verifies email, completes onboarding and submits", asyn
 
   await page.waitForURL(/\/apply\/verify$/);
   await expect(page.getByText("Verifikoni email-in tuaj")).toBeVisible();
+  // The token is read from the database rather than off the page: a production
+  // build never reveals one it may have failed to email. See
+  // verificationTokenFor() for why that is the app being right, not a gap.
   await page.getByRole("button", { name: "Merr një lidhje të re verifikimi" }).click();
-  const link = page.locator('a[href^="/apply/verify?token="]');
-  await expect(link).toBeVisible();
-  const verifyLink = (await link.getAttribute("href")) ?? "";
-  expect(verifyLink).toContain("token=");
-
-  await page.goto(verifyLink);
+  await page.goto(`/apply/verify?token=${await verificationTokenFor(email)}`);
   await page.waitForURL(/\/apply\/onboarding/);
   await expect(page.getByRole("heading", { name: "Plotësoni profilin tuaj" })).toBeVisible();
 
@@ -90,11 +89,11 @@ test("visitor registers, verifies email, completes onboarding and submits", asyn
 });
 
 test("Platform Admin sees the application, opens it and approves it", async ({ page }: { page: Page }) => {
-  await page.goto("/");
-  await page.getByPlaceholder("ju@kompania.com ose përdoruesi").fill("Owner");
-  await page.getByPlaceholder("Vendosni fjalëkalimin").fill("1");
-  await page.getByRole("button", { name: "Kyçu" }).click();
-  await page.waitForURL(/\/dashboard/);
+  // The platform console gates on UserIdentity.isPlatformAdmin, which the
+  // per-role test accounts do not carry — "Owner" is a tenant role, not a
+  // platform one. This spec runs in Albanian on purpose (the tenant default),
+  // but the sign-in itself goes through the shared helper.
+  await signIn(page, "PlatformAdmin");
 
   await page.goto("/platform/applications");
   await expect(page.getByRole("heading", { name: "Aplikimet e Platformës" })).toBeVisible();
