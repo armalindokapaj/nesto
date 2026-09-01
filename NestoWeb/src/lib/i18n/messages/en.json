@@ -2093,6 +2093,14 @@
     "category_REVIEW": "Review",
     "category_DATA_CORRECTION": "Data correction"
   },
+  "notifications": {
+    "title": "Notifications",
+    "subtitle": "Everything the platform has told you — open one to go straight to the page where it gets resolved.",
+    "viewAll": "View all notifications",
+    "unreadCount": "{count} unread",
+    "spotlightLabel": "You were sent here by a notification",
+    "dismissSpotlight": "Dismiss this notification"
+  },
   "account": {
     "title": "Account Settings",
     "subtitle": "Your profile, security and notification preferences.",

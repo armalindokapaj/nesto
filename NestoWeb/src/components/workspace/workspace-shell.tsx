@@ -1,8 +1,9 @@
 "use client";
 
-import { useState } from "react";
+import { Suspense, useState } from "react";
 import { Sidebar } from "@/components/workspace/sidebar";
 import { Topbar } from "@/components/workspace/topbar";
+import { NotificationSpotlight } from "@/components/workspace/notification-spotlight";
 import { useI18n } from "@/lib/i18n/locale-provider";
 import type { Role } from "@/lib/constants";
 import type { ModuleKey } from "@/lib/modules";
@@ -66,7 +67,14 @@ export function WorkspaceShell({
           canUpload={canUpload}
           uploadProjects={uploadProjects}
         />
-        <main className="flex-1 p-4 md:p-6 max-w-[1600px] w-full mx-auto">{children}</main>
+        <main className="flex-1 p-4 md:p-6 max-w-[1600px] w-full mx-auto">
+          {/* Reads `?highlight=` — Suspense per the useSearchParams docs, so
+              nothing above it is forced out of the prerendered HTML. */}
+          <Suspense fallback={null}>
+            <NotificationSpotlight />
+          </Suspense>
+          {children}
+        </main>
         <footer className="px-4 md:px-6 py-4 text-center text-xs text-ink-faint border-t border-border">
           © {new Date().getFullYear()} Nesto. {t("footer.rights")} ·{" "}
           <a href="#" className="hover:text-ink-muted">{t("footer.privacy")}</a> ·{" "}

@@ -278,3 +278,35 @@ body {
   border-left: 1px solid var(--color-border);
   border-top: 1px solid var(--color-border);
 }
+
+/* Notification spotlight — what you land on after clicking a notification.
+   Three slow gold pulses, then the ring settles into a steady (but still
+   clearly gold) outline, so the thing you were sent to solve is visible the
+   moment the page paints and stays findable after the motion ends. Used by
+   notification-spotlight.tsx and the highlighted row in the notification
+   centre. */
+@keyframes notice-spotlight {
+  0%   { box-shadow: 0 0 0 0 color-mix(in srgb, var(--color-gold) 55%, transparent); }
+  70%  { box-shadow: 0 0 0 10px color-mix(in srgb, var(--color-gold) 0%, transparent); }
+  100% { box-shadow: 0 0 0 0 color-mix(in srgb, var(--color-gold) 0%, transparent); }
+}
+
+.notice-spotlight {
+  outline: 2px solid var(--color-gold);
+  outline-offset: 2px;
+  border-radius: 0.75rem;
+  animation: notice-spotlight 1.6s cubic-bezier(0.4, 0, 0.2, 1) 3;
+}
+
+/* Same ring drawn inside the element instead of around it — for a row inside
+   a clipping container, where a 2px outward offset gets cut off at the edge. */
+.notice-spotlight-inset {
+  outline-offset: -2px;
+  border-radius: 0;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .notice-spotlight {
+    animation: none;
+  }
+}

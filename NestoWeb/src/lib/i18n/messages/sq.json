@@ -2071,6 +2071,14 @@
     "category_REVIEW": "Shqyrtim",
     "category_DATA_CORRECTION": "Korrigjim të dhënash"
   },
+  "notifications": {
+    "title": "Njoftimet",
+    "subtitle": "Gjithçka që platforma ju ka njoftuar — hapni një njoftim për të shkuar drejt te faqja ku zgjidhet.",
+    "viewAll": "Shiko të gjitha njoftimet",
+    "unreadCount": "{count} të palexuara",
+    "spotlightLabel": "Jeni sjellë këtu nga një njoftim",
+    "dismissSpotlight": "Mbyll këtë njoftim"
+  },
   "account": {
     "title": "Cilësimet e Llogarisë",
     "subtitle": "Profili juaj, siguria dhe preferencat e njoftimeve.",

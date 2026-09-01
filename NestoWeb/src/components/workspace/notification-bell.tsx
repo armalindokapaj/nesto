@@ -1,9 +1,11 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import { useRouter } from "next/navigation";
 import * as Popover from "@radix-ui/react-popover";
 import { Bell } from "lucide-react";
 import { formatDate } from "@/lib/utils";
+import { notificationHref, NOTIFICATION_CENTRE } from "@/lib/notification-link";
 import { useI18n } from "@/lib/i18n/locale-provider";
 
 type Notification = {
@@ -17,6 +19,7 @@ type Notification = {
 
 export function NotificationBell({ initialCount }: { initialCount: number }) {
   const { t } = useI18n();
+  const router = useRouter();
   const [open, setOpen] = useState(false);
   const [notifications, setNotifications] = useState<Notification[]>([]);
   const [unread, setUnread] = useState(initialCount);
@@ -37,6 +40,23 @@ export function NotificationBell({ initialCount }: { initialCount: number }) {
     setUnread(0);
     setNotifications((prev) => prev.map((n) => ({ ...n, isRead: true })));
     await fetch("/api/notifications/read-all", { method: "POST" });
+  }
+
+  /**
+   * Clicking a notification is the whole point of one: it marks itself read
+   * and hands you the page where the thing it announced gets solved, with
+   * `?highlight=` so the destination can spotlight it on arrival. The read
+   * flip is optimistic — navigating is the user-visible job, and a failed
+   * mark-read only means the dot is still there next time.
+   */
+  function openNotification(n: Notification) {
+    setOpen(false);
+    if (!n.isRead) {
+      setUnread((count) => Math.max(0, count - 1));
+      setNotifications((prev) => prev.map((item) => (item.id === n.id ? { ...item, isRead: true } : item)));
+      void fetch(`/api/notifications/${n.id}/read`, { method: "POST" });
+    }
+    router.push(notificationHref(n.link, n.id));
   }
 
   return (
@@ -73,19 +93,39 @@ export function NotificationBell({ initialCount }: { initialCount: number }) {
           ) : (
             <ul>
               {notifications.map((n) => (
-                <li key={n.id} className="border-b border-border last:border-0 px-4 py-3">
-                  <div className="flex items-start gap-2">
-                    {!n.isRead && <span className="mt-1.5 h-1.5 w-1.5 rounded-full bg-gold shrink-0" />}
-                    <div className={n.isRead ? "opacity-70" : ""}>
-                      <p className="text-sm text-ink font-medium leading-snug">{n.title}</p>
-                      {n.body && <p className="text-xs text-ink-muted mt-0.5">{n.body}</p>}
-                      <p className="text-[0.65rem] text-ink-faint mt-1">{formatDate(n.createdAt)}</p>
+                <li key={n.id} className="border-b border-border last:border-0">
+                  <button
+                    type="button"
+                    onClick={() => openNotification(n)}
+                    className={`w-full text-left px-4 py-3 transition-colors hover:bg-surface-sunken focus-visible:outline-none focus-visible:bg-surface-sunken ${
+                      n.isRead ? "" : "bg-gold-soft/40"
+                    }`}
+                  >
+                    <div className="flex items-start gap-2">
+                      {!n.isRead && <span className="mt-1.5 h-1.5 w-1.5 rounded-full bg-gold shrink-0" />}
+                      <div className={n.isRead ? "opacity-70" : ""}>
+                        <p className="text-sm text-ink font-medium leading-snug">{n.title}</p>
+                        {n.body && <p className="text-xs text-ink-muted mt-0.5">{n.body}</p>}
+                        <p className="text-[0.65rem] text-ink-faint mt-1">{formatDate(n.createdAt)}</p>
+                      </div>
                     </div>
-                  </div>
+                  </button>
                 </li>
               ))}
             </ul>
           )}
+          <div className="border-t border-border px-4 py-2.5 sticky bottom-0 bg-surface">
+            <button
+              type="button"
+              onClick={() => {
+                setOpen(false);
+                router.push(NOTIFICATION_CENTRE);
+              }}
+              className="text-xs font-medium text-gold hover:underline"
+            >
+              {t("notifications.viewAll")}
+            </button>
+          </div>
         </Popover.Content>
       </Popover.Portal>
     </Popover.Root>
