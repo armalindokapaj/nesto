@@ -17,14 +17,27 @@ import { toMinorUnits } from "@/lib/money";
 
 const OVERDUE_STATUSES = ["PENDING", "SENT", "OVERDUE", "SUBMITTED"];
 
-async function projectPortfolioRow(tenantId: string, project: { id: string; name: string; budget: number | null; companyId: string }) {
-  const [budgetRow, purchaseOrders, invoices, spendingBills] = await Promise.all([
-    db.budget.findFirst({ where: { tenantId, projectId: project.id, status: "ACTIVE" }, orderBy: { createdAt: "desc" } }),
-    db.purchaseOrder.findMany({ where: { tenantId, projectId: project.id } }),
-    db.invoice.findMany({ where: { tenantId, projectId: project.id } }),
-    db.spendingBill.findMany({ where: { tenantId, projectId: project.id } }),
-  ]);
+type PortfolioProject = { id: string; name: string; budget: number | null; companyId: string };
 
+/**
+ * Pure — every figure below is derived from rows the caller already holds.
+ *
+ * This used to fetch its own four rows per project, which meant the portfolio
+ * cost 4 x (number of projects) queries: 156 of them for this tenant's 39
+ * projects, to read a grand total of 51 rows. Concurrent inside one
+ * Promise.all, so not 156 sequential round trips — but far more than the
+ * Prisma connection pool can serve at once, so they queued in waves, and a
+ * burst of Finance page loads could exhaust the pool outright.
+ * getProjectFinancialPortfolio now reads all four tables once and hands each
+ * project its slice.
+ */
+function projectPortfolioRow(
+  project: PortfolioProject,
+  budgetRow: { baselineAmount: number; currency: string } | null,
+  purchaseOrders: { status: string; amountMinor: number }[],
+  invoices: { type: string; status: string; amountMinor: number }[],
+  spendingBills: { status: string; amountMinor: number }[]
+) {
   // Budget.baselineAmount / Project.budget are still decimal Floats; convert on
   // read so the whole row is one unit and comparisons against it are meaningful.
   const budgetAmountMinor = budgetRow
@@ -69,22 +82,72 @@ async function projectPortfolioRow(tenantId: string, project: { id: string; name
   };
 }
 
+/** Groups rows by projectId, skipping the company-level rows (projectId null). */
+function groupByProject<T extends { projectId: string | null }>(rows: T[]): Map<string, T[]> {
+  const grouped = new Map<string, T[]>();
+  for (const row of rows) {
+    if (!row.projectId) continue;
+    const bucket = grouped.get(row.projectId);
+    if (bucket) bucket.push(row);
+    else grouped.set(row.projectId, [row]);
+  }
+  return grouped;
+}
+
 export async function getProjectFinancialPortfolio(tenantId: string) {
   const projects = await db.project.findMany({
     where: { tenantId, status: { not: "ARCHIVED" } },
     select: { id: true, name: true, budget: true, companyId: true },
     orderBy: { name: "asc" },
   });
-  return Promise.all(projects.map((p) => projectPortfolioRow(tenantId, p)));
+  if (projects.length === 0) return [];
+
+  const projectId = { in: projects.map((p) => p.id) };
+  const [budgets, purchaseOrders, invoices, spendingBills] = await Promise.all([
+    // Ordered newest-first so the first row seen per project is the one the
+    // old per-project findFirst(orderBy createdAt desc) would have returned.
+    db.budget.findMany({ where: { tenantId, projectId, status: "ACTIVE" }, orderBy: { createdAt: "desc" } }),
+    db.purchaseOrder.findMany({ where: { tenantId, projectId } }),
+    db.invoice.findMany({ where: { tenantId, projectId } }),
+    db.spendingBill.findMany({ where: { tenantId, projectId } }),
+  ]);
+
+  const activeBudget = new Map<string, (typeof budgets)[number]>();
+  for (const budget of budgets) {
+    if (budget.projectId && !activeBudget.has(budget.projectId)) activeBudget.set(budget.projectId, budget);
+  }
+  const ordersByProject = groupByProject(purchaseOrders);
+  const invoicesByProject = groupByProject(invoices);
+  const billsByProject = groupByProject(spendingBills);
+
+  return projects.map((project) =>
+    projectPortfolioRow(
+      project,
+      activeBudget.get(project.id) ?? null,
+      ordersByProject.get(project.id) ?? [],
+      invoicesByProject.get(project.id) ?? [],
+      billsByProject.get(project.id) ?? []
+    )
+  );
 }
 
 export async function getCompanyFinanceOverview(tenantId: string) {
-  const [invoices, accounts, portfolio, spendingSummary, taxInvoices] = await Promise.all([
+  // companyBudget and recentActivity used to be awaited further down, after
+  // the arithmetic — but neither depends on anything computed here, so each
+  // was a round trip the page waited through for no reason.
+  const [invoices, accounts, portfolio, spendingSummary, taxInvoices, companyBudget, recentActivity] = await Promise.all([
     db.invoice.findMany({ where: { tenantId } }),
     db.financeAccount.findMany({ where: { tenantId } }),
     getProjectFinancialPortfolio(tenantId),
     getSpendingsSummary(tenantId),
     db.invoice.findMany({ where: { tenantId, OR: [{ description: { contains: "Tax", mode: "insensitive" as const } }, { number: { contains: "TAX", mode: "insensitive" as const } }] } }),
+    db.budget.findFirst({ where: { tenantId, projectId: null, status: "ACTIVE" }, orderBy: { createdAt: "desc" } }),
+    db.financeActivity.findMany({
+      where: { tenantId },
+      orderBy: { createdAt: "desc" },
+      take: 15,
+      include: { actor: { select: { id: true, displayName: true } } },
+    }),
   ]);
 
   const revenueMinor = invoices.filter((i) => i.type === "INVOICE").reduce((s, i) => s + i.amountMinor, 0);
@@ -106,7 +169,6 @@ export async function getCompanyFinanceOverview(tenantId: string) {
     .sort((a, b) => a.dueDate!.getTime() - b.dueDate!.getTime())
     .slice(0, 5);
 
-  const companyBudget = await db.budget.findFirst({ where: { tenantId, projectId: null, status: "ACTIVE" }, orderBy: { createdAt: "desc" } });
   const portfolioCommittedMinor = portfolio.reduce((s, p) => s + p.committedMinor + p.actualMinor, 0);
   // Both sides in minor units. Dividing minor by major here reported budget
   // usage as 100x its real value — 40% of budget read as 4,000%.
@@ -118,13 +180,6 @@ export async function getCompanyFinanceOverview(tenantId: string) {
   const forecastVarianceMinor = totalForecastMinor - totalBudgetMinor;
 
   const taxLiabilitiesMinor = taxInvoices.filter((i) => OVERDUE_STATUSES.includes(i.status)).reduce((s, i) => s + Math.abs(i.amountMinor), 0);
-
-  const recentActivity = await db.financeActivity.findMany({
-    where: { tenantId },
-    orderBy: { createdAt: "desc" },
-    take: 15,
-    include: { actor: { select: { id: true, displayName: true } } },
-  });
 
   return {
     kpis: {
@@ -178,12 +233,17 @@ export async function getSingleProjectFinanceOverview(tenantId: string, projectI
   const project = await db.project.findUnique({ where: { id: projectId }, select: { id: true, name: true, status: true, budget: true, companyId: true } });
   if (!project) throw new Error("Project not found.");
 
-  const [embedded, row, spendingBills, cashFlowInvoices] = await Promise.all([
+  // The portfolio row is computed from rows fetched here rather than fetching
+  // its own: this Promise.all was already reading the same spending bills and
+  // invoices, so the old call duplicated both.
+  const [embedded, budgetRow, purchaseOrders, spendingBills, cashFlowInvoices] = await Promise.all([
     getProjectFinanceDashboardData(tenantId, projectId),
-    projectPortfolioRow(tenantId, project),
+    db.budget.findFirst({ where: { tenantId, projectId, status: "ACTIVE" }, orderBy: { createdAt: "desc" } }),
+    db.purchaseOrder.findMany({ where: { tenantId, projectId } }),
     db.spendingBill.findMany({ where: { tenantId, projectId }, orderBy: { createdAt: "desc" } }),
     db.invoice.findMany({ where: { tenantId, projectId } }),
   ]);
+  const row = projectPortfolioRow(project, budgetRow, purchaseOrders, cashFlowInvoices, spendingBills);
   const cashInMinor = cashFlowInvoices.filter((i) => i.type === "INVOICE" && (i.status === "PAID" || i.status === "COMPLETED")).reduce((s, i) => s + i.amountMinor, 0);
   const cashOutMinor = cashFlowInvoices
     .filter((i) => (i.type === "EXPENSE" || i.type === "BILL" || i.type === "PAYMENT") && (i.status === "PAID" || i.status === "COMPLETED"))
