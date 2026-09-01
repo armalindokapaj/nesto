@@ -17,6 +17,8 @@ import {
 } from "@/server/inventory-module";
 import type { MovementType } from "@/lib/inventory-constants";
 import { toActionError } from "@/lib/errors";
+import { tenantDefaultCurrency } from "@/lib/tenant";
+import { toMinorUnits } from "@/lib/money";
 
 // PRD_Inventory_Module — gated on PROCUREMENT:WRITE for day-to-day master
 // data and drafting movements, PROCUREMENT:FULL for posting/reversing (the
@@ -133,7 +135,7 @@ const MovementSchema = z.object({
       z.object({
         productId: z.string().min(1),
         qty: z.coerce.number().positive(),
-        unitCost: z.coerce.number().optional(),
+        unitCost: z.coerce.number().optional(),  // decimal as typed; converted to minor units below
         fromWarehouseId: z.string().optional(),
         toWarehouseId: z.string().optional(),
         expiryDate: z.coerce.date().optional(),
@@ -158,7 +160,14 @@ export async function createMovementAction(
 
   try {
     assertInventoryWrite(role);
-    await createMovement(tenantId, { ...parsed.data, type: parsed.data.type as MovementType, createdById: user.id });
+    // The sanctioned Float -> minor-units boundary: the form collects a decimal
+    // cost, storage is integer minor units (lib/money.ts).
+    const currency = await tenantDefaultCurrency(tenantId);
+    const lines = parsed.data.lines.map(({ unitCost, ...line }) => ({
+      ...line,
+      unitCostMinor: unitCost == null ? undefined : toMinorUnits(unitCost, currency),
+    }));
+    await createMovement(tenantId, { ...parsed.data, lines, type: parsed.data.type as MovementType, createdById: user.id });
   } catch (error) {
     return { error: toActionError(error, "Could not create movement") };
   }

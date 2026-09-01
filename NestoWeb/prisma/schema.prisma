@@ -5609,7 +5609,9 @@ model MovementLine {
   qty             Float
   uomId           String?
   uom             UnitOfMeasure?    @relation(fields: [uomId], references: [id])
-  unitCost        Float?
+  // Phase 15 Priority 3 — integer minor units, in the tenant's defaultCurrency
+  // (a movement line carries no currency of its own). See lib/money.ts.
+  unitCostMinor   Int?
   fromWarehouseId String?
   fromWarehouse   Warehouse?        @relation("MovementLineFromWarehouse", fields: [fromWarehouseId], references: [id])
   toWarehouseId   String?

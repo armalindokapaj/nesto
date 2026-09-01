@@ -79,3 +79,12 @@ export async function requireTenantMember(tenantId: string, userId: string) {
   const membership = await db.companyMembership.findUnique({ where: { tenantId_userId: { tenantId, userId } } });
   if (!membership) throw new TenantMismatchError("User");
 }
+
+// A movement line, a stock balance and most inventory rows carry no currency
+// of their own — the tenant's default is the currency they are denominated in.
+// Needed wherever a decimal amount crosses into integer minor units, because
+// the minor-unit factor is currency-dependent (see lib/money.ts).
+export async function tenantDefaultCurrency(tenantId: string): Promise<string> {
+  const settings = await db.tenantSettings.findUnique({ where: { tenantId }, select: { defaultCurrency: true } });
+  return settings?.defaultCurrency ?? "EUR";
+}

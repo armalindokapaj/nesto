@@ -25,7 +25,7 @@ const FLOAT_MONEY = [
   "targetValue", "deltaAmount", "claimedValue", "acceptedValue", "certifiedValue",
   "estimatedValue", "depositAmount", "askingPrice", "finalPrice", "purchaseValue", "salvageValue",
   "bookValue", "disposalValue", "estimatedCost", "laborCost", "materialCost", "insuredValue",
-  "grossSalary", "netSalary", "previousAmount", "newAmount", "currentValue", "unitCost",
+  "grossSalary", "netSalary", "previousAmount", "newAmount", "currentValue",
   "costPerSeat", "costImpact", "pricePerM2", "minContractValue", "maxContractValue",
 ];
 

@@ -205,7 +205,7 @@ export async function createMovement(
     // PRD_Inventory_Dashboard — Tagged Goods Issue / Transfer Receipt: naming
     // a recipient puts the movement into PENDING confirmation on posting.
     recipientId?: string;
-    lines: { productId: string; qty: number; unitCost?: number; fromWarehouseId?: string; toWarehouseId?: string; expiryDate?: Date }[];
+    lines: { productId: string; qty: number; unitCostMinor?: number; fromWarehouseId?: string; toWarehouseId?: string; expiryDate?: Date }[];
   }
 ) {
   const direction = MOVEMENT_DIRECTION[input.type];
@@ -232,7 +232,7 @@ export async function createMovement(
           tenantId,
           productId: l.productId,
           qty: l.qty,
-          unitCost: l.unitCost,
+          unitCostMinor: l.unitCostMinor,
           fromWarehouseId: direction.requiresFrom ? l.fromWarehouseId : null,
           toWarehouseId: direction.requiresTo ? l.toWarehouseId : null,
           expiryDate: l.expiryDate,
@@ -360,7 +360,7 @@ export async function reverseMovement(tenantId: string, input: { movementId: str
             tenantId,
             productId: l.productId,
             qty: l.qty,
-            unitCost: l.unitCost,
+            unitCostMinor: l.unitCostMinor,
             uomId: l.uomId,
             fromWarehouseId: l.toWarehouseId,
             toWarehouseId: l.fromWarehouseId,
@@ -404,10 +404,14 @@ export async function confirmMovementReceipt(tenantId: string, actorId: string, 
   if (movement.recipientId && movement.recipientId !== actorId) {
     throw new Error("Only the named recipient can confirm this movement.");
   }
-  const updated = await db.inventoryMovement.update({
-    where: { id: movementId },
+  // Compare-and-swap, not a bare update: two recipients (or a double-submit)
+  // could both read PENDING and both write, confirming the same receipt twice.
+  const claimed = await db.inventoryMovement.updateMany({
+    where: { id: movementId, confirmationStatus: movement.confirmationStatus },
     data: { confirmationStatus: "CONFIRMED", confirmedAt: new Date(), confirmedById: actorId, disputeReason: null },
   });
+  if (claimed.count === 0) throw new Error("This movement was changed by someone else. Reload and try again.");
+  const updated = await db.inventoryMovement.findUniqueOrThrow({ where: { id: movementId } });
   await logInventoryActivity({ tenantId, entityType: "InventoryMovement", entityId: movementId, actorId, eventType: "CONFIRMED", summary: `${movement.number} receipt confirmed` });
   return updated;
 }
@@ -417,10 +421,12 @@ export async function disputeMovementReceipt(tenantId: string, actorId: string, 
   if (movement.confirmationStatus !== "PENDING") throw new Error("This movement is not awaiting confirmation.");
   if (movement.recipientId && movement.recipientId !== actorId) throw new Error("Only the named recipient can dispute this movement.");
   if (!reason.trim()) throw new Error("A dispute reason is required.");
-  const updated = await db.inventoryMovement.update({
-    where: { id: movementId },
+  const claimed = await db.inventoryMovement.updateMany({
+    where: { id: movementId, confirmationStatus: "PENDING" },
     data: { confirmationStatus: "DISPUTED", disputeReason: reason.trim() },
   });
+  if (claimed.count === 0) throw new Error("This movement was changed by someone else. Reload and try again.");
+  const updated = await db.inventoryMovement.findUniqueOrThrow({ where: { id: movementId } });
   await logInventoryActivity({ tenantId, entityType: "InventoryMovement", entityId: movementId, actorId, eventType: "DISPUTED", summary: `${movement.number} disputed: ${reason.trim()}` });
   return updated;
 }

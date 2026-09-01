@@ -101,8 +101,8 @@ export async function seedProcurementInventoryCrm(ctx: FixtureContext) {
       reason: "Initial stock receipt against PO",
       createdById: users.besnik.id,
       lines: [
-        { productId: product1.id, qty: 400, unitCost: 3.1, toWarehouseId: siteWarehouse.id },
-        { productId: product2.id, qty: 80, unitCost: 4.5, toWarehouseId: hqWarehouse.id },
+        { productId: product1.id, qty: 400, unitCostMinor: 310, toWarehouseId: siteWarehouse.id },
+        { productId: product2.id, qty: 80, unitCostMinor: 450, toWarehouseId: hqWarehouse.id },
       ],
     });
     await postMovement(tenantId, { movementId: receipt.id, actorId: users.besnik.id });
