@@ -1,7 +1,7 @@
 "use client";
 
 import { useTransition } from "react";
-import Link from "next/link";
+import { PrefetchLink } from "@/components/ui/prefetch-link";
 import * as DropdownMenu from "@radix-ui/react-dropdown-menu";
 import { Menu, ChevronDown, LogOut, Settings, HelpCircle, PanelLeftClose, PanelLeftOpen, ClipboardCheck, ShieldCheck, CalendarDays, UploadCloud } from "lucide-react";
 import { Avatar } from "@/components/ui/avatar";
@@ -79,15 +79,15 @@ export function Topbar({
             }
           />
         )}
-        <Link
+        <PrefetchLink
           href="/calendar"
           className="flex h-9 w-9 items-center justify-center rounded-lg text-ink-muted hover:bg-surface-sunken hover:text-ink transition-colors"
           aria-label={t("calendar.title")}
           title={t("calendar.title")}
         >
           <CalendarDays size={18} />
-        </Link>
-        <Link
+        </PrefetchLink>
+        <PrefetchLink
           href="/inbox"
           className="relative flex h-9 w-9 items-center justify-center rounded-lg text-ink-muted hover:bg-surface-sunken hover:text-ink transition-colors"
           aria-label={t("inbox.title")}
@@ -99,7 +99,7 @@ export function Topbar({
               {inboxCount > 9 ? "9+" : inboxCount}
             </span>
           )}
-        </Link>
+        </PrefetchLink>
         <NotificationBell initialCount={notificationCount} />
 
         <DropdownMenu.Root>
@@ -120,29 +120,29 @@ export function Topbar({
               className="min-w-[200px] rounded-xl border border-border bg-surface p-1.5 shadow-lg z-50"
             >
               <DropdownMenu.Item asChild>
-                <Link
+                <PrefetchLink
                   href="/account"
                   className="flex items-center gap-2 rounded-lg px-2.5 py-2 text-sm text-ink hover:bg-surface-sunken cursor-pointer outline-none"
                 >
                   <Settings size={15} className="text-ink-muted" /> {t("common.accountSettings")}
-                </Link>
+                </PrefetchLink>
               </DropdownMenu.Item>
               <DropdownMenu.Item asChild>
-                <Link
+                <PrefetchLink
                   href="/help"
                   className="flex items-center gap-2 rounded-lg px-2.5 py-2 text-sm text-ink hover:bg-surface-sunken cursor-pointer outline-none"
                 >
                   <HelpCircle size={15} className="text-ink-muted" /> {t("common.helpSupport")}
-                </Link>
+                </PrefetchLink>
               </DropdownMenu.Item>
               {isPlatformAdmin && (
                 <DropdownMenu.Item asChild>
-                  <Link
+                  <PrefetchLink
                     href="/platform/applications"
                     className="flex items-center gap-2 rounded-lg px-2.5 py-2 text-sm text-ink hover:bg-surface-sunken cursor-pointer outline-none"
                   >
                     <ShieldCheck size={15} className="text-gold" /> {t("platform.applicationsTitle")}
-                  </Link>
+                  </PrefetchLink>
                 </DropdownMenu.Item>
               )}
               <DropdownMenu.Separator className="my-1 h-px bg-border" />

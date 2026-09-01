@@ -1,4 +1,4 @@
-import Link from "next/link";
+import { PrefetchLink } from "@/components/ui/prefetch-link";
 import { cn } from "@/lib/utils";
 import type { LucideIcon } from "lucide-react";
 
@@ -60,9 +60,9 @@ export function StatTile({
 
   if (href) {
     return (
-      <Link href={href} className={cn(className, "transition-colors hover:border-border-strong hover:bg-surface-sunken/40")}>
+      <PrefetchLink href={href} className={cn(className, "transition-colors hover:border-border-strong hover:bg-surface-sunken/40")}>
         {content}
-      </Link>
+      </PrefetchLink>
     );
   }
 

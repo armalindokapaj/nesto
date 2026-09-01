@@ -1,4 +1,4 @@
-import Link from "next/link";
+import { PrefetchLink } from "@/components/ui/prefetch-link";
 import { getT } from "@/lib/i18n/server";
 
 // PRD_Finance_Dashboard §10 — exact, locked Project Finance tab set.
@@ -25,7 +25,7 @@ export async function ProjectFinanceTabs({ projectId, active }: { projectId: str
       {TABS.map((tab) => {
         const isActive = tab.slug === active;
         return (
-          <Link
+          <PrefetchLink
             key={tab.slug}
             href={tab.slug ? `${base}/${tab.slug}` : base}
             className={
@@ -35,7 +35,7 @@ export async function ProjectFinanceTabs({ projectId, active }: { projectId: str
             }
           >
             {t(tab.labelKey)}
-          </Link>
+          </PrefetchLink>
         );
       })}
     </nav>

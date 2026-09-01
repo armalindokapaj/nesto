@@ -8,6 +8,39 @@ const nextConfig: NextConfig = {
     serverActions: {
       bodySizeLimit: "10mb",
     },
+
+    // --- Navigation latency -------------------------------------------------
+    //
+    // Every page in this app is dynamic (`ƒ` in the build output), and Next
+    // caches nothing about a dynamic route on the client by default, so every
+    // click — including back to a page visited seconds earlier — paid a full
+    // server round trip: 400-1900ms against a remote database, with nothing on
+    // screen changing meanwhile.
+    //
+    // `dynamic: 0` (the default) is what made returning to a page you were
+    // just on re-render it from scratch. 30s is well inside the window where a
+    // mutation would have cleared the entry anyway: server actions call
+    // revalidatePath (66 of the 68 files in app/actions do) and that
+    // invalidates the client cache along with the server one, so this
+    // staleness window only ever applies to changes made by *other* people,
+    // never to the user's own edits.
+    staleTimes: {
+      dynamic: 30,
+      static: 180,
+    },
+
+    // The other half of this is prefetching, which is a per-link decision
+    // rather than a config one — see components/workspace/nav-link.tsx.
+    //
+    // And one thing deliberately NOT here: a route-level loading.tsx under
+    // (workspace). It made navigation feel instant, but it also made every
+    // in-page link prefetchable, and in that state the refresh a Server Action
+    // triggers through revalidatePath was reliably aborted — a created task
+    // never appeared in the list it was created from, an approved leave
+    // request never flipped to APPROVED. Instant navigation is not worth
+    // mutations that silently fail to show up. The e2e suite catches it
+    // (task-orchestration and personal-calendar-leave-themes both fail), so
+    // read this before adding a loading boundary here again.
   },
   // Phase 3 Track B — next.config.ts previously set no security headers at all.
   // Vercel supplies HSTS, but clickjacking protection and CSP are not on by

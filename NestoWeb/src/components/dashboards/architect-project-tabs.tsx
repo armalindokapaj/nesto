@@ -1,4 +1,4 @@
-import Link from "next/link";
+import { PrefetchLink } from "@/components/ui/prefetch-link";
 import { getT } from "@/lib/i18n/server";
 
 // PRD_Architect_Dashboard §14 — exact tab set. Tasks/Documents/BIM link to
@@ -25,7 +25,7 @@ export async function ArchitectProjectTabs({ projectId, active }: { projectId: s
       {tabs.map((tab) => {
         const isActive = tab.slug === active;
         return (
-          <Link
+          <PrefetchLink
             key={tab.slug || "overview"}
             href={tab.href ?? base}
             className={
@@ -35,7 +35,7 @@ export async function ArchitectProjectTabs({ projectId, active }: { projectId: s
             }
           >
             {tab.label}
-          </Link>
+          </PrefetchLink>
         );
       })}
     </nav>

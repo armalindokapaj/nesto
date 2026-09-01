@@ -309,4 +309,18 @@ body {
   .notice-spotlight {
     animation: none;
   }
+  /* The pending bar still needs to read as "busy" without motion, so it
+     holds a static tint instead of sweeping. */
+  [class*="animate-\[nav-pending"] {
+    animation: none;
+    width: 100%;
+  }
+}
+
+/* Sidebar link pending bar (components/workspace/nav-link.tsx) — a short
+   sweep rather than a spinner, so an acknowledged click reads as motion in
+   the row you clicked and nothing else moves on the page. */
+@keyframes nav-pending {
+  0% { transform: translateX(-100%); }
+  100% { transform: translateX(300%); }
 }

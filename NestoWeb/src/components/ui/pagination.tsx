@@ -1,4 +1,4 @@
-import Link from "next/link";
+import { PrefetchLink } from "@/components/ui/prefetch-link";
 import { ChevronLeft, ChevronRight } from "lucide-react";
 
 // Phase 4 — one pager for every paginated list, driven by the same `page`
@@ -41,9 +41,9 @@ export function Pagination({
       </p>
       <div className="flex items-center gap-1">
         {page > 1 ? (
-          <Link href={href(page - 1)} className="inline-flex h-8 items-center gap-1 rounded-lg border border-border px-2 text-xs text-ink hover:bg-surface-sunken">
+          <PrefetchLink href={href(page - 1)} className="inline-flex h-8 items-center gap-1 rounded-lg border border-border px-2 text-xs text-ink hover:bg-surface-sunken">
             <ChevronLeft size={14} /> Previous
-          </Link>
+          </PrefetchLink>
         ) : (
           <span className="inline-flex h-8 items-center gap-1 rounded-lg border border-border px-2 text-xs text-ink-faint">
             <ChevronLeft size={14} /> Previous
@@ -53,9 +53,9 @@ export function Pagination({
           Page {page} of {pageCount}
         </span>
         {page < pageCount ? (
-          <Link href={href(page + 1)} className="inline-flex h-8 items-center gap-1 rounded-lg border border-border px-2 text-xs text-ink hover:bg-surface-sunken">
+          <PrefetchLink href={href(page + 1)} className="inline-flex h-8 items-center gap-1 rounded-lg border border-border px-2 text-xs text-ink hover:bg-surface-sunken">
             Next <ChevronRight size={14} />
-          </Link>
+          </PrefetchLink>
         ) : (
           <span className="inline-flex h-8 items-center gap-1 rounded-lg border border-border px-2 text-xs text-ink-faint">
             Next <ChevronRight size={14} />

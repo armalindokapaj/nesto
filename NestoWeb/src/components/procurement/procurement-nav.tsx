@@ -1,4 +1,4 @@
-import Link from "next/link";
+import { PrefetchLink } from "@/components/ui/prefetch-link";
 import { LayoutDashboard, Workflow, Truck, ClipboardList, Layers3, MessagesSquare, PackageOpen, CalendarCheck2, ShieldCheck } from "lucide-react";
 import { cn } from "@/lib/utils";
 
@@ -19,9 +19,9 @@ export function ProcurementNav({ active }: { active: string }) {
     <div className="overflow-x-auto rounded-xl border border-border bg-surface p-1.5">
       <nav aria-label="Procurement sections" className="flex min-w-max gap-1">
         {ITEMS.map(([label, href, Icon]) => (
-          <Link key={href} href={href} className={cn("inline-flex h-8 items-center gap-1.5 rounded-lg px-3 text-xs font-medium transition-colors", active === label.toLowerCase() ? "bg-ink text-white" : "text-ink-muted hover:bg-surface-sunken hover:text-ink")}>
+          <PrefetchLink key={href} href={href} className={cn("inline-flex h-8 items-center gap-1.5 rounded-lg px-3 text-xs font-medium transition-colors", active === label.toLowerCase() ? "bg-ink text-white" : "text-ink-muted hover:bg-surface-sunken hover:text-ink")}>
             <Icon size={13} /> {label}
-          </Link>
+          </PrefetchLink>
         ))}
       </nav>
     </div>

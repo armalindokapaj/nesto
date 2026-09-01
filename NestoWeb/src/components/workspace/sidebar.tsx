@@ -2,6 +2,7 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
+import { NavLink } from "@/components/workspace/nav-link";
 import { NestoLogo, NestoMark } from "@/components/branding/NestoLogo";
 import { NAV_SECTIONS, workspaceKeyFromPath, visibleNavSections } from "@/lib/nav-config";
 import { DASHBOARD_BY_ROLE } from "@/lib/permissions";
@@ -91,7 +92,7 @@ export function Sidebar({
                   const active = pathname === item.href || pathname.startsWith(item.href + "/");
                   return (
                     <li key={item.href}>
-                      <Link
+                      <NavLink
                         href={item.href}
                         onClick={onCloseMobile}
                         className={cn(
@@ -105,7 +106,7 @@ export function Sidebar({
                       >
                         <item.icon size={17} className="shrink-0" />
                         {!collapsed && <span className="truncate">{t(item.labelKey)}</span>}
-                      </Link>
+                      </NavLink>
                     </li>
                   );
                 })}
