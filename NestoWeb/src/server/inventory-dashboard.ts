@@ -313,7 +313,9 @@ export async function confirmDailyClose(tenantId: string, actorId: string, id: s
   const close = assertTenant(await db.dailyClose.findUnique({ where: { id } }), tenantId, "DailyClose");
   if (close.status === "ATTENTION_REQUIRED") throw new Error("Resolve open disputes/counts for this warehouse before closing the day.");
   if (close.status === "COMPLETE") throw new Error("This day is already closed.");
-  const updated = await db.dailyClose.update({ where: { id }, data: { status: "COMPLETE", confirmedById: actorId, confirmedAt: new Date(), notes } });
+  const claimed = await db.dailyClose.updateMany({ where: { id, status: close.status }, data: { status: "COMPLETE", confirmedById: actorId, confirmedAt: new Date(), notes } });
+  if (claimed.count === 0) throw new Error("This day was closed by someone else. Reload and try again.");
+  const updated = await db.dailyClose.findUniqueOrThrow({ where: { id } });
   await logInventoryActivity({ tenantId, entityType: "DailyClose", entityId: id, actorId, eventType: "CONFIRMED", summary: "Daily close confirmed" });
   return updated;
 }

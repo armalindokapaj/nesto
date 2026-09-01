@@ -332,7 +332,9 @@ export async function rejectDefectVerification(tenantId: string, actorId: string
 export async function closeDefect(tenantId: string, actorId: string, id: string) {
   const defect = assertTenant(await db.defect.findUnique({ where: { id } }), tenantId, "Defect");
   if (defect.status !== "VERIFIED") throw new Error("Only a verified defect can be closed.");
-  const updated = await db.defect.update({ where: { id }, data: { status: "CLOSED", closedAt: new Date() } });
+  const claimed = await db.defect.updateMany({ where: { id, status: "VERIFIED" }, data: { status: "CLOSED", closedAt: new Date() } });
+  if (claimed.count === 0) throw new Error("This defect was changed by someone else. Reload and try again.");
+  const updated = await db.defect.findUniqueOrThrow({ where: { id } });
   await logQaqcActivity({ tenantId, entityType: "Defect", entityId: id, actorId, eventType: "CLOSED", summary: `${defect.number} closed` });
   // Phase 1 Track B — QA/QC sign-off had no AuditEvent; closing a defect is
   // the assertion that the work is acceptable.
@@ -344,7 +346,9 @@ export async function closeDefect(tenantId: string, actorId: string, id: string)
 export async function reopenDefect(tenantId: string, actorId: string, id: string, reason: string) {
   const defect = assertTenant(await db.defect.findUnique({ where: { id } }), tenantId, "Defect");
   if (defect.status !== "CLOSED") throw new Error("Only a closed defect can be reopened.");
-  const updated = await db.defect.update({ where: { id }, data: { status: "REOPENED" } });
+  const claimed = await db.defect.updateMany({ where: { id, status: "CLOSED" }, data: { status: "REOPENED" } });
+  if (claimed.count === 0) throw new Error("This defect was changed by someone else. Reload and try again.");
+  const updated = await db.defect.findUniqueOrThrow({ where: { id } });
   await logQaqcActivity({ tenantId, entityType: "Defect", entityId: id, actorId, eventType: "REOPENED", summary: `${defect.number} reopened: ${reason}` });
   return updated;
 }

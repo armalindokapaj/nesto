@@ -109,10 +109,16 @@ export async function closeOpportunity(
   input: { opportunityId: string; status: "WON" | "LOST"; lostReason?: string; actorId: string }
 ) {
   const opp = assertTenant(await db.opportunity.findUnique({ where: { id: input.opportunityId } }), tenantId, "Opportunity");
-  const updated = await db.opportunity.update({
-    where: { id: input.opportunityId },
+  // WON and LOST are terminal. This had no state check at all, so a won
+  // opportunity could be re-closed as LOST — flipping the outcome and writing a
+  // second OPPORTUNITY_WON/LOST row against the client's activity feed.
+  if (opp.status !== "OPEN") throw new Error(`This opportunity is already ${opp.status.toLowerCase()}.`);
+  const closed = await db.opportunity.updateMany({
+    where: { id: input.opportunityId, status: "OPEN" },
     data: { status: input.status, lostReason: input.status === "LOST" ? input.lostReason : null },
   });
+  if (closed.count === 0) throw new Error("This opportunity was closed by someone else. Reload and try again.");
+  const updated = await db.opportunity.findUniqueOrThrow({ where: { id: input.opportunityId } });
   await logCrmActivity(tenantId, {
     clientId: opp.clientId,
     actorId: input.actorId,

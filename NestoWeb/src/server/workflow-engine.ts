@@ -264,7 +264,9 @@ export async function confirmSourceFinalization(tenantId: string, actorId: strin
   if (instance.status !== "SOURCE_FINALIZATION_PENDING") {
     throw new Error("Workflow is not awaiting source finalization.");
   }
-  const completed = await db.workflowInstance.update({ where: { id: instance.id }, data: { status: "COMPLETED", completedAt: new Date() }, include: INSTANCE_INCLUDE });
+  const claimed = await db.workflowInstance.updateMany({ where: { id: instance.id, status: "SOURCE_FINALIZATION_PENDING" }, data: { status: "COMPLETED", completedAt: new Date() } });
+  if (claimed.count === 0) throw new Error("This workflow was completed by someone else. Reload and try again.");
+  const completed = await db.workflowInstance.findUniqueOrThrow({ where: { id: instance.id }, include: INSTANCE_INCLUDE });
   await logAudit(tenantId, actorId, "WORKFLOW_COMPLETED", "WorkflowInstance", instance.id);
   return completed;
 }
@@ -282,7 +284,9 @@ export async function cancelWorkflow(tenantId: string, actorId: string, instance
   if (instance.submittedById !== actorId && !isOverride) {
     throw new Error("Only the submitter can withdraw this workflow.");
   }
-  const cancelled = await db.workflowInstance.update({ where: { id: instance.id }, data: { status: "CANCELLED", completedAt: new Date() }, include: INSTANCE_INCLUDE });
+  const claimed = await db.workflowInstance.updateMany({ where: { id: instance.id, status: "PENDING" }, data: { status: "CANCELLED", completedAt: new Date() } });
+  if (claimed.count === 0) throw new Error("This workflow was already decided. Reload and try again.");
+  const cancelled = await db.workflowInstance.findUniqueOrThrow({ where: { id: instance.id }, include: INSTANCE_INCLUDE });
   await logAudit(tenantId, actorId, isOverride ? "WORKFLOW_CANCELLED_OVERRIDE" : "WORKFLOW_CANCELLED", "WorkflowInstance", instance.id);
   return cancelled;
 }

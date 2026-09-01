@@ -157,7 +157,11 @@ export async function verifyEmail(token: string) {
   }
 
   return db.$transaction(async (tx) => {
-    await tx.emailVerificationToken.update({ where: { id: record.id }, data: { consumedAt: new Date() } });
+    // Consume the token by compare-and-swap. Read-then-write let two clicks on
+    // the same verification link both see consumedAt === null and both proceed,
+    // writing the account verified twice and logging two EMAIL_VERIFIED events.
+    const consumed = await tx.emailVerificationToken.updateMany({ where: { id: record.id, consumedAt: null }, data: { consumedAt: new Date() } });
+    if (consumed.count === 0) throw new Error("This verification link is invalid or has expired.");
     const account = await tx.publicAccount.update({
       where: { id: record.publicAccountId },
       data: { emailVerified: true, emailVerifiedAt: new Date(), status: "PROFILE_INCOMPLETE" },

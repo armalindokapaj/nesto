@@ -517,8 +517,13 @@ export async function reviseBudget(tenantId: string, actorId: string, input: { b
 }
 
 export async function closeBudget(tenantId: string, budgetId: string) {
-  assertTenant(await db.budget.findUnique({ where: { id: budgetId } }), tenantId, "Budget");
-  return db.budget.update({ where: { id: budgetId }, data: { status: "CLOSED" } });
+  const budget = assertTenant(await db.budget.findUnique({ where: { id: budgetId } }), tenantId, "Budget");
+  // Closing is what makes a budget reject further posting, so it is a one-way
+  // door and must not be re-enterable by a second caller racing the first.
+  if (budget.status === "CLOSED") throw new Error("This budget is already closed.");
+  const closed = await db.budget.updateMany({ where: { id: budgetId, status: "ACTIVE" }, data: { status: "CLOSED" } });
+  if (closed.count === 0) throw new Error("This budget was closed by someone else. Reload and try again.");
+  return db.budget.findUniqueOrThrow({ where: { id: budgetId } });
 }
 
 // -------------------------------------------------------------------------

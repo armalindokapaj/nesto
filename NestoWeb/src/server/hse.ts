@@ -328,8 +328,13 @@ export async function createObservation(tenantId: string, reportedById: string, 
 
 export async function closeObservation(tenantId: string, actorId: string, observationId: string, actionTaken?: string) {
   const observation = assertTenant(await db.hseObservation.findUnique({ where: { id: observationId } }), tenantId, "HseObservation");
+  // Had no state check: a closed observation could be closed again, each pass
+  // logging another CLOSED activity row.
+  if (observation.status === "CLOSED") throw new Error("This observation is already closed.");
   return db.$transaction(async (tx) => {
-    const updated = await tx.hseObservation.update({ where: { id: observation.id }, data: { status: actionTaken ? "ACTIONED" : "CLOSED", actionTaken: actionTaken ?? observation.actionTaken } });
+    const claimed = await tx.hseObservation.updateMany({ where: { id: observation.id, status: observation.status }, data: { status: actionTaken ? "ACTIONED" : "CLOSED", actionTaken: actionTaken ?? observation.actionTaken } });
+    if (claimed.count === 0) throw new Error("This observation was changed by someone else. Reload and try again.");
+    const updated = await tx.hseObservation.findUniqueOrThrow({ where: { id: observation.id } });
     await logHseActivity(tenantId, "HseObservation", observation.id, actorId, "CLOSED", `${observation.number} closed.`, tx);
     return updated;
   });
