@@ -33,9 +33,32 @@ const METRIC_CATALOGUE: { key: string; label: string; description: string; categ
   { key: "HSE_OPEN_INCIDENTS", label: "Open HSE incidents", description: "Incidents not yet closed.", category: "HSE", unit: "COUNT", formulaSummary: "count(HseIncident where status != CLOSED)", sourceModule: "HSE" },
 ];
 
+const CATALOGUE_ORDER = [{ category: "asc" }, { label: "asc" }] as const;
+
+/** The catalogue is a compile-time constant, so in the steady state there is
+ *  nothing to write. Reading first turns the common case into one query
+ *  instead of seven writes plus a read — and keeps a dashboard GET from
+ *  issuing writes it almost never needs. */
 export async function ensureMetricCatalogue(tenantId: string) {
+  const existing = await db.metricDefinition.findMany({ where: { tenantId }, orderBy: [...CATALOGUE_ORDER] });
+  const byKey = new Map(existing.map((m) => [m.key, m]));
+
+  const drifted = METRIC_CATALOGUE.filter((m) => {
+    const cur = byKey.get(m.key);
+    return (
+      !cur ||
+      cur.label !== m.label ||
+      cur.description !== m.description ||
+      cur.category !== m.category ||
+      cur.unit !== m.unit ||
+      cur.formulaSummary !== m.formulaSummary ||
+      cur.sourceModule !== m.sourceModule
+    );
+  });
+  if (drifted.length === 0) return existing;
+
   await Promise.all(
-    METRIC_CATALOGUE.map((m) =>
+    drifted.map((m) =>
       db.metricDefinition.upsert({
         where: { tenantId_key: { tenantId, key: m.key } },
         create: { tenantId, ...m },
@@ -43,7 +66,7 @@ export async function ensureMetricCatalogue(tenantId: string) {
       })
     )
   );
-  return db.metricDefinition.findMany({ where: { tenantId }, orderBy: [{ category: "asc" }, { label: "asc" }] });
+  return db.metricDefinition.findMany({ where: { tenantId }, orderBy: [...CATALOGUE_ORDER] });
 }
 
 // A single scoped read — never called for a caller without the underlying
@@ -214,8 +237,9 @@ export async function convertAmount(tenantId: string, amount: number, fromCurren
  * heuristic instead of a fabricated black-box number, consistent with the
  * "full calculation trace, no black-box numbers" rule used across the app.
  */
-export async function getProjectCompletionForecast(tenantId: string, projectId: string) {
-  const project = assertTenant(await db.project.findUnique({ where: { id: projectId } }), tenantId, "Project");
+/** The forecast is pure arithmetic over two fields — kept separate so a caller
+ *  that already has the row does not have to go back to the database for it. */
+function forecastFrom(project: { startDate: Date | null; progressPct: number }) {
   if (!project.startDate || project.progressPct <= 0 || project.progressPct >= 100) {
     return { forecastDate: null, basis: "insufficient_data" as const };
   }
@@ -225,8 +249,19 @@ export async function getProjectCompletionForecast(tenantId: string, projectId: 
   return { forecastDate, basis: "linear_run_rate" as const, elapsedDays: Math.round(elapsedDays), progressPct: project.progressPct };
 }
 
+export async function getProjectCompletionForecast(tenantId: string, projectId: string) {
+  const project = assertTenant(await db.project.findUnique({ where: { id: projectId } }), tenantId, "Project");
+  return forecastFrom(project);
+}
+
 export async function listActiveProjectForecasts(tenantId: string) {
-  const projects = await db.project.findMany({ where: { tenantId, status: { in: ["ACTIVE", "ON_TRACK", "AT_RISK", "DELAYED"] } }, select: { id: true, name: true, code: true } });
-  const forecasts = await Promise.all(projects.map(async (p) => ({ project: p, forecast: await getProjectCompletionForecast(tenantId, p.id) })));
-  return forecasts.filter((f) => f.forecast.forecastDate !== null);
+  // startDate/progressPct come back with the list — this used to select three
+  // columns and then re-read every project row one-by-one to get these two.
+  const projects = await db.project.findMany({
+    where: { tenantId, status: { in: ["ACTIVE", "ON_TRACK", "AT_RISK", "DELAYED"] } },
+    select: { id: true, name: true, code: true, startDate: true, progressPct: true },
+  });
+  return projects
+    .map(({ startDate, progressPct, ...project }) => ({ project, forecast: forecastFrom({ startDate, progressPct }) }))
+    .filter((f) => f.forecast.forecastDate !== null);
 }

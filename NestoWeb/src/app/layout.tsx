@@ -3,8 +3,7 @@ import { Inter, Newsreader } from "next/font/google";
 import "./globals.css";
 import { getT } from "@/lib/i18n/server";
 import { LocaleProvider } from "@/lib/i18n/locale-provider";
-import { peekSession } from "@/lib/dal";
-import { db } from "@/lib/db";
+import { peekSession, loadUserIdentity } from "@/lib/dal";
 import { resolveDataTheme } from "@/lib/theme";
 import type { Theme } from "@/lib/constants";
 
@@ -37,7 +36,8 @@ export default async function RootLayout({
   const session = await peekSession();
   let dataTheme: string | undefined;
   if (session?.userId) {
-    const user = await db.userIdentity.findUnique({ where: { id: session.userId }, select: { theme: true } });
+    // Shared with getCurrentUser()'s read of the same row — see loadUserIdentity.
+    const user = await loadUserIdentity(session.userId);
     if (user) dataTheme = resolveDataTheme(user.theme as Theme);
   }
 

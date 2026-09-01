@@ -24,6 +24,14 @@ export const peekSession = cache(async () => {
   return readSessionCookie();
 });
 
+// One read of the UserIdentity row per request, shared by everything that
+// needs it. The root layout also needs this row (for the theme attribute) and
+// used to fetch it with its own `select`, which React's cache() keys
+// separately — so every signed-in page issued the same lookup twice.
+export const loadUserIdentity = cache(async (userId: string) => {
+  return db.userIdentity.findUnique({ where: { id: userId } });
+});
+
 // Phase 9 — the Route Handler counterpart to getCurrentUser().
 //
 // Four API routes authenticated with peekSession(), which decrypts the cookie
@@ -44,7 +52,7 @@ export const getCurrentApiUser = cache(async () => {
   if (!session?.userId) return null;
 
   const [user, membership] = await Promise.all([
-    db.userIdentity.findUnique({ where: { id: session.userId } }),
+    loadUserIdentity(session.userId),
     db.companyMembership.findUnique({
       where: { tenantId_userId: { tenantId: session.tenantId, userId: session.userId } },
     }),
@@ -65,7 +73,7 @@ export const getCurrentApiUser = cache(async () => {
 export const getCurrentUser = cache(async () => {
   const session = await verifySession();
   const [user, membership] = await Promise.all([
-    db.userIdentity.findUnique({ where: { id: session.userId } }),
+    loadUserIdentity(session.userId),
     db.companyMembership.findUnique({
       where: { tenantId_userId: { tenantId: session.tenantId, userId: session.userId } },
       include: { tenant: { include: { companies: true } } },

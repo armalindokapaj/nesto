@@ -52,8 +52,10 @@ export default async function DocumentsPage({
   // Idempotent — adopts any pre-module attachment (and anything created
   // through the legacy upload dialog since the last visit) into a Document
   // Passport record, so the module surfaces the tenant's real corpus.
-  await ensureRootFolders(tenantId);
-  await backfillDocumentRecords(tenantId);
+  // Independent of each other — backfill re-runs ensureRootFolders itself on
+  // the only path that needs the roots, and the create is skipDuplicates-safe,
+  // so there is no reason to pay for these two round trips back to back.
+  await Promise.all([ensureRootFolders(tenantId), backfillDocumentRecords(tenantId)]);
 
   const [tree, summary, documents, projects] = await Promise.all([
     getFolderTree(tenantId),

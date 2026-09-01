@@ -87,24 +87,39 @@ async function logActivity(input: {
 // Folder tree
 // ---------------------------------------------------------------------------
 
-/** Idempotently creates the §9 default roots for a tenant. Safe to re-run. */
+/** Idempotently creates the §9 default roots for a tenant. Safe to re-run.
+ *
+ * This runs on every visit to /documents, so the steady state — all twelve
+ * roots already present — has to be cheap. It used to be a `findUnique` per
+ * root inside a loop: twelve sequential round trips, ~1.4s of the page against
+ * a remote database, every single load. One read of the twelve keys answers
+ * the same question, and the writes only happen on the first run. */
 export async function ensureRootFolders(tenantId: string) {
-  for (const [index, root] of DEFAULT_ROOT_FOLDERS.entries()) {
-    const existing = await db.folder.findUnique({
-      where: { tenantId_systemKey: { tenantId, systemKey: root.systemKey } },
-    });
-    if (existing) continue;
-    await db.folder.create({
-      data: {
-        tenantId,
-        systemKey: root.systemKey,
-        name: root.name,
-        folderType: "SYSTEM",
-        sourceEntityType: root.sourceEntityType,
-        sortOrder: index,
-      },
-    });
-  }
+  const keys = DEFAULT_ROOT_FOLDERS.map((r) => r.systemKey as string);
+  const existing = await db.folder.findMany({
+    where: { tenantId, systemKey: { in: keys } },
+    select: { systemKey: true },
+  });
+  const have = new Set(existing.map((f) => f.systemKey));
+
+  const missing = DEFAULT_ROOT_FOLDERS.map((root, index) => ({ root, index })).filter(
+    ({ root }) => !have.has(root.systemKey)
+  );
+  if (missing.length === 0) return;
+
+  // skipDuplicates keeps this safe against two concurrent first-visits racing
+  // on the tenantId_systemKey unique.
+  await db.folder.createMany({
+    data: missing.map(({ root, index }) => ({
+      tenantId,
+      systemKey: root.systemKey,
+      name: root.name,
+      folderType: "SYSTEM" as const,
+      sourceEntityType: root.sourceEntityType,
+      sortOrder: index,
+    })),
+    skipDuplicates: true,
+  });
 }
 
 /**
