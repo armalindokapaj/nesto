@@ -1,6 +1,7 @@
 import "server-only";
 import { db } from "@/lib/db";
 import { assertTenant } from "@/lib/tenant";
+import { runAtMostEvery, invalidateJob } from "@/lib/read-path-jobs";
 
 // PRD_Documents_Module — the module-level layer (folder tree, Document
 // Passport records, shortcuts, links, activity). Deliberately separate from
@@ -127,16 +128,33 @@ export async function ensureRootFolders(tenantId: string) {
  * §9.1 subfolder template, including a mandatory Tranzit. Idempotent.
  */
 export async function ensureProjectFolders(tenantId: string, projectId: string, projectName: string) {
+  // Every folder this creates has a deterministic systemKey, so the whole
+  // template can be looked up in one query instead of probed a folder at a
+  // time. It used to be 15 sequential findUniques — ~1.9s against a remote
+  // database — to discover that all 15 folders already existed, which is the
+  // steady state after a project's first document.
+  const projectKey = `project:${projectId}`;
+  const subKey = (name: string) => `${projectKey}:${name}`;
+  const drawingsKey = subKey("02. Drawings");
+  const disciplineKey = (discipline: string) => `${drawingsKey}:${discipline}`;
+
+  const wantedKeys = [
+    "root:projects",
+    projectKey,
+    ...PROJECT_SUBFOLDERS.map(subKey),
+    ...DRAWING_SUBFOLDERS.map(disciplineKey),
+  ];
+
   await ensureRootFolders(tenantId);
-  const root = await db.folder.findUnique({
-    where: { tenantId_systemKey: { tenantId, systemKey: "root:projects" } },
-  });
+  const found = await db.folder.findMany({ where: { tenantId, systemKey: { in: wantedKeys } } });
+  const byKey = new Map(found.map((folder) => [folder.systemKey, folder]));
+
+  const root = byKey.get("root:projects");
   if (!root) throw new Error("Projects root folder missing");
 
-  const projectKey = `project:${projectId}`;
-  let projectFolder = await db.folder.findUnique({
-    where: { tenantId_systemKey: { tenantId, systemKey: projectKey } },
-  });
+  // The project folder has to exist before its children can reference it as a
+  // parent, so this one stays its own await.
+  let projectFolder = byKey.get(projectKey);
   if (!projectFolder) {
     projectFolder = await db.folder.create({
       data: {
@@ -151,43 +169,50 @@ export async function ensureProjectFolders(tenantId: string, projectId: string, 
     });
   }
 
-  for (const [index, name] of PROJECT_SUBFOLDERS.entries()) {
-    const key = `${projectKey}:${name}`;
-    const existing = await db.folder.findUnique({ where: { tenantId_systemKey: { tenantId, systemKey: key } } });
-    const sub =
-      existing ??
-      (await db.folder.create({
-        data: {
+  const missingSubfolders = PROJECT_SUBFOLDERS.map((name, index) => ({ name, index })).filter(
+    ({ name }) => !byKey.has(subKey(name))
+  );
+  if (missingSubfolders.length > 0) {
+    // skipDuplicates for the same reason ensureRootFolders uses it: two
+    // concurrent first-visits racing on the tenantId_systemKey unique.
+    await db.folder.createMany({
+      data: missingSubfolders.map(({ name, index }) => ({
+        tenantId,
+        systemKey: subKey(name),
+        parentId: projectFolder.id,
+        name,
+        folderType: "SYSTEM" as const,
+        sourceEntityType: "PROJECT",
+        sourceEntityId: projectId,
+        sortOrder: index,
+      })),
+      skipDuplicates: true,
+    });
+  }
+
+  const missingDisciplines = DRAWING_SUBFOLDERS.map((discipline, index) => ({ discipline, index })).filter(
+    ({ discipline }) => !byKey.has(disciplineKey(discipline))
+  );
+  if (missingDisciplines.length > 0) {
+    // Only re-read the Drawings folder when its id was not already in hand —
+    // i.e. only on the render that just created it.
+    const drawings =
+      byKey.get(drawingsKey) ??
+      (await db.folder.findUnique({ where: { tenantId_systemKey: { tenantId, systemKey: drawingsKey } } }));
+    if (drawings) {
+      await db.folder.createMany({
+        data: missingDisciplines.map(({ discipline, index }) => ({
           tenantId,
-          systemKey: key,
-          parentId: projectFolder.id,
-          name,
-          folderType: "SYSTEM",
+          systemKey: disciplineKey(discipline),
+          parentId: drawings.id,
+          name: discipline,
+          folderType: "SYSTEM" as const,
           sourceEntityType: "PROJECT",
           sourceEntityId: projectId,
           sortOrder: index,
-        },
-      }));
-
-    if (name === "02. Drawings") {
-      for (const [di, discipline] of DRAWING_SUBFOLDERS.entries()) {
-        const dKey = `${key}:${discipline}`;
-        const has = await db.folder.findUnique({ where: { tenantId_systemKey: { tenantId, systemKey: dKey } } });
-        if (!has) {
-          await db.folder.create({
-            data: {
-              tenantId,
-              systemKey: dKey,
-              parentId: sub.id,
-              name: discipline,
-              folderType: "SYSTEM",
-              sourceEntityType: "PROJECT",
-              sourceEntityId: projectId,
-              sortOrder: di,
-            },
-          });
-        }
-      }
+        })),
+        skipDuplicates: true,
+      });
     }
   }
 
@@ -250,6 +275,44 @@ export async function createCustomFolder(
 // ---------------------------------------------------------------------------
 // §48 Migration — adopt pre-existing attachments into Passport records
 // ---------------------------------------------------------------------------
+
+/**
+ * The pre-pass /documents runs before it lists anything.
+ *
+ * Both halves are idempotent and, after a tenant's first visit, both are
+ * no-ops — but a no-op still costs a round trip, and the listing queries that
+ * follow cannot start until it returns. Against a remote database that was a
+ * fixed ~125ms added to every single load of the page, forever, to handle a
+ * condition that is true once.
+ *
+ * So it runs at most once a minute per tenant. What that window can delay:
+ * adoption of a DocumentFile written by a path that does not create a
+ * Passport record itself. Those paths call `invalidateDocumentBackfill`, so
+ * the reader that follows a real upload still adopts it immediately; the
+ * window only covers rows that appear without going through them at all —
+ * seeds, migrations, a write served by another instance — where being a
+ * minute late is not a difference anyone can observe.
+ */
+export async function ensureDocumentsBackfilledOnView(tenantId: string) {
+  await runAtMostEvery(backfillJobKey(tenantId), 60_000, async () => {
+    // Independent of each other — backfill re-runs ensureRootFolders itself on
+    // the only path that needs the roots, and the create is skipDuplicates-safe.
+    await Promise.all([ensureRootFolders(tenantId), backfillDocumentRecords(tenantId)]);
+  });
+}
+
+function backfillJobKey(tenantId: string) {
+  return `documents:backfill:${tenantId}`;
+}
+
+/**
+ * Called by the write paths that can leave a DocumentFile without a Passport
+ * record, so the next /documents render adopts it rather than waiting out
+ * `ensureDocumentsBackfilledOnView`'s window.
+ */
+export function invalidateDocumentBackfill(tenantId: string) {
+  invalidateJob(backfillJobKey(tenantId));
+}
 
 /**
  * §48 steps 22-24 — every DocumentFile that predates this module (project,

@@ -3,6 +3,7 @@ import { db } from "@/lib/db";
 import { logAudit } from "@/lib/audit";
 import { toPaginatedResult, type PageParams } from "@/lib/pagination";
 import { assertTenant } from "@/lib/tenant";
+import { runAtMostEvery } from "@/lib/read-path-jobs";
 import { allocateNumber } from "@/server/number-series";
 import { NORMAL_BALANCE_BY_TYPE, type AccountType } from "@/lib/finance-constants";
 import {
@@ -182,6 +183,25 @@ export async function createFiscalPeriod(tenantId: string, input: { name: string
   const existing = await db.fiscalPeriod.findUnique({ where: { tenantId_name: { tenantId, name } } });
   if (existing) throw new Error(`A fiscal period named "${name}" already exists.`);
   return db.fiscalPeriod.create({ data: { tenantId, name, startAt: input.startAt, endAt: input.endAt } });
+}
+
+/**
+ * The read-path form of ensureCurrentFiscalPeriod, for the two Finance pages
+ * that call it only so the period exists before they list periods.
+ *
+ * The write path (postJournalEntry) still calls ensureCurrentFiscalPeriod
+ * directly and unthrottled — it needs the period object itself, and needs it
+ * to exist right now.
+ *
+ * The key carries the month, so the first render after a month rolls over
+ * creates the new period rather than waiting out a window.
+ */
+export async function ensureCurrentFiscalPeriodOnView(tenantId: string) {
+  const now = new Date();
+  const month = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, "0")}`;
+  await runAtMostEvery(`finance:period:${tenantId}:${month}`, 300_000, () =>
+    ensureCurrentFiscalPeriod(tenantId)
+  );
 }
 
 /** Idempotently ensures the current calendar month has an OPEN period, so

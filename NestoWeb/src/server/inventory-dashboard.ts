@@ -283,24 +283,42 @@ export async function ensureDailyCloseRows(tenantId: string, workDate: Date = ne
   const nextDay = new Date(day);
   nextDay.setDate(nextDay.getDate() + 1);
 
-  const warehouses = await db.warehouse.findMany({ where: { tenantId, status: "ACTIVE" } });
-  for (const warehouse of warehouses) {
-    const existing = await db.dailyClose.findUnique({ where: { warehouseId_workDate: { warehouseId: warehouse.id, workDate: day } } });
-    if (existing && existing.status !== "DUE") continue;
+  // This ran one warehouse at a time — a findUnique, then three counts, then
+  // an upsert, all awaited in a for-loop, so 1 + 3N sequential round trips
+  // before the Inventory dashboard could start any of its own queries. And it
+  // recomputes every render: a warehouse that moved stock today is written
+  // DUE and stays DUE until someone confirms the close, so the `continue`
+  // never fires for the ordinary working-day case.
+  //
+  // Warehouses are independent of each other — each owns exactly one
+  // DailyClose row, keyed (warehouseId, workDate) — so the per-warehouse work
+  // fans out, and the existing-row lookup is now one query for the whole day
+  // instead of one per warehouse.
+  const [warehouses, existingRows] = await Promise.all([
+    db.warehouse.findMany({ where: { tenantId, status: "ACTIVE" } }),
+    db.dailyClose.findMany({ where: { tenantId, workDate: day } }),
+  ]);
+  const existingByWarehouse = new Map(existingRows.map((row) => [row.warehouseId, row]));
 
-    const [movementsCount, disputesCount, openCounts] = await Promise.all([
-      db.inventoryMovement.count({ where: { tenantId, date: { gte: day, lt: nextDay }, lines: { some: { OR: [{ fromWarehouseId: warehouse.id }, { toWarehouseId: warehouse.id }] } } } }),
-      db.inventoryMovement.count({ where: { tenantId, confirmationStatus: "DISPUTED", lines: { some: { OR: [{ fromWarehouseId: warehouse.id }, { toWarehouseId: warehouse.id }] } } } }),
-      db.inventoryCount.count({ where: { tenantId, warehouseId: warehouse.id, status: { in: ["IN_PROGRESS", "SUBMITTED"] } } }),
-    ]);
-    const status = disputesCount > 0 || openCounts > 0 ? "ATTENTION_REQUIRED" : movementsCount === 0 ? "NO_MOVEMENT" : "DUE";
+  await Promise.all(
+    warehouses.map(async (warehouse) => {
+      const existing = existingByWarehouse.get(warehouse.id);
+      if (existing && existing.status !== "DUE") return;
 
-    await db.dailyClose.upsert({
-      where: { warehouseId_workDate: { warehouseId: warehouse.id, workDate: day } },
-      create: { tenantId, warehouseId: warehouse.id, workDate: day, status, movementsCount, discrepanciesCount: disputesCount + openCounts },
-      update: { status, movementsCount, discrepanciesCount: disputesCount + openCounts },
-    });
-  }
+      const [movementsCount, disputesCount, openCounts] = await Promise.all([
+        db.inventoryMovement.count({ where: { tenantId, date: { gte: day, lt: nextDay }, lines: { some: { OR: [{ fromWarehouseId: warehouse.id }, { toWarehouseId: warehouse.id }] } } } }),
+        db.inventoryMovement.count({ where: { tenantId, confirmationStatus: "DISPUTED", lines: { some: { OR: [{ fromWarehouseId: warehouse.id }, { toWarehouseId: warehouse.id }] } } } }),
+        db.inventoryCount.count({ where: { tenantId, warehouseId: warehouse.id, status: { in: ["IN_PROGRESS", "SUBMITTED"] } } }),
+      ]);
+      const status = disputesCount > 0 || openCounts > 0 ? "ATTENTION_REQUIRED" : movementsCount === 0 ? "NO_MOVEMENT" : "DUE";
+
+      await db.dailyClose.upsert({
+        where: { warehouseId_workDate: { warehouseId: warehouse.id, workDate: day } },
+        create: { tenantId, warehouseId: warehouse.id, workDate: day, status, movementsCount, discrepanciesCount: disputesCount + openCounts },
+        update: { status, movementsCount, discrepanciesCount: disputesCount + openCounts },
+      });
+    })
+  );
 }
 
 export async function listDailyCloses(tenantId: string, workDate: Date = new Date()) {

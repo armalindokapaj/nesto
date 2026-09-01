@@ -6,6 +6,7 @@ import { db } from "@/lib/db";
 import { getCurrentUser } from "@/lib/dal";
 import { can } from "@/lib/permissions";
 import { createLeaveRequest, decideLeaveRequest, cancelApprovedLeave, updateApprovedLeave, recordEmploymentChange, terminateEmployment } from "@/server/hr";
+import { invalidateDocumentBackfill } from "@/server/documents-module";
 
 const CreateEmployeeSchema = z.object({
   fullName: z.string().min(2),
@@ -93,6 +94,9 @@ export async function createEmployeeAction(_prev: CreateEmployeeState, formData:
       });
     }
   });
+
+  // The new rows carry no Document Passport — see invalidateDocumentBackfill.
+  if (documents.length > 0) invalidateDocumentBackfill(tenantId);
 
   revalidatePath("/dashboard/hr/employees");
   revalidatePath("/dashboard/hr");

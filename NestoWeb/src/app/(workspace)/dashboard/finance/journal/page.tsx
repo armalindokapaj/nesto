@@ -2,7 +2,7 @@ import { redirect } from "next/navigation";
 import Link from "next/link";
 import { getCurrentUser } from "@/lib/dal";
 import { can } from "@/lib/permissions";
-import { listJournalEntriesPage, listAccounts, listFiscalPeriods, ensureCurrentFiscalPeriod } from "@/server/finance";
+import { listJournalEntriesPage, listAccounts, listFiscalPeriods, ensureCurrentFiscalPeriodOnView } from "@/server/finance";
 import { Card, CardHeader, CardTitle, CardDescription, CardContent } from "@/components/ui/card";
 import { Table, THead, TBody, TRow, TH, TD } from "@/components/ui/table";
 import { Badge } from "@/components/ui/badge";
@@ -18,7 +18,7 @@ export default async function JournalEntriesPage({ searchParams }: { searchParam
   if (!can(role, "FINANCE", "READ")) redirect("/dashboard/executive");
   const canWrite = can(role, "FINANCE", "WRITE");
 
-  await ensureCurrentFiscalPeriod(tenantId);
+  await ensureCurrentFiscalPeriodOnView(tenantId);
   const [entriesPage, accounts, periods] = await Promise.all([listJournalEntriesPage(tenantId, params), listAccounts(tenantId), listFiscalPeriods(tenantId)]);
   const entries = entriesPage.items;
   const openPeriods = periods.filter((p) => p.status === "OPEN");

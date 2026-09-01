@@ -4,6 +4,7 @@ import { can } from "@/lib/permissions";
 import { hasCapability } from "@/server/capabilities";
 import { assertTenant } from "@/lib/tenant";
 import type { Role } from "@/lib/constants";
+import { invalidateDocumentBackfill } from "@/server/documents-module";
 
 export type ProfileViewer = { userId: string; role: Role };
 
@@ -180,7 +181,7 @@ export async function addEmployeeDocument(
     throw new Error("You do not have permission to edit this profile.");
   }
 
-  return db.documentFile.create({
+  const created = await db.documentFile.create({
     data: {
       tenantId,
       employeeId,
@@ -190,6 +191,9 @@ export async function addEmployeeDocument(
       uploadedById: viewer.userId,
     },
   });
+  // No Document Passport record yet — see invalidateDocumentBackfill.
+  invalidateDocumentBackfill(tenantId);
+  return created;
 }
 
 export async function removeEmployeeDocument(tenantId: string, documentId: string, viewer: ProfileViewer) {

@@ -1,6 +1,7 @@
 import "server-only";
 import { db } from "@/lib/db";
 import { assertTenant } from "@/lib/tenant";
+import { runAtMostEvery, invalidateJob } from "@/lib/read-path-jobs";
 
 // PRD_Tasks_Module — additive layer on top of the existing Task model
 // (src/server/projects.ts, src/server/task-orchestration.ts). Participant
@@ -205,11 +206,13 @@ export async function setTaskRecurrence(
 ) {
   const task = assertTenant(await db.task.findUnique({ where: { id: taskId } }), tenantId, "Task");
   const nextRunAt = advanceDate(task.dueDate ?? new Date(), input.frequency, input.interval);
-  return db.taskRecurrence.upsert({
+  const saved = await db.taskRecurrence.upsert({
     where: { templateTaskId: taskId },
     create: { tenantId, templateTaskId: taskId, frequency: input.frequency, interval: input.interval, nextRunAt, createdById: actorId },
     update: { frequency: input.frequency, interval: input.interval, active: true },
   });
+  invalidateRecurrenceSchedule(tenantId);
+  return saved;
 }
 
 export async function getTaskRecurrence(tenantId: string, taskId: string) {
@@ -219,10 +222,39 @@ export async function getTaskRecurrence(tenantId: string, taskId: string) {
 
 export async function stopTaskRecurrence(tenantId: string, recurrenceId: string) {
   const rec = assertTenant(await db.taskRecurrence.findUnique({ where: { id: recurrenceId } }), tenantId, "TaskRecurrence");
-  return db.taskRecurrence.update({ where: { id: rec.id }, data: { active: false } });
+  const stopped = await db.taskRecurrence.update({ where: { id: rec.id }, data: { active: false } });
+  invalidateRecurrenceSchedule(tenantId);
+  return stopped;
 }
 
-/** Catches up any due recurrences for the tenant; call on task-list page load. */
+/**
+ * The /tasks pre-pass: generate any recurring tasks that have come due.
+ *
+ * The page awaited processDueRecurrences directly, and could not start
+ * loading tasks until it answered — a serial ~125ms round trip on every
+ * render to ask a question whose answer is "nothing is due" almost always.
+ *
+ * At most once a minute per tenant. Recurrences are daily at their most
+ * frequent, so a generated task can be up to a minute late to appear;
+ * creating or editing a recurrence clears the window (see
+ * invalidateRecurrenceSchedule) so a user never watches their own change
+ * fail to take effect.
+ */
+export async function processDueRecurrencesOnView(tenantId: string) {
+  await runAtMostEvery(recurrenceJobKey(tenantId), 60_000, () => processDueRecurrences(tenantId));
+}
+
+function recurrenceJobKey(tenantId: string) {
+  return `tasks:recurrences:${tenantId}`;
+}
+
+/** Lets the next /tasks render run the recurrence pass immediately. */
+export function invalidateRecurrenceSchedule(tenantId: string) {
+  invalidateJob(recurrenceJobKey(tenantId));
+}
+
+/** Generates every recurrence whose next run is due. Read paths should go
+ *  through processDueRecurrencesOnView rather than calling this directly. */
 export async function processDueRecurrences(tenantId: string) {
   const due = await db.taskRecurrence.findMany({
     where: { tenantId, active: true, nextRunAt: { lte: new Date() } },

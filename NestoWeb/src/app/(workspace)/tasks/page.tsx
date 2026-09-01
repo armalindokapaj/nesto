@@ -4,7 +4,7 @@ import { can } from "@/lib/permissions";
 import { canViewTask } from "@/lib/project-access";
 import type { Role } from "@/lib/constants";
 import { listTasks, listProjects } from "@/server/projects";
-import { listStarredTaskIds, listSavedViews, processDueRecurrences } from "@/server/tasks-module";
+import { listStarredTaskIds, listSavedViews, processDueRecurrencesOnView } from "@/server/tasks-module";
 import { Card, CardContent } from "@/components/ui/card";
 import { Table, THead, TBody, TRow, TH, TD } from "@/components/ui/table";
 import { Badge } from "@/components/ui/badge";
@@ -36,7 +36,7 @@ export default async function TasksPage({
   const canWrite = can(role, "TASKS", "WRITE");
 
   const { status, projectId, starred, layout, year, month } = await searchParams;
-  await processDueRecurrences(tenantId);
+  await processDueRecurrencesOnView(tenantId);
   const [allTasks, projects, starredIds, savedViews] = await Promise.all([
     listTasks(tenantId),
     listProjects(tenantId),

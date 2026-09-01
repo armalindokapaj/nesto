@@ -1,7 +1,7 @@
 import { redirect } from "next/navigation";
 import { getCurrentUser } from "@/lib/dal";
 import { can } from "@/lib/permissions";
-import { listFiscalPeriods, ensureCurrentFiscalPeriod } from "@/server/finance";
+import { listFiscalPeriods, ensureCurrentFiscalPeriodOnView } from "@/server/finance";
 import { Card, CardHeader, CardTitle, CardDescription, CardContent } from "@/components/ui/card";
 import { Table, THead, TBody, TRow, TH, TD } from "@/components/ui/table";
 import { Badge } from "@/components/ui/badge";
@@ -17,7 +17,7 @@ export default async function FiscalPeriodsPage() {
 
   // Idempotent — guarantees journal entry creation always has an open
   // period to post into, even before anyone has visited this page.
-  await ensureCurrentFiscalPeriod(tenantId);
+  await ensureCurrentFiscalPeriodOnView(tenantId);
   const periods = await listFiscalPeriods(tenantId);
   const { t } = await getT();
 

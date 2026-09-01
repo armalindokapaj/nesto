@@ -7,6 +7,7 @@ import { emitDomainEvent, dispatchDomainEvents } from "@/lib/domain-events";
 import { can } from "@/lib/permissions";
 import { writeFileToStorage } from "@/lib/storage";
 import type { Role } from "@/lib/constants";
+import { invalidateDocumentBackfill } from "@/server/documents-module";
 
 // Documents — the per-record attachment API used by the Projects, Tasks,
 // Units and Clients pages: upload, revision, and the approval that binds to
@@ -83,7 +84,7 @@ export async function createDocument(
     : undefined;
   const uploaderSnapshot = input.file ? await buildActorSnapshot(db, tenantId, input.uploadedById) : undefined;
 
-  return db.documentFile.create({
+  const created = await db.documentFile.create({
     data: {
       id,
       tenantId,
@@ -101,6 +102,10 @@ export async function createDocument(
       uploaderSnapshot: uploaderSnapshot ? JSON.stringify(uploaderSnapshot) : undefined,
     },
   });
+  // This row has no Document Passport yet — /documents adopts it on its next
+  // render, and its backfill pass is rate limited, so tell it not to wait.
+  invalidateDocumentBackfill(tenantId);
+  return created;
 }
 
 async function loadRevision(tenantId: string, id: string) {
@@ -189,7 +194,7 @@ export async function uploadDocumentRevision(
   );
   const uploaderSnapshot = await buildActorSnapshot(db, tenantId, input.uploadedById);
 
-  return db.$transaction(async (tx) => {
+  const created = await db.$transaction(async (tx) => {
     const revision = await tx.documentFile.create({
       data: {
         id: revisionId,
@@ -229,6 +234,11 @@ export async function uploadDocumentRevision(
 
     return revision;
   });
+
+  // A new revision on an already-adopted lineage still needs its Passport
+  // revision row; same reasoning as uploadDocument.
+  invalidateDocumentBackfill(tenantId);
+  return created;
 }
 
 // PRD_18 §13 — a comment/tag is not an approval; this converts a request

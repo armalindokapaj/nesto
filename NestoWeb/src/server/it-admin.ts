@@ -1,6 +1,7 @@
 import { db } from "@/lib/db";
 import { assertTenant } from "@/lib/tenant";
 import { allocateNumber } from "@/server/number-series";
+import { runAtMostEvery } from "@/lib/read-path-jobs";
 
 // PRD_IT_Administration_Integrations_Service_Management — Phase 1 "IT
 // Foundation" only. See the schema comment above ItDepartmentProfile for the
@@ -16,8 +17,18 @@ export async function ensureItDepartment(tenantId: string) {
 }
 
 export async function getItDashboard(tenantId: string) {
-  await ensureItDepartment(tenantId);
-  const [deviceCount, licenceCount, openTickets, ticketsByType] = await Promise.all([
+  // ensureItDepartment used to be awaited on its own line before the counts,
+  // which cost far more than it looks: Prisma runs an upsert as a
+  // transaction, so this one call measured ~690ms — five round trips — to
+  // re-provision a row that exists after the company's first ever visit, and
+  // nothing on this dashboard reads it.
+  //
+  // It now joins the fan-out AND is rate limited, so the steady state is zero
+  // round trips. This is the only caller of ensureItDepartment; the row is
+  // created once per tenant and has no delete path, so the window is
+  // generous.
+  const [, deviceCount, licenceCount, openTickets, ticketsByType] = await Promise.all([
+    runAtMostEvery(`it:department:${tenantId}`, 600_000, () => ensureItDepartment(tenantId)),
     db.itDevice.count({ where: { tenantId, status: "ACTIVE" } }),
     db.softwareLicence.count({ where: { tenantId } }),
     db.itServiceTicket.count({ where: { tenantId, status: { in: ["OPEN", "IN_PROGRESS"] } } }),
