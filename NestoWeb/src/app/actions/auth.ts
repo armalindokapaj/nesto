@@ -42,16 +42,41 @@ export async function login(_prevState: LoginState, formData: FormData): Promise
   // invented account locks out and reads exactly the same as a real one. These
   // accounts are admin-provisioned internal ones, and a locked-out employee who
   // cannot tell why is a real cost with nothing bought in exchange.
-  if (await isLoginLocked(identifier)) {
+  // Every statement this action runs is sub-millisecond on the server — the
+  // tables involved are small and indexed. What signing in actually costs is
+  // round trips to a database a continent away (~130ms each, and far worse
+  // under jitter), so the only number worth tuning is how many of them happen
+  // in series. This is deliberately two stages: everything knowable before the
+  // password is checked, then the attempt record.
+  const [locked, user] = await Promise.all([
+    isLoginLocked(identifier),
+    db.userIdentity.findFirst({
+      where: { OR: [{ email: identifier }, { username: identifier }] },
+      // The workspace is joined in here rather than looked up after the
+      // password check. It rides along in the same round trip, and on the
+      // failure path the extra row is simply discarded.
+      relationLoadStrategy: "join",
+      select: {
+        id: true,
+        passwordHash: true,
+        memberships: {
+          where: { accessMode: { in: ["STANDARD", "VIEW_ONLY"] } },
+          orderBy: { createdAt: "asc" },
+          take: 1,
+          select: { tenantId: true, role: true },
+        },
+      },
+    }),
+  ]);
+
+  if (locked) {
     return { error: t("auth.tooManyAttempts") };
   }
 
-  const user = await db.userIdentity.findFirst({
-    where: { OR: [{ email: identifier }, { username: identifier }] },
-  });
-
   // Constant-shape response whether the user exists or not, to avoid
-  // leaking account existence via timing/response differences.
+  // leaking account existence via timing/response differences. Issuing the
+  // lookup above unconditionally rather than skipping it when locked keeps
+  // that property intact — it is one read whose result is thrown away.
   const passwordHash = user?.passwordHash ?? "$2b$10$invalidsaltinvalidsaltinvalidsaltinvalidsal";
   const passwordValid = await bcrypt.compare(password, passwordHash);
 
@@ -61,10 +86,7 @@ export async function login(_prevState: LoginState, formData: FormData): Promise
     return { error: t("auth.invalidCredentials") };
   }
 
-  const membership = await db.companyMembership.findFirst({
-    where: { userId: user.id, accessMode: { in: ["STANDARD", "VIEW_ONLY"] } },
-    orderBy: { createdAt: "asc" },
-  });
+  const membership = user.memberships[0];
 
   if (!membership) {
     return { error: t("auth.noWorkspace") };

@@ -33,12 +33,23 @@ export async function isLoginLocked(identifier: string): Promise<boolean> {
 }
 
 export async function recordLoginAttempt(identifier: string, succeeded: boolean) {
-  await db.loginAttempt.create({ data: { identifier, succeeded, ip: await clientIp() } });
+  const data = { identifier, succeeded, ip: await clientIp() };
+
+  if (!succeeded) {
+    await db.loginAttempt.create({ data });
+    return;
+  }
+
   // A success clears the identifier's recent failures, so someone who mistyped
   // twice and then got it right is not punished for the rest of the window.
-  if (succeeded) {
-    await db.loginAttempt.deleteMany({ where: { identifier, succeeded: false } });
-  }
+  // Batched rather than awaited one after the other: the two statements are
+  // independent of each other's results, and this is on the critical path of
+  // every sign-in, where a round trip costs far more than the write does.
+  // The insert lands first and is succeeded:true, so the delete never sees it.
+  await db.$transaction([
+    db.loginAttempt.create({ data }),
+    db.loginAttempt.deleteMany({ where: { identifier, succeeded: false } }),
+  ]);
 }
 
 /** Best-effort, for forensics only — never used as the rate-limit key, since a header is trivially spoofed. */
