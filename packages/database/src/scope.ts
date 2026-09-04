@@ -13,7 +13,7 @@
 
 import { AsyncLocalStorage } from "node:async_hooks";
 import type { ExecutionContext } from "@nesto/contracts";
-import type { Prisma } from "./generated/prisma";
+import type { Prisma } from "../generated/prisma";
 
 export type PrismaTx = Omit<
   Prisma.TransactionClient,

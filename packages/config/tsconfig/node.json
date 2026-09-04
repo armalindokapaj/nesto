@@ -7,6 +7,11 @@
     "lib": ["ES2023"],
     "types": ["node"],
     "verbatimModuleSyntax": false,
-    "isolatedModules": false
+    "isolatedModules": false,
+    // Incremental compilation plus a deleted dist/ is a trap: tsc trusts its
+    // .tsbuildinfo, emits nothing, and the package silently ships a partial
+    // build. Turbo already caches whole task outputs, so the incremental win
+    // was buying nothing here.
+    "incremental": false
   }
 }

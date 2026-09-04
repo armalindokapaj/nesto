@@ -31,7 +31,7 @@ playwright/.cache/
 .storage/
 
 # generated
-packages/database/src/generated/
+packages/database/generated/
 docs/api/openapi.json
 docs/events/schemas/
 

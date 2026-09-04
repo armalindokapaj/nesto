@@ -12,7 +12,7 @@
  * produces an empty result set instead of another tenant's data.
  */
 
-import { PrismaClient, Prisma } from "./generated/prisma";
+import { PrismaClient, Prisma } from "../generated/prisma";
 import { requireScope, scopeStorage, type DbScope } from "./scope";
 
 /**
