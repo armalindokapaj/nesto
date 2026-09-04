@@ -12,7 +12,50 @@
  *     nobody thought to name suspiciously.
  */
 
-const SENSITIVE_KEY = /(?:password|passwd|secret|token|credential|authorization|cookie|apikey|api_key|mfa|totp|recovery|salary|iban|bank|ssn|nid|passport|pepper|kek)/i;
+/**
+ * Sensitive key detection, by word rather than by substring.
+ *
+ * A plain substring match is how `correlationId` gets redacted: it contains
+ * "nId", and "nid" was in the list for national identifiers. Losing the
+ * correlation id from the logs defeats §25.3 and ACC-23 — the one identifier
+ * that traces a flow across the API, a queue and an event consumer — so the key
+ * is split on camelCase and separator boundaries and each word is checked.
+ */
+const SENSITIVE_WORDS = new Set([
+  "password", "passwd", "pwd", "secret", "token", "credential", "credentials",
+  "authorization", "auth", "cookie", "session", "mfa", "totp", "otp", "seed",
+  "recovery", "salary", "wage", "iban", "bic", "swift", "ssn", "nin",
+  "nationalid", "passport", "pepper", "kek", "dek", "pin", "signature",
+  "privatekey", "apikey", "accesskey", "secretkey",
+]);
+
+/** `key` alone is innocuous (idempotencyKey), dangerous in these pairings. */
+const KEY_QUALIFIERS = new Set(["api", "secret", "private", "encryption", "access", "signing"]);
+
+/** Likewise `id`: tenantId and userId are the whole point of a log line, while
+ *  a national or tax identifier is regulated personal data. */
+const ID_QUALIFIERS = new Set(["national", "tax", "social", "personal", "fiscal", "vat", "nuis"]);
+
+function keyWords(key: string): string[] {
+  return key
+    .replace(/([a-z0-9])([A-Z])/g, "$1 $2")
+    .replace(/[_\-.]+/g, " ")
+    .toLowerCase()
+    .split(/\s+/)
+    .filter(Boolean);
+}
+
+export function isSensitiveKey(key: string): boolean {
+  const words = keyWords(key);
+  for (let i = 0; i < words.length; i++) {
+    const word = words[i] as string;
+    if (SENSITIVE_WORDS.has(word)) return true;
+    if (word === "key" && i > 0 && KEY_QUALIFIERS.has(words[i - 1] as string)) return true;
+    if ((word === "id" || word === "number") && i > 0 && ID_QUALIFIERS.has(words[i - 1] as string)) return true;
+    if (word === "hash" && i > 0 && SENSITIVE_WORDS.has(words[i - 1] as string)) return true;
+  }
+  return false;
+}
 
 /** A JWT, a bearer token, or a long base64url blob that has no business in a log. */
 const SENSITIVE_VALUE = [
@@ -37,7 +80,7 @@ export function redact(value: unknown, depth = 0): unknown {
 
   const out: Record<string, unknown> = {};
   for (const [key, v] of Object.entries(value as Record<string, unknown>)) {
-    out[key] = SENSITIVE_KEY.test(key) ? REDACTED : redact(v, depth + 1);
+    out[key] = isSensitiveKey(key) ? REDACTED : redact(v, depth + 1);
   }
   return out;
 }
@@ -60,7 +103,7 @@ export function redactChanges(
     const from = before?.[key];
     const to = after?.[key];
     if (JSON.stringify(from) === JSON.stringify(to)) continue;
-    if (confidentialFields.has(key) || SENSITIVE_KEY.test(key)) {
+    if (confidentialFields.has(key) || isSensitiveKey(key)) {
       changes[key] = { from: REDACTED, to: REDACTED };
     } else {
       changes[key] = { from: redact(from), to: redact(to) };

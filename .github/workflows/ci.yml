@@ -5,93 +5,147 @@ on:
   push:
     branches: [main]
 
-# A second push to the same branch cancels the first — CI should report on the
-# tip of a branch, not queue up behind every intermediate commit.
+# A second push to the same branch cancels the first — CI reports on the tip of
+# a branch, not on every intermediate commit.
 concurrency:
   group: ci-${{ github.ref }}
   cancel-in-progress: true
 
-jobs:
-  test:
-    runs-on: ubuntu-latest
+env:
+  # Runtime connects as nesto_app, which is NOBYPASSRLS. Connecting as the owner
+  # would make the isolation suite pass while proving nothing (ADR-0002).
+  DATABASE_URL: postgresql://nesto_app:nesto_app_dev@localhost:5432/nesto?schema=public
+  DATABASE_URL_DIRECT: postgresql://nesto:nesto_dev@localhost:5432/nesto?schema=public
+  REDIS_URL: redis://localhost:6379
+  AUTH_ACCESS_SECRET: ci-access-secret-of-sufficient-length-0123456789
+  AUTH_REFRESH_PEPPER: ci-refresh-pepper-of-sufficient-length-0123456
+  CRYPTO_KEK: Y2ktb25seS1rZXktZW5jcnlwdGlvbi1rZXktMzJieXRl
+  STORAGE_ENDPOINT: http://localhost:9000
+  STORAGE_REGION: eu-central-1
+  STORAGE_ACCESS_KEY: nesto
+  STORAGE_SECRET_KEY: nesto_dev_secret
+  STORAGE_BUCKET_OBJECTS: nesto-objects
+  STORAGE_BUCKET_QUARANTINE: nesto-quarantine
+  MALWARE_SCANNER: permissive-dev
+  NODE_ENV: test
 
-    # A throwaway Postgres container, deliberately not a Neon branch: a
-    # branch-per-PR is a nice-to-have, and this proves the same thing for free.
+jobs:
+  quality:
+    name: typecheck, architecture and unit tests
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: pnpm/action-setup@v4
+        with: { version: 9.15.4 }
+      - uses: actions/setup-node@v4
+        with: { node-version: 22, cache: pnpm }
+      - run: pnpm install --frozen-lockfile
+      - run: pnpm db:generate
+      - name: Typecheck
+        run: pnpm typecheck
+      # Architecture before unit tests: a boundary violation makes every other
+      # result untrustworthy, so it should be the first thing to go red.
+      - name: Architecture boundaries
+        run: pnpm --filter @nesto/testing test
+      - name: Unit tests
+        run: pnpm turbo run test
+
+  integration:
+    name: integration, isolation and concurrency
+    runs-on: ubuntu-latest
     services:
       postgres:
-        image: postgres:16
+        image: postgres:17
         env:
-          POSTGRES_PASSWORD: postgres
+          POSTGRES_USER: nesto
+          POSTGRES_PASSWORD: nesto_dev
+          POSTGRES_DB: nesto
         ports: ["5432:5432"]
         options: >-
-          --health-cmd pg_isready
-          --health-interval 10s
-          --health-timeout 5s
-          --health-retries 5
-
-    env:
-      DATABASE_URL: postgresql://postgres:postgres@localhost:5432/postgres
-      # schema.prisma splits directUrl out for migrations against Neon's pooler.
-      # In CI both point at the same unpooled container.
-      DATABASE_URL_UNPOOLED: postgresql://postgres:postgres@localhost:5432/postgres
-      AUTH_SECRET: ci-only-secret-do-not-use-in-prod
-      NEXTAUTH_URL: http://localhost:3100
-      # File storage: the local-filesystem driver, so CI needs no Blob token.
-      BLOB_DRIVER: local
-
-    # The Next app lives in NestoWeb/, not the repository root.
-    defaults:
-      run:
-        working-directory: NestoWeb
+          --health-cmd "pg_isready -U nesto" --health-interval 5s
+          --health-timeout 5s --health-retries 20
+      redis:
+        image: redis:7
+        ports: ["6379:6379"]
+        options: >-
+          --health-cmd "redis-cli ping" --health-interval 5s
+          --health-timeout 5s --health-retries 20
+      minio:
+        image: bitnami/minio:latest
+        env:
+          MINIO_ROOT_USER: nesto
+          MINIO_ROOT_PASSWORD: nesto_dev_secret
+          MINIO_DEFAULT_BUCKETS: nesto-objects,nesto-quarantine
+        ports: ["9000:9000"]
 
     steps:
       - uses: actions/checkout@v4
-
+      - uses: pnpm/action-setup@v4
+        with: { version: 9.15.4 }
       - uses: actions/setup-node@v4
-        with:
-          node-version: 22
-          cache: npm
-          cache-dependency-path: NestoWeb/package-lock.json
+        with: { node-version: 22, cache: pnpm }
+      - run: pnpm install --frozen-lockfile
+      - run: pnpm build
 
-      - run: npm ci
+      - name: Apply migrations
+        run: pnpm db:deploy
 
-      - run: npx prisma migrate deploy
+      # The suite that matters most: every assertion is "this must NOT be
+      # possible". §26.2's matrix, run against real Postgres with RLS forced.
+      - name: Isolation and concurrency
+        run: pnpm --filter @nesto/database test:integration
 
-      - run: npm run typecheck
+      - name: Outbox, inbox and audit chain
+        run: pnpm --filter @nesto/worker test:integration
 
-      - run: npm run lint
+      # An event's meaning is immutable once published (§20.2). This is the
+      # check that a schema change is additive or a new version.
+      - name: Event registry compatibility
+        run: pnpm --filter @nesto/events test
 
-      - run: npm test
+      - name: API smoke
+        run: |
+          node apps/api/dist/main.js &
+          API_PID=$!
+          for i in $(seq 1 30); do
+            if curl -sf http://localhost:4000/health > /dev/null; then break; fi
+            sleep 1
+          done
+          curl -sf http://localhost:4000/health | grep -q '"status":"ok"'
+          curl -sf http://localhost:4000/ready  | grep -q '"status":"ready"'
+          # The OpenAPI document is the published contract; a build that cannot
+          # produce it has broken the thing every client is generated from.
+          curl -sf http://localhost:4000/api/openapi.json | grep -q '"openapi"'
+          kill $API_PID
 
-      # The e2e suite signs in as seeded users, so the database has to be
-      # populated before Playwright starts.
-      - name: Seed database
-        run: npm run db:seed:all
+  security:
+    name: secrets and dependencies
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with: { fetch-depth: 0 }
+      - uses: pnpm/action-setup@v4
+        with: { version: 9.15.4 }
+      - uses: actions/setup-node@v4
+        with: { node-version: 22, cache: pnpm }
+      - run: pnpm install --frozen-lockfile
 
-      - name: Install Playwright browsers
-        run: npx playwright install --with-deps chromium
+      - name: Dependency audit
+        run: pnpm audit --audit-level high || true
 
-      # NOT blocking yet, deliberately — and this is the one step that should
-      # change soonest.
-      #
-      # 58 of 120 pass; about 15 specs assert against a UI that commit b82fb16
-      # reworked without updating them (for instance role-context-navigation
-      # expects a "Budget vs Actual" sidebar link that the Finance nav rework
-      # removed). Those failures predate this pipeline and are not regressions.
-      #
-      # Gating merges on a job that is red for reasons nobody introduced today
-      # trains everyone to ignore CI, which is worse than having none. The
-      # steps above — typecheck, lint, unit — are green and DO gate. Once the
-      # stale specs are repaired, delete continue-on-error and add this job to
-      # the branch protection required checks.
-      - name: E2E (advisory until stale specs are repaired)
-        run: npm run test:e2e
-        continue-on-error: true
+      # A committed .env is the single most common way a real secret leaks out
+      # of a repository like this one.
+      - name: No committed environment files
+        run: |
+          if git ls-files | grep -E '^\.env$|/\.env$'; then
+            echo "A .env file is committed. Only .env.example belongs in the repository."
+            exit 1
+          fi
 
-      - name: Upload Playwright report
-        if: always()
-        uses: actions/upload-artifact@v4
-        with:
-          name: playwright-report
-          path: NestoWeb/playwright-report/
-          retention-days: 7
+      - name: No permissive scanner in production config
+        run: |
+          if grep -rn "MALWARE_SCANNER=permissive-dev" --include="*.yml" --include="*.yaml" . \
+             | grep -v ".github/workflows/ci.yml" | grep -iE "prod"; then
+            echo "The permissive-dev scanner is referenced in a production configuration."
+            exit 1
+          fi

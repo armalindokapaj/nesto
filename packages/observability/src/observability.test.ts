@@ -78,3 +78,29 @@ describe("metrics", () => {
     expect(out).toContain("t_ms_sum 555");
   });
 });
+
+describe("sensitive-key detection", () => {
+  it("keeps the correlation id, which tracing depends on", () => {
+    // A substring matcher redacted this: "correlatio(nId)" contains "nid",
+    // which was in the list for national identifiers. Losing it defeats §25.3
+    // and ACC-23 — it is the one field that ties a flow together.
+    const out = redact({ correlationId: "01a06e1c-f6ee-7beb", requestId: "abc", tenantId: "t1" });
+    expect(out).toEqual({ correlationId: "01a06e1c-f6ee-7beb", requestId: "abc", tenantId: "t1" });
+  });
+
+  it("still removes the things that matter", () => {
+    for (const key of [
+      "password", "passwordHash", "refreshToken", "mfaSecret", "totpSeed", "recoveryCode",
+      "apiKey", "secretKey", "privateKey", "iban", "grossSalary", "nationalId", "passportNumber",
+      "authorization", "sessionToken", "webhookSignature",
+    ]) {
+      expect(redact({ [key]: "value" }), key).toEqual({ [key]: REDACTED });
+    }
+  });
+
+  it("leaves innocuous keys that merely contain a dangerous word", () => {
+    for (const key of ["idempotencyKey", "keyholder", "tokenizedAt", "bankruptcyNote", "seedlingCount"]) {
+      expect(redact({ [key]: "v" }), key).toEqual({ [key]: "v" });
+    }
+  });
+});
