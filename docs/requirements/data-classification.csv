@@ -1,0 +1,6 @@
+class,description,at_rest,indexable,in_audit_payload,in_search_index,in_external_projection,retention_class
+PUBLIC,Deliberately published network/profile/job data,plain,yes,yes,yes,yes,PUBLISHED
+INTERNAL,Ordinary company business data,plain,yes,redacted-on-request,yes,only when explicitly scoped,OPERATIONAL
+RESTRICTED,"Finance amounts, bid values, contract commercial terms, HR employment terms",plain,yes,change-marker only,no,never,CONTROLLED
+CONFIDENTIAL,"Salary, medical, disciplinary, national identifiers, private notes, legal advice",encrypted,no,change-marker only,no,never,CONTROLLED
+SECRET,"Password hashes, MFA seeds, recovery codes, refresh tokens, integration credentials, webhook secrets",hashed-or-encrypted,no,never,no,never,CREDENTIAL

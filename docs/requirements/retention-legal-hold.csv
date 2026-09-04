@@ -1,0 +1,10 @@
+data_class,default_retention,deletion_mode,legal_hold_blocks_purge,notes
+PUBLISHED,while published + 90d after unpublish,soft-delete then purge,yes,Verified experience retains platform evidence
+OPERATIONAL,life of company + 365d after lock,archive then dependency-ordered purge,yes,Company deletion runbook (PRD §9.2)
+CONTROLLED,10 years from issue/posting,never deletable through ordinary UI,yes,"Issued documents, posted finance, submitted bids, sent correspondence"
+CREDENTIAL,until rotated or revoked,immediate hard delete,no,Never included in exports or audit payloads
+AUDIT,10 years,append-only; never deleted with business record,yes,Hash-chained (ADR-0008)
+QUARANTINE_FILE,30 days,hard delete of object and metadata,yes,Rejected uploads
+EXPORT_ARTIFACT,7 days,hard delete on expiry,no,Signed download expires with the artifact
+TENDER_RECORD,life of tender + 10 years,never deletable while tender history exists,yes,PRD §17.6
+CANDIDATE_RECORD,no automatic expiry,manual archive or deletion,yes,PRD §16.4 — legally required deletion stays manual

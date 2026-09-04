@@ -1,0 +1,12 @@
+migration,phase,domains,intent,risk,expected_cardinality,rollback,status
+00_init_schemas_roles_rls,0,all,"Create 22 schemas, app_owner/app_runtime roles, RLS helpers",low,n/a,drop schemas (greenfield only),PLANNED
+01_foundation,0,foundation,"Tenant, BusinessGroup, Company, relationships, settings, legal, features",low,"tenants <1e3, companies <1e4",expand-only,PLANNED
+02_identity,1,identity,"User, Credential, Session, MFA, RecoveryCode, SecurityStamp, Invitation, Onboarding",low,"users <1e6, sessions <1e7",expand-only,PLANNED
+03_authorization,1,authorization,PermissionGrant,low,grants <1e6,expand-only,PLANNED
+04_organization,1,organization,"Department, CompanyMembership",low,memberships <1e6,expand-only,PLANNED
+05_audit_integration,0,audit+integration,"AuditEvent (append-only grants, hash chain), ActivityEvent, Outbox, Inbox, Checkpoint, DeadLetter, Import/Export, IdempotencyKey",medium,"audit >1e8 — partition candidate",expand-only,PLANNED
+06_notifications,1,notifications,"Notification, DeliveryAttempt, preferences",low,>1e7 — partition candidate,expand-only,PLANNED
+07_projects,1,projects,"Templates, Project, TemplateSnapshot, ProvisioningStep, ProjectMembership",low,projects <1e5,expand-only,PLANNED
+08_project_core,2,project-core,"PlanState, PhysicalNode, WbsNode, links, Calendar, Dependency, SchedulePreview, Baseline",medium,"nodes <1e7 per tenant",expand-only,PLANNED
+09_tasks,2,tasks,"WorkItem, contributors, watchers, checklist, saved views",medium,work items <1e7,expand-only,PLANNED
+10_documents,3,documents,"FileObject, Document, DocumentRevision, history, distribution, transmittal",medium,revisions <1e7,expand-only,PLANNED
