@@ -1,0 +1,34 @@
+{
+  "name": "nesto",
+  "private": true,
+  "version": "1.0.0",
+  "packageManager": "pnpm@9.15.4",
+  "engines": { "node": ">=22" },
+  "scripts": {
+    "build": "turbo run build",
+    "dev": "turbo run dev",
+    "lint": "turbo run lint",
+    "typecheck": "turbo run typecheck",
+    "test": "turbo run test",
+    "test:integration": "turbo run test:integration",
+    "test:e2e": "turbo run test:e2e",
+    "arch": "vitest run --config vitest.arch.config.ts",
+    "db:generate": "pnpm --filter @nesto/database generate",
+    "db:migrate": "pnpm --filter @nesto/database migrate",
+    "db:deploy": "pnpm --filter @nesto/database deploy",
+    "db:reset": "pnpm --filter @nesto/database reset",
+    "db:seed": "pnpm --filter @nesto/database seed",
+    "infra:up": "docker compose up -d",
+    "infra:down": "docker compose down",
+    "infra:reset": "docker compose down -v && docker compose up -d",
+    "ops:rebuild-derived": "pnpm --filter @nesto/worker rebuild-derived",
+    "format": "prettier --write ."
+  },
+  "devDependencies": {
+    "@types/node": "^22.10.5",
+    "prettier": "^3.4.2",
+    "turbo": "^2.3.3",
+    "typescript": "^5.7.3",
+    "vitest": "^2.1.8"
+  }
+}

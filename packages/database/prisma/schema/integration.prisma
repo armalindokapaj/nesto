@@ -1,0 +1,226 @@
+// ---------------------------------------------------------------------------
+// integration — the plumbing every domain shares: outbox, inbox, checkpoints,
+// dead letters, idempotency, imports/exports and the search index.
+// PRD §20, §22.1, ADR-0006, ADR-0009.
+// ---------------------------------------------------------------------------
+
+/// Written inside the business transaction. The fact and the intent to publish
+/// it commit together, so a broker outage can delay an event but never lose one.
+model OutboxEvent {
+  id       String @id @db.Uuid
+  eventId  String @unique @db.Uuid
+  eventType String
+  schemaVersion Int
+
+  tenantId        String  @db.Uuid
+  owningCompanyId String? @db.Uuid
+  projectId       String? @db.Uuid
+
+  aggregateType    String
+  aggregateId      String @db.Uuid
+  aggregateVersion Int
+
+  actorType     String
+  actorId       String  @db.Uuid
+  correlationId String
+  causationId   String?
+
+  payload Json
+
+  /// PENDING | PUBLISHING | PUBLISHED | FAILED | DEAD_LETTERED
+  status        String    @default("PENDING")
+  attempts      Int       @default(0)
+  nextAttemptAt DateTime  @default(now()) @db.Timestamptz(6)
+  lastError     String?
+  publishedAt   DateTime? @db.Timestamptz(6)
+  occurredAt    DateTime  @db.Timestamptz(6)
+  createdAt     DateTime  @default(now()) @db.Timestamptz(6)
+
+  /// The relay's claim query. Partial so the index stays small once the bulk of
+  /// the table is PUBLISHED (§11.8).
+  @@index([status, nextAttemptAt])
+  @@index([tenantId, aggregateType, aggregateId, aggregateVersion])
+  @@map("outbox_event")
+  @@schema("integration")
+}
+
+/// Consumer-side deduplication. Unique on (consumer, eventId) is what makes
+/// at-least-once delivery safe — the claim is the dedupe.
+model InboxMessage {
+  id         String   @id @db.Uuid
+  consumer   String
+  eventId    String   @db.Uuid
+  eventType  String
+  tenantId   String   @db.Uuid
+  /// CLAIMED | PROCESSED | FAILED
+  status     String   @default("CLAIMED")
+  attempts   Int      @default(0)
+  claimedAt  DateTime @default(now()) @db.Timestamptz(6)
+  processedAt DateTime? @db.Timestamptz(6)
+  lastError  String?
+
+  @@unique([consumer, eventId])
+  @@index([consumer, status])
+  @@map("inbox_message")
+  @@schema("integration")
+}
+
+/// Ordered processing progress per consumer, for observability and replay bounds.
+model ConsumerCheckpoint {
+  id                  String   @id @db.Uuid
+  consumer            String   @unique
+  lastEventId         String?  @db.Uuid
+  lastOccurredAt      DateTime? @db.Timestamptz(6)
+  processedCount      BigInt   @default(0)
+  updatedAt           DateTime @updatedAt @db.Timestamptz(6)
+
+  @@map("consumer_checkpoint")
+  @@schema("integration")
+}
+
+/// Failed events and commands. Replay is permissioned, reasoned and audited,
+/// and must not re-fire an external side effect already confirmed (§20.6).
+model DeadLetter {
+  id            String   @id @db.Uuid
+  kind          String
+  consumer      String?
+  eventId       String?  @db.Uuid
+  eventType     String?
+  tenantId      String?  @db.Uuid
+  envelope      Json
+  failureClass  String
+  /// A reference to the log entry, not the stack trace: a dead-letter dashboard
+  /// must be safe to look at (§20.8).
+  diagnosticRef String?
+  attempts      Int      @default(0)
+  firstFailedAt DateTime @db.Timestamptz(6)
+  lastFailedAt  DateTime @db.Timestamptz(6)
+  /// OPEN | REPLAYED | DISCARDED
+  status        String   @default("OPEN")
+  replayedAt    DateTime? @db.Timestamptz(6)
+  replayedBy    String?  @db.Uuid
+  replayReason  String?
+
+  @@index([status, lastFailedAt(sort: Desc)])
+  @@index([tenantId])
+  @@map("dead_letter")
+  @@schema("integration")
+}
+
+/// One row per (operation, key). A retried command returns the original result
+/// rather than performing the work twice (§19.1, §26.4).
+model IdempotencyKey {
+  id          String   @id @db.Uuid
+  tenantId    String?  @db.Uuid
+  operation   String
+  key         String
+  requestHash String
+  /// IN_PROGRESS | SUCCEEDED | FAILED
+  status      String   @default("IN_PROGRESS")
+  responseBody Json?
+  responseStatus Int?
+  createdAt   DateTime @default(now()) @db.Timestamptz(6)
+  completedAt DateTime? @db.Timestamptz(6)
+  expiresAt   DateTime @db.Timestamptz(6)
+
+  @@unique([operation, key])
+  @@index([expiresAt])
+  @@map("idempotency_key")
+  @@schema("integration")
+}
+
+/// The derived search index (ADR-0009). Restricted fields never reach it, so no
+/// query shape can surface them; revocation deletes rows in the same
+/// transaction that revokes the access.
+model SearchDocument {
+  id              String  @id @db.Uuid
+  tenantId        String  @db.Uuid
+  owningCompanyId String? @db.Uuid
+  projectId       String? @db.Uuid
+
+  sourceType    String
+  sourceId      String @db.Uuid
+  sourceVersion Int
+  indexVersion  Int    @default(1)
+
+  /// INTERNAL | SHARED_EXTERNAL | PUBLIC — what audience may discover it.
+  discoveryClass String @default("INTERNAL")
+  /// Permission key required to see the result at all. Applied as a SQL
+  /// predicate before ranking, counting or faceting (§22.1).
+  requiredPermission String?
+
+  title    String
+  subtitle String?
+  /// Minimized searchable text. Never salary, bid amounts, medical detail or
+  /// private notes.
+  body     String
+  keywords String[]
+
+  /// Maintained by the search domain with `to_tsvector` on write. Declared here
+  /// as Unsupported so Prisma owns the column and its GIN index — an index
+  /// created by hand in a migration is dropped by the next `migrate diff`,
+  /// which is a lesson this schema paid for once already.
+  searchVector Unsupported("tsvector")?
+
+  updatedAt DateTime @updatedAt @db.Timestamptz(6)
+
+  @@unique([sourceType, sourceId])
+  @@index([tenantId, owningCompanyId, sourceType])
+  @@index([tenantId, projectId])
+  @@index([searchVector], type: Gin)
+  @@index([title(ops: raw("public.gin_trgm_ops"))], type: Gin)
+  @@map("search_document")
+  @@schema("integration")
+}
+
+/// Upload, map, validate, preview, apply (§10.1 Import/Export engine).
+/// `validationHash` is the concurrency guard: apply revalidates it against the
+/// current target revisions (§12.12).
+model ImportJob {
+  id              String    @id @db.Uuid
+  tenantId        String    @db.Uuid
+  owningCompanyId String    @db.Uuid
+  projectId       String?   @db.Uuid
+  targetType      String
+  fileObjectId    String    @db.Uuid
+  mapping         Json?
+  validationHash  String?
+  /// UPLOADED | MAPPED | VALIDATED | APPLYING | APPLIED | FAILED | CANCELLED
+  status          String    @default("UPLOADED")
+  rowCount        Int?
+  errorCount      Int?
+  errors          Json?
+  appliedAt       DateTime? @db.Timestamptz(6)
+  createdAt       DateTime  @default(now()) @db.Timestamptz(6)
+  createdBy       String    @db.Uuid
+  updatedAt       DateTime  @updatedAt @db.Timestamptz(6)
+  updatedBy       String    @db.Uuid
+
+  @@index([tenantId, owningCompanyId, status])
+  @@map("import_job")
+  @@schema("integration")
+}
+
+model ExportJob {
+  id              String    @id @db.Uuid
+  tenantId        String    @db.Uuid
+  owningCompanyId String    @db.Uuid
+  projectId       String?   @db.Uuid
+  scope           Json
+  format          String    @default("CSV")
+  /// QUEUED | RUNNING | READY | EXPIRED | FAILED
+  status          String    @default("QUEUED")
+  resultFileId    String?   @db.Uuid
+  rowCount        Int?
+  /// Export artifacts expire; the retention matrix gives them 7 days.
+  expiresAt       DateTime  @db.Timestamptz(6)
+  createdAt       DateTime  @default(now()) @db.Timestamptz(6)
+  createdBy       String    @db.Uuid
+  updatedAt       DateTime  @updatedAt @db.Timestamptz(6)
+  updatedBy       String    @db.Uuid
+
+  @@index([tenantId, owningCompanyId, status])
+  @@index([expiresAt])
+  @@map("export_job")
+  @@schema("integration")
+}

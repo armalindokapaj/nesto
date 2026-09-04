@@ -1,0 +1,20 @@
+// Datasource and generator. Models live one file per bounded context alongside
+// this one; see ADR-0002 for the domain-to-schema mapping and docs/prd §11.1
+// for the list. A model without an @@schema fails validation, which is the
+// point: physical ownership is not optional.
+
+generator client {
+  provider        = "prisma-client-js"
+  output          = "../../src/generated/prisma"
+  previewFeatures = ["postgresqlExtensions"]
+}
+
+datasource db {
+  provider  = "postgresql"
+  url       = env("DATABASE_URL")
+  directUrl = env("DATABASE_URL_DIRECT")
+  // Declared so Prisma creates them in the shadow database too. Without this,
+  // `migrate dev` cannot verify an index that uses gin_trgm_ops.
+  extensions = [pg_trgm(schema: "public"), unaccent(schema: "public")]
+  schemas   = ["audit", "authorization", "contracts", "crm", "documents", "finance", "foundation", "hr", "hse", "identity", "integration", "inventory", "network", "notifications", "organization", "procurement", "project_core", "projects", "quality", "site", "tasks", "workflow"]
+}

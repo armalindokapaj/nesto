@@ -1,1 +1,40 @@
 .DS_Store
+
+# dependencies
+node_modules/
+.pnpm-store/
+
+# build output
+dist/
+.next/
+out/
+build/
+*.tsbuildinfo
+next-env.d.ts
+
+# turbo
+.turbo/
+
+# env
+.env
+.env.*
+!.env.example
+
+# test artifacts
+coverage/
+test-results/
+playwright-report/
+playwright/.cache/
+
+# local infrastructure state
+.docker-data/
+.storage/
+
+# generated
+packages/database/src/generated/
+docs/api/openapi.json
+docs/events/schemas/
+
+# editors
+.vscode/
+.idea/

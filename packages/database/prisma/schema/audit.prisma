@@ -1,0 +1,139 @@
+// ---------------------------------------------------------------------------
+// audit — security evidence and the user-facing activity projection.
+// PRD §10.3, §24.3, ADR-0008.
+//
+// These two models look similar and must never be confused:
+//   AuditEvent    is evidence. Append-only, hash-chained, never deleted with
+//                 the record it describes, readable only with an explicit
+//                 permission, and that read is itself audited.
+//   ActivityEvent is a permission-filtered projection for humans. It may be
+//                 rebuilt, trimmed or reshaped freely, because it proves nothing.
+//
+// The migration revokes UPDATE and DELETE on this schema from every role. That
+// is what makes "append-only" a fact rather than a convention.
+// ---------------------------------------------------------------------------
+
+model AuditEvent {
+  id         String   @id @db.Uuid
+  occurredAt DateTime @default(now()) @db.Timestamptz(6)
+
+  /// Null for platform-level events that precede any tenant (a company
+  /// application arriving, an admin signing in).
+  tenantId        String? @db.Uuid
+  owningCompanyId String? @db.Uuid
+  projectId       String? @db.Uuid
+
+  actorType String
+  actorId   String? @db.Uuid
+  /// Set when someone acted on another's behalf; §24.5 requires both to be
+  /// recorded if time-boxed support access is ever enabled.
+  effectiveActorId String? @db.Uuid
+  sessionId        String? @db.Uuid
+  audience         String
+
+  action     String
+  targetType String?
+  targetId   String? @db.Uuid
+  /// SUCCESS | DENIED | FAILED. A denial is evidence too — the denies are how
+  /// a cross-scope probe is detected (§25.3).
+  result     String  @default("SUCCESS")
+  reason     String?
+
+  requestId     String?
+  correlationId String?
+  /// Class, not address: "office", "vpn", "unknown". Storing the raw IP would
+  /// make the audit trail itself a personal-data liability (§24.3 "where legal").
+  ipClass       String?
+  deviceClass   String?
+
+  /// Structured before/after, redacted by data classification. A CONFIDENTIAL
+  /// field contributes a change marker, never its value (ADR-0017).
+  changes Json?
+
+  /// Self-hash of the canonical event. Detects modification of this row.
+  /// Chaining is NOT done here — see AuditChainSeal for why.
+  hash String
+
+  /// Set by the sealing job. Null means "written but not yet sealed"; it is the
+  /// only column on this table that is ever updated, and the migration grants
+  /// UPDATE on it alone.
+  sealId String? @db.Uuid
+
+  seal AuditChainSeal? @relation(fields: [sealId], references: [id], onDelete: Restrict)
+
+  @@index([tenantId, occurredAt(sort: Desc)])
+  @@index([tenantId, targetType, targetId])
+  @@index([tenantId, actorId, occurredAt(sort: Desc)])
+  @@index([action, occurredAt(sort: Desc)])
+  @@index([tenantId, id])
+  @@index([sealId])
+  @@map("audit_event")
+  @@schema("audit")
+}
+
+/// Tamper evidence without write contention — a correction to ADR-0008's first
+/// sketch.
+///
+/// The original design chained every audit row to its predecessor, which means
+/// reading the previous hash inside the business transaction and therefore
+/// serialising every audited write in a tenant. In a company with fifty people
+/// working a site that is not a hash chain, it is a global lock.
+///
+/// Instead: each event carries a self-hash, and a periodic sealing job folds a
+/// contiguous run of events into one seal whose rolling hash covers all of them
+/// and chains to the previous seal. Deleting or altering any event breaks
+/// verification of its seal, which is the property that mattered. Writers never
+/// contend, and audit rows are still never rewritten — the job only stamps
+/// `sealId`, and UPDATE is granted on that column alone.
+model AuditChainSeal {
+  id       String  @id @db.Uuid
+  tenantId String? @db.Uuid
+
+  /// UUIDv7 is time-ordered, so an id range is a time range and the run of
+  /// events a seal covers is unambiguous.
+  fromAuditId String @db.Uuid
+  toAuditId   String @db.Uuid
+  eventCount  Int
+
+  /// fold(previousSealHash, each event hash in id order)
+  rollingHash      String
+  previousSealHash String?
+  sealedAt         DateTime @default(now()) @db.Timestamptz(6)
+
+  events AuditEvent[]
+
+  @@index([tenantId, sealedAt(sort: Desc)])
+  @@map("audit_chain_seal")
+  @@schema("audit")
+}
+
+model ActivityEvent {
+  id         String   @id @db.Uuid
+  occurredAt DateTime @default(now()) @db.Timestamptz(6)
+
+  tenantId        String  @db.Uuid
+  owningCompanyId String? @db.Uuid
+  projectId       String? @db.Uuid
+
+  actorId    String? @db.Uuid
+  verb       String
+  targetType String
+  targetId   String  @db.Uuid
+
+  /// i18n key plus its parameters, never a pre-rendered sentence — §23.7
+  /// forbids inline concatenation and the timeline must localize at display.
+  summaryKey    String
+  summaryParams Json?
+
+  /// COMPANY | PROJECT | SHARED_EXTERNAL — decides which feed may show it.
+  visibility String @default("COMPANY")
+  /// The correlation id shared with the AuditEvent from the same action, so a
+  /// support question can be traced from a user-visible line to the evidence.
+  correlationId String?
+
+  @@index([tenantId, owningCompanyId, occurredAt(sort: Desc)])
+  @@index([tenantId, projectId, occurredAt(sort: Desc)])
+  @@index([tenantId, targetType, targetId])
+  @@map("activity_event")
+  @@schema("audit")
+}

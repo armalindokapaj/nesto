@@ -1,0 +1,314 @@
+// ---------------------------------------------------------------------------
+// foundation — the tenancy and company-lifecycle context every other domain
+// resolves against. PRD §6, §9, §11.3.
+//
+// Nothing in here is business data. It is the answer to "which company is this,
+// is it allowed to be doing anything right now, and under what plan".
+// ---------------------------------------------------------------------------
+
+/// The top isolation and subscription boundary (§6.1). Every tenant-owned row
+/// in the platform carries this id, and the RLS policy compares against it.
+model Tenant {
+  id               String    @id @db.Uuid
+  name             String
+  /// Data region. Present from day one because §11.9/§25.4 make residency a
+  /// property of the tenant, not of the deployment.
+  region           String    @default("eu-central-1")
+  deploymentClass  String    @default("SHARED")
+  lifecycleStatus  String    @default("ACTIVE")
+  recordVersion    Int       @default(1)
+  createdAt        DateTime  @default(now()) @db.Timestamptz(6)
+  createdBy        String    @db.Uuid
+  updatedAt        DateTime  @updatedAt @db.Timestamptz(6)
+  updatedBy        String    @db.Uuid
+  archivedAt       DateTime? @db.Timestamptz(6)
+
+  businessGroups BusinessGroup[]
+  companies      Company[]
+
+  @@index([lifecycleStatus])
+  @@map("tenant")
+  @@schema("foundation")
+}
+
+/// Optional corporate hierarchy (§6.4). Group membership grants nothing on its
+/// own — group-level roles resolve to explicit company scopes.
+model BusinessGroup {
+  id                String    @id @db.Uuid
+  tenantId          String    @db.Uuid
+  name              String
+  reportingCurrency String    @db.Char(3)
+  lifecycleStatus   String    @default("ACTIVE")
+  recordVersion     Int       @default(1)
+  createdAt         DateTime  @default(now()) @db.Timestamptz(6)
+  createdBy         String    @db.Uuid
+  updatedAt         DateTime  @updatedAt @db.Timestamptz(6)
+  updatedBy         String    @db.Uuid
+  archivedAt        DateTime? @db.Timestamptz(6)
+
+  tenant    Tenant    @relation(fields: [tenantId], references: [id], onDelete: Restrict)
+  companies Company[]
+
+  @@index([tenantId])
+  @@map("business_group")
+  @@schema("foundation")
+}
+
+/// A legal company. `lifecycleStatus` is the gate every request passes through
+/// (§9.1); `graceExpiresAt` and `lockedAt` are the wall-clock facts the gate is
+/// computed from, so an expired grace blocks writes on the very next request
+/// rather than waiting for the scheduler to materialise the new state.
+model Company {
+  id              String  @id @db.Uuid
+  tenantId        String  @db.Uuid
+  businessGroupId String? @db.Uuid
+
+  legalName          String
+  displayName        String
+  /// Public network slug. Unique platform-wide because it addresses a public
+  /// profile URL (§Appendix F `/network/companies/{slug}`).
+  slug               String  @unique
+  registrationNumber String?
+  vatNumber          String?
+  countryCode        String  @db.Char(2)
+  city               String?
+  addressLine1       String?
+  postalCode         String?
+  website            String?
+  logoFileId         String? @db.Uuid
+
+  /// DRAFT | UNDER_REVIEW | ACTIVE_ONBOARDING | ACTIVE | READ_ONLY_GRACE |
+  /// LOCKED | DELETION_ELIGIBLE | DELETING | DELETED — CHECK-constrained.
+  lifecycleStatus String @default("DRAFT")
+  /// UNVERIFIED | UNDER_REVIEW | VERIFIED | SUSPENDED (§15.2). Platform Control
+  /// owns this (§3.1), which is why it lives here and not in `network`.
+  verificationStatus String @default("UNVERIFIED")
+
+  activatedAt          DateTime? @db.Timestamptz(6)
+  onboardingCompletedAt DateTime? @db.Timestamptz(6)
+  suspendedAt          DateTime? @db.Timestamptz(6)
+  /// Set on suspension: exactly 120 hours ahead (§9.2).
+  graceExpiresAt       DateTime? @db.Timestamptz(6)
+  lockedAt             DateTime? @db.Timestamptz(6)
+  /// Computed from lockedAt + 365 days. Reaching it never auto-deletes (§9.2).
+  deletionEligibleAt   DateTime? @db.Timestamptz(6)
+  deletedAt            DateTime? @db.Timestamptz(6)
+  lifecycleReason      String?
+
+  recordVersion Int       @default(1)
+  createdAt     DateTime  @default(now()) @db.Timestamptz(6)
+  createdBy     String    @db.Uuid
+  updatedAt     DateTime  @updatedAt @db.Timestamptz(6)
+  updatedBy     String    @db.Uuid
+  archivedAt    DateTime? @db.Timestamptz(6)
+
+  tenant        Tenant               @relation(fields: [tenantId], references: [id], onDelete: Restrict)
+  businessGroup BusinessGroup?       @relation(fields: [businessGroupId], references: [id], onDelete: SetNull)
+  branches      Branch[]
+  commercial    CompanyCommercial?
+  settings      CompanySettings?
+  verification  CompanyVerification?
+  relationsFrom CompanyRelationship[] @relation("relationParent")
+  relationsTo   CompanyRelationship[] @relation("relationChild")
+
+  @@unique([tenantId, legalName])
+  @@index([tenantId])
+  @@index([tenantId, lifecycleStatus])
+  @@index([lifecycleStatus, graceExpiresAt])
+  @@index([lifecycleStatus, deletionEligibleAt])
+  @@map("company")
+  @@schema("foundation")
+}
+
+/// Parent/child/shared-service/JV relation with effective dates (§6.4).
+model CompanyRelationship {
+  id              String    @id @db.Uuid
+  tenantId        String    @db.Uuid
+  parentCompanyId String    @db.Uuid
+  childCompanyId  String    @db.Uuid
+  /// PARENT_OF | SHARED_SERVICE | JOINT_VENTURE
+  kind            String
+  effectiveFrom   DateTime  @db.Date
+  effectiveTo     DateTime? @db.Date
+  recordVersion   Int       @default(1)
+  createdAt       DateTime  @default(now()) @db.Timestamptz(6)
+  createdBy       String    @db.Uuid
+  updatedAt       DateTime  @updatedAt @db.Timestamptz(6)
+  updatedBy       String    @db.Uuid
+
+  parent Company @relation("relationParent", fields: [parentCompanyId], references: [id], onDelete: Restrict)
+  child  Company @relation("relationChild", fields: [childCompanyId], references: [id], onDelete: Restrict)
+
+  @@unique([parentCompanyId, childCompanyId, kind, effectiveFrom])
+  @@index([tenantId])
+  @@map("company_relationship")
+  @@schema("foundation")
+}
+
+model Branch {
+  id              String    @id @db.Uuid
+  tenantId        String    @db.Uuid
+  owningCompanyId String    @db.Uuid
+  name            String
+  code            String
+  countryCode     String    @db.Char(2)
+  city            String?
+  addressLine1    String?
+  timezone        String    @default("Europe/Tirane")
+  lifecycleStatus String    @default("ACTIVE")
+  recordVersion   Int       @default(1)
+  createdAt       DateTime  @default(now()) @db.Timestamptz(6)
+  createdBy       String    @db.Uuid
+  updatedAt       DateTime  @updatedAt @db.Timestamptz(6)
+  updatedBy       String    @db.Uuid
+  archivedAt      DateTime? @db.Timestamptz(6)
+
+  company Company @relation(fields: [owningCompanyId], references: [id], onDelete: Restrict)
+
+  @@unique([owningCompanyId, code])
+  @@index([tenantId, owningCompanyId])
+  @@map("branch")
+  @@schema("foundation")
+}
+
+/// Plan, seat limit and manual billing notes. Nesto stores commercial metadata
+/// only — billing happens outside the platform in this baseline (§2).
+model CompanyCommercial {
+  id              String    @id @db.Uuid
+  tenantId        String    @db.Uuid
+  owningCompanyId String    @unique @db.Uuid
+  planLabel       String    @default("STANDARD")
+  seatLimit       Int       @default(10)
+  renewalDate     DateTime? @db.Date
+  billingNotes    String?
+  recordVersion   Int       @default(1)
+  createdAt       DateTime  @default(now()) @db.Timestamptz(6)
+  createdBy       String    @db.Uuid
+  updatedAt       DateTime  @updatedAt @db.Timestamptz(6)
+  updatedBy       String    @db.Uuid
+
+  company Company @relation(fields: [owningCompanyId], references: [id], onDelete: Cascade)
+
+  @@index([tenantId])
+  @@map("company_commercial")
+  @@schema("foundation")
+}
+
+/// Regional defaults chosen during onboarding step 3 (§9.4).
+model CompanySettings {
+  id              String   @id @db.Uuid
+  tenantId        String   @db.Uuid
+  owningCompanyId String   @unique @db.Uuid
+  defaultLocale   String   @default("sq")
+  timezone        String   @default("Europe/Tirane")
+  defaultCurrency String   @default("EUR") @db.Char(3)
+  weekStartsOn    Int      @default(1)
+  dateFormat      String   @default("dd/MM/yyyy")
+  workweekDays    Int[]    @default([1, 2, 3, 4, 5])
+  recordVersion   Int      @default(1)
+  createdAt       DateTime @default(now()) @db.Timestamptz(6)
+  createdBy       String   @db.Uuid
+  updatedAt       DateTime @updatedAt @db.Timestamptz(6)
+  updatedBy       String   @db.Uuid
+
+  company Company @relation(fields: [owningCompanyId], references: [id], onDelete: Cascade)
+
+  @@index([tenantId])
+  @@map("company_settings")
+  @@schema("foundation")
+}
+
+/// The Platform Admin review record behind `Company.verificationStatus`.
+/// Evidence lives here; the flag lives on Company so a read does not need a join.
+model CompanyVerification {
+  id                 String    @id @db.Uuid
+  tenantId           String    @db.Uuid
+  owningCompanyId    String    @unique @db.Uuid
+  status             String    @default("UNVERIFIED")
+  submittedAt        DateTime? @db.Timestamptz(6)
+  reviewedAt         DateTime? @db.Timestamptz(6)
+  reviewedByAdminId  String?   @db.Uuid
+  decisionReason     String?
+  evidenceFileIds    String[]  @db.Uuid
+  officialRepresentative String?
+  businessEmailDomain    String?
+  recordVersion      Int       @default(1)
+  createdAt          DateTime  @default(now()) @db.Timestamptz(6)
+  createdBy          String    @db.Uuid
+  updatedAt          DateTime  @updatedAt @db.Timestamptz(6)
+  updatedBy          String    @db.Uuid
+
+  company Company @relation(fields: [owningCompanyId], references: [id], onDelete: Cascade)
+
+  @@index([tenantId])
+  @@index([status])
+  @@map("company_verification")
+  @@schema("foundation")
+}
+
+/// An immutable published policy version (§9.3 step 7, §11.3). `materialChange`
+/// is what forces re-acceptance rather than a silent update.
+model LegalDocumentVersion {
+  id             String   @id @db.Uuid
+  /// TERMS | PRIVACY | DPA | COOKIES
+  kind           String
+  version        String
+  locale         String
+  bodyMarkdown   String
+  materialChange Boolean  @default(false)
+  publishedAt    DateTime @db.Timestamptz(6)
+  publishedBy    String   @db.Uuid
+  createdAt      DateTime @default(now()) @db.Timestamptz(6)
+
+  acceptances LegalAcceptance[]
+
+  @@unique([kind, version, locale])
+  @@index([kind, publishedAt])
+  @@map("legal_document_version")
+  @@schema("foundation")
+}
+
+/// Evidence that a specific user accepted a specific version. Append-only in
+/// practice: a new acceptance is a new row, never an update.
+model LegalAcceptance {
+  id                     String   @id @db.Uuid
+  legalDocumentVersionId String   @db.Uuid
+  userId                 String   @db.Uuid
+  tenantId               String?  @db.Uuid
+  owningCompanyId        String?  @db.Uuid
+  acceptedAt             DateTime @default(now()) @db.Timestamptz(6)
+  ipClass                String?
+  userAgentClass         String?
+
+  documentVersion LegalDocumentVersion @relation(fields: [legalDocumentVersionId], references: [id], onDelete: Restrict)
+
+  @@unique([legalDocumentVersionId, userId, owningCompanyId])
+  @@index([userId])
+  @@index([tenantId, owningCompanyId])
+  @@map("legal_acceptance")
+  @@schema("foundation")
+}
+
+/// Module release control (ADR-0014). A flag can hide a feature; it can never
+/// expose one, because it is evaluated after permission, not instead of it.
+model FeatureAssignment {
+  id            String    @id @db.Uuid
+  /// TENANT | COMPANY
+  scopeType     String
+  scopeId       String    @db.Uuid
+  moduleId      String
+  /// ENABLED | DISABLED | ROLLOUT
+  state         String    @default("DISABLED")
+  rolloutFrom   DateTime? @db.Timestamptz(6)
+  rolloutTo     DateTime? @db.Timestamptz(6)
+  recordVersion Int       @default(1)
+  createdAt     DateTime  @default(now()) @db.Timestamptz(6)
+  createdBy     String    @db.Uuid
+  updatedAt     DateTime  @updatedAt @db.Timestamptz(6)
+  updatedBy     String    @db.Uuid
+
+  @@unique([scopeType, scopeId, moduleId])
+  @@index([moduleId, state])
+  @@map("feature_assignment")
+  @@schema("foundation")
+}

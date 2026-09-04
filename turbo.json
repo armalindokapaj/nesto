@@ -1,0 +1,42 @@
+{
+  "$schema": "https://turbo.build/schema.json",
+  "globalDependencies": [".env", "tsconfig.base.json"],
+  "globalEnv": [
+    "NODE_ENV",
+    "DATABASE_URL",
+    "DATABASE_URL_DIRECT",
+    "REDIS_URL",
+    "AUTH_ACCESS_SECRET",
+    "AUTH_REFRESH_PEPPER",
+    "CRYPTO_KEK",
+    "STORAGE_ENDPOINT",
+    "STORAGE_ACCESS_KEY",
+    "STORAGE_SECRET_KEY",
+    "STORAGE_REGION",
+    "STORAGE_BUCKET_OBJECTS",
+    "STORAGE_BUCKET_QUARANTINE",
+    "MALWARE_SCANNER",
+    "MAIL_DRIVER",
+    "MAIL_HOST",
+    "MAIL_PORT",
+    "API_INTERNAL_URL",
+    "API_PUBLIC_URL",
+    "COMPANY_WEB_URL",
+    "PLATFORM_ADMIN_URL",
+    "OTEL_EXPORTER_OTLP_ENDPOINT",
+    "OTEL_ENABLED"
+  ],
+  "tasks": {
+    "build": {
+      "dependsOn": ["^build"],
+      "outputs": ["dist/**", ".next/**", "!.next/cache/**"]
+    },
+    "dev": { "cache": false, "persistent": true },
+    "lint": { "dependsOn": ["^build"] },
+    "typecheck": { "dependsOn": ["^build"] },
+    "test": { "dependsOn": ["^build"] },
+    "test:integration": { "dependsOn": ["^build"], "cache": false },
+    "test:e2e": { "dependsOn": ["^build"], "cache": false },
+    "generate": { "cache": false }
+  }
+}
