@@ -30,6 +30,12 @@ const DEFAULT_MAX_WAIT_MS = 5_000;
 
 export type AuditEntry = {
   action: string;
+  /** The tenant the action concerned, when the actor's own context has none.
+   *  A Platform Admin acting on a company is scoped to the platform, but the
+   *  evidence belongs to that company's trail — the audit row records the
+   *  subject, not the actor's scope. */
+  tenantId?: string;
+  owningCompanyId?: string;
   targetType?: string;
   targetId?: string;
   result?: "SUCCESS" | "DENIED" | "FAILED";
@@ -40,6 +46,10 @@ export type AuditEntry = {
 
 export type OutboxEmit = {
   eventType: string;
+  /** The aggregate's tenant. Required when the actor is platform-scoped: an
+   *  event is a fact about an aggregate, and the aggregate's tenant is a
+   *  property of the aggregate, not of whoever caused the change. */
+  tenantId?: string;
   schemaVersion?: number;
   aggregateType: string;
   aggregateId: string;
@@ -52,6 +62,7 @@ export type OutboxEmit = {
 
 export type ActivityEntry = {
   verb: string;
+  tenantId?: string;
   targetType: string;
   targetId: string;
   summaryKey: string;
@@ -176,8 +187,8 @@ async function flushAudit(tx: TransactionalDb, ctx: ExecutionContext, entries: A
       const row = {
         id: newId(),
         occurredAt: new Date(ctx.now),
-        tenantId: ctx.tenantId ?? null,
-        owningCompanyId: ctx.activeCompanyId ?? null,
+        tenantId: e.tenantId ?? ctx.tenantId ?? null,
+        owningCompanyId: e.owningCompanyId ?? ctx.activeCompanyId ?? null,
         projectId: ctx.activeProjectId ?? null,
         actorType: ctx.actorType,
         actorId: ctx.actorType === "SYSTEM" ? null : ctx.actorId,
@@ -200,12 +211,12 @@ async function flushAudit(tx: TransactionalDb, ctx: ExecutionContext, entries: A
 }
 
 async function flushActivity(tx: TransactionalDb, ctx: ExecutionContext, entries: ActivityEntry[]): Promise<void> {
-  if (entries.length === 0 || !ctx.tenantId) return;
+  if (entries.length === 0) return;
   await tx.activityEvent.createMany({
     data: entries.map((e) => ({
       id: newId(),
       occurredAt: new Date(ctx.now),
-      tenantId: ctx.tenantId as string,
+      tenantId: (e.tenantId ?? ctx.tenantId) as string,
       owningCompanyId: e.owningCompanyId ?? ctx.activeCompanyId ?? null,
       projectId: e.projectId ?? ctx.activeProjectId ?? null,
       actorId: ctx.actorType === "SYSTEM" ? null : ctx.actorId,
@@ -222,9 +233,6 @@ async function flushActivity(tx: TransactionalDb, ctx: ExecutionContext, entries
 
 async function flushOutbox(tx: TransactionalDb, ctx: ExecutionContext, events: OutboxEmit[]): Promise<void> {
   if (events.length === 0) return;
-  if (!ctx.tenantId) {
-    throw new NestoError("INTERNAL_ERROR", "Cannot publish a domain event without a tenant context.");
-  }
   await tx.outboxEvent.createMany({
     data: events.map((e) => {
       // An event type nobody registered would dead-letter on the consumer side
@@ -232,12 +240,19 @@ async function flushOutbox(tx: TransactionalDb, ctx: ExecutionContext, events: O
       if (!isSupported(e.eventType)) {
         throw new NestoError("INTERNAL_ERROR", `Event type "${e.eventType}" is not in the registry.`);
       }
+      const tenantId = e.tenantId ?? ctx.tenantId;
+      if (!tenantId) {
+        throw new NestoError(
+          "INTERNAL_ERROR",
+          `Event "${e.eventType}" has no tenant. A platform-scoped actor must state the aggregate's tenantId on emit.`
+        );
+      }
       return {
         id: newId(),
         eventId: newId(),
         eventType: e.eventType,
         schemaVersion: e.schemaVersion ?? 1,
-        tenantId: ctx.tenantId as string,
+        tenantId,
         owningCompanyId: e.owningCompanyId ?? ctx.activeCompanyId ?? null,
         projectId: e.projectId ?? ctx.activeProjectId ?? null,
         aggregateType: e.aggregateType,

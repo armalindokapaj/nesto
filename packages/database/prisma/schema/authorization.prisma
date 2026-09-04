@@ -1,0 +1,45 @@
+// ---------------------------------------------------------------------------
+// authorization — explicit grants and denies. PRD §8.1, §8.4, ADR-0004.
+//
+// A grant is an *exception* to the base role matrix, not the primary mechanism.
+// The matrix lives in code (packages/policy) because it is protected platform
+// behaviour that companies may not silently redefine (§8.2); this table is for
+// the narrow, auditable additions and subtractions on top of it.
+// ---------------------------------------------------------------------------
+
+model PermissionGrant {
+  id       String @id @db.Uuid
+  tenantId String @db.Uuid
+  owningCompanyId String @db.Uuid
+
+  /// MEMBERSHIP | PROJECT_MEMBERSHIP | EXTERNAL_SCOPE
+  subjectType String
+  subjectId   String @db.Uuid
+
+  /// A declared permission key, or a trailing-wildcard pattern. Validated
+  /// against the manifest before it is written — a grant naming a permission
+  /// nobody declared would be authority invented by typing.
+  permissionKey String
+  /// ALLOW | DENY. Deny always wins, at every stage (§8.1).
+  effect        String @default("ALLOW")
+
+  /// COMPANY | PROJECT | RECORD
+  scopeType String @default("COMPANY")
+  scopeId   String? @db.Uuid
+
+  reason    String?
+  expiresAt DateTime? @db.Timestamptz(6)
+  revokedAt DateTime? @db.Timestamptz(6)
+
+  recordVersion Int      @default(1)
+  createdAt     DateTime @default(now()) @db.Timestamptz(6)
+  createdBy     String   @db.Uuid
+  updatedAt     DateTime @updatedAt @db.Timestamptz(6)
+  updatedBy     String   @db.Uuid
+
+  @@unique([subjectType, subjectId, permissionKey, scopeType, scopeId])
+  @@index([tenantId, owningCompanyId, subjectId])
+  @@index([expiresAt])
+  @@map("permission_grant")
+  @@schema("authorization")
+}

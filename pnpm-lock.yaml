@@ -161,6 +161,176 @@ importers:
         specifier: ^2.1.8
         version: 2.1.9(@types/node@22.20.1)
 
+  domains/authorization:
+    dependencies:
+      '@nesto/contracts':
+        specifier: workspace:*
+        version: link:../../packages/contracts
+      '@nesto/database':
+        specifier: workspace:*
+        version: link:../../packages/database
+      '@nesto/observability':
+        specifier: workspace:*
+        version: link:../../packages/observability
+      '@nesto/policy':
+        specifier: workspace:*
+        version: link:../../packages/policy
+      zod:
+        specifier: ^3.24.1
+        version: 3.25.76
+    devDependencies:
+      '@nesto/config':
+        specifier: workspace:*
+        version: link:../../packages/config
+      '@types/node':
+        specifier: ^22.10.5
+        version: 22.20.1
+      dotenv:
+        specifier: ^16.4.7
+        version: 16.6.1
+      typescript:
+        specifier: ^5.7.3
+        version: 5.9.3
+      vitest:
+        specifier: ^2.1.8
+        version: 2.1.9(@types/node@22.20.1)
+
+  domains/foundation:
+    dependencies:
+      '@nesto/contracts':
+        specifier: workspace:*
+        version: link:../../packages/contracts
+      '@nesto/database':
+        specifier: workspace:*
+        version: link:../../packages/database
+      '@nesto/observability':
+        specifier: workspace:*
+        version: link:../../packages/observability
+      '@nesto/policy':
+        specifier: workspace:*
+        version: link:../../packages/policy
+      zod:
+        specifier: ^3.24.1
+        version: 3.25.76
+    devDependencies:
+      '@nesto/config':
+        specifier: workspace:*
+        version: link:../../packages/config
+      '@types/node':
+        specifier: ^22.10.5
+        version: 22.20.1
+      dotenv:
+        specifier: ^16.4.7
+        version: 16.6.1
+      typescript:
+        specifier: ^5.7.3
+        version: 5.9.3
+      vitest:
+        specifier: ^2.1.8
+        version: 2.1.9(@types/node@22.20.1)
+
+  domains/identity:
+    dependencies:
+      '@nesto/contracts':
+        specifier: workspace:*
+        version: link:../../packages/contracts
+      '@nesto/database':
+        specifier: workspace:*
+        version: link:../../packages/database
+      '@nesto/observability':
+        specifier: workspace:*
+        version: link:../../packages/observability
+      '@nesto/policy':
+        specifier: workspace:*
+        version: link:../../packages/policy
+      zod:
+        specifier: ^3.24.1
+        version: 3.25.76
+    devDependencies:
+      '@nesto/config':
+        specifier: workspace:*
+        version: link:../../packages/config
+      '@types/node':
+        specifier: ^22.10.5
+        version: 22.20.1
+      dotenv:
+        specifier: ^16.4.7
+        version: 16.6.1
+      typescript:
+        specifier: ^5.7.3
+        version: 5.9.3
+      vitest:
+        specifier: ^2.1.8
+        version: 2.1.9(@types/node@22.20.1)
+
+  domains/organization:
+    dependencies:
+      '@nesto/contracts':
+        specifier: workspace:*
+        version: link:../../packages/contracts
+      '@nesto/database':
+        specifier: workspace:*
+        version: link:../../packages/database
+      '@nesto/observability':
+        specifier: workspace:*
+        version: link:../../packages/observability
+      '@nesto/policy':
+        specifier: workspace:*
+        version: link:../../packages/policy
+      zod:
+        specifier: ^3.24.1
+        version: 3.25.76
+    devDependencies:
+      '@nesto/config':
+        specifier: workspace:*
+        version: link:../../packages/config
+      '@types/node':
+        specifier: ^22.10.5
+        version: 22.20.1
+      dotenv:
+        specifier: ^16.4.7
+        version: 16.6.1
+      typescript:
+        specifier: ^5.7.3
+        version: 5.9.3
+      vitest:
+        specifier: ^2.1.8
+        version: 2.1.9(@types/node@22.20.1)
+
+  domains/projects:
+    dependencies:
+      '@nesto/contracts':
+        specifier: workspace:*
+        version: link:../../packages/contracts
+      '@nesto/database':
+        specifier: workspace:*
+        version: link:../../packages/database
+      '@nesto/observability':
+        specifier: workspace:*
+        version: link:../../packages/observability
+      '@nesto/policy':
+        specifier: workspace:*
+        version: link:../../packages/policy
+      zod:
+        specifier: ^3.24.1
+        version: 3.25.76
+    devDependencies:
+      '@nesto/config':
+        specifier: workspace:*
+        version: link:../../packages/config
+      '@types/node':
+        specifier: ^22.10.5
+        version: 22.20.1
+      dotenv:
+        specifier: ^16.4.7
+        version: 16.6.1
+      typescript:
+        specifier: ^5.7.3
+        version: 5.9.3
+      vitest:
+        specifier: ^2.1.8
+        version: 2.1.9(@types/node@22.20.1)
+
   packages/auth:
     dependencies:
       '@nesto/contracts':
@@ -368,6 +538,24 @@ importers:
       '@nesto/contracts':
         specifier: workspace:*
         version: link:../contracts
+      '@nesto/domain-authorization':
+        specifier: workspace:*
+        version: link:../../domains/authorization
+      '@nesto/domain-foundation':
+        specifier: workspace:*
+        version: link:../../domains/foundation
+      '@nesto/domain-identity':
+        specifier: workspace:*
+        version: link:../../domains/identity
+      '@nesto/domain-organization':
+        specifier: workspace:*
+        version: link:../../domains/organization
+      '@nesto/domain-projects':
+        specifier: workspace:*
+        version: link:../../domains/projects
+      '@nesto/policy':
+        specifier: workspace:*
+        version: link:../policy
     devDependencies:
       '@nesto/config':
         specifier: workspace:*
@@ -375,6 +563,9 @@ importers:
       '@types/node':
         specifier: ^22.10.5
         version: 22.20.1
+      dotenv:
+        specifier: ^16.4.7
+        version: 16.6.1
       typescript:
         specifier: ^5.7.3
         version: 5.9.3

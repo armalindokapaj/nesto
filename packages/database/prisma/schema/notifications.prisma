@@ -1,0 +1,104 @@
+// ---------------------------------------------------------------------------
+// notifications — in-app and email delivery, preferences, digests.
+// PRD §10.1, §20.8.
+//
+// The notification and its delivery are separate rows on purpose. A person has
+// one notification; it may be attempted on several channels, each of which can
+// fail independently. Collapsing them loses the ability to answer "was the
+// email actually sent?", which is the only question anyone ever asks.
+// ---------------------------------------------------------------------------
+
+model Notification {
+  id       String @id @db.Uuid
+  tenantId String @db.Uuid
+  owningCompanyId String @db.Uuid
+  projectId String? @db.Uuid
+
+  /// The membership, not the user: a person with two memberships gets one
+  /// notification per company, and reading it in one does not clear the other.
+  recipientMembershipId String @db.Uuid
+
+  /// Registered in the notification event matrix; not a free string.
+  kind     String
+  /// LOW | NORMAL | HIGH | CRITICAL. CRITICAL overrides quiet hours and digest
+  /// preferences — a stop-work order is not a digest item.
+  priority String @default("NORMAL")
+
+  titleKey  String
+  bodyKey   String
+  params    Json?
+  /// Canonical deep link to the source record. Opening it re-evaluates source
+  /// permission (§4.3) — the notification is a pointer, not an entitlement.
+  targetType String?
+  targetId   String? @db.Uuid
+  targetPath String?
+
+  readAt      DateTime? @db.Timestamptz(6)
+  dismissedAt DateTime? @db.Timestamptz(6)
+  /// Stops the same fact notifying twice when two events describe it.
+  dedupeKey   String?
+
+  correlationId String?
+  createdAt     DateTime @default(now()) @db.Timestamptz(6)
+
+  deliveries DeliveryAttempt[]
+
+  @@unique([recipientMembershipId, dedupeKey])
+  @@index([tenantId, recipientMembershipId, readAt, createdAt(sort: Desc)])
+  @@index([tenantId, owningCompanyId, createdAt(sort: Desc)])
+  @@map("notification")
+  @@schema("notifications")
+}
+
+model DeliveryAttempt {
+  id             String @id @db.Uuid
+  tenantId       String @db.Uuid
+  notificationId String @db.Uuid
+
+  /// IN_APP | EMAIL. WhatsApp and the rest are deferred adapters (§20.9).
+  channel String
+  /// PENDING | SENT | DELIVERED | FAILED | SUPPRESSED
+  status  String @default("PENDING")
+  attempts Int   @default(0)
+  /// SUPPRESSED records a deliberate non-send — quiet hours, a preference, an
+  /// unsubscribe — so "no email arrived" has an answer other than a shrug.
+  suppressionReason String?
+  providerRef  String?
+  lastError    String?
+  sentAt       DateTime? @db.Timestamptz(6)
+  createdAt    DateTime  @default(now()) @db.Timestamptz(6)
+
+  notification Notification @relation(fields: [notificationId], references: [id], onDelete: Cascade)
+
+  @@index([tenantId, status, createdAt])
+  @@index([notificationId])
+  @@map("delivery_attempt")
+  @@schema("notifications")
+}
+
+/// Presentation and delivery preference only (§10.4): a user preference can
+/// never weaken security, retention or a required approval.
+model NotificationPreference {
+  id       String @id @db.Uuid
+  tenantId String @db.Uuid
+  owningCompanyId String @db.Uuid
+  membershipId String @db.Uuid
+
+  kind      String
+  inApp     Boolean @default(true)
+  email     Boolean @default(true)
+  /// IMMEDIATE | DAILY | WEEKLY | OFF
+  frequency String  @default("IMMEDIATE")
+
+  quietHoursStart Int?
+  quietHoursEnd   Int?
+  timezone        String?
+
+  createdAt DateTime @default(now()) @db.Timestamptz(6)
+  updatedAt DateTime @updatedAt @db.Timestamptz(6)
+
+  @@unique([membershipId, kind])
+  @@index([tenantId, owningCompanyId])
+  @@map("notification_preference")
+  @@schema("notifications")
+}

@@ -20,16 +20,16 @@ ACC-18,PRD §28.18,Tender bids are immutable after submission and the winner req
 ACC-19,PRD §28.19,Hiring does not create access automatically,platform,0-7,ACCEPTANCE,PLANNED,
 ACC-20,PRD §28.20,Company/professional connections do not grant ERP/project access,platform,0-7,ACCEPTANCE,PLANNED,
 ACC-21,PRD §28.21,"Search, reporting and dashboard totals are permission-filtered before computation",platform,0-7,ACCEPTANCE,PLANNED,
-ACC-22,PRD §28.22,All sensitive mutations create append-only audit evidence,platform,0-7,ACCEPTANCE,PLANNED,
-ACC-23,PRD §28.23,One correlation ID traces synchronous/asynchronous business flows,platform,0-7,ACCEPTANCE,PLANNED,
+ACC-22,PRD §28.22,All sensitive mutations create append-only audit evidence,platform,0-7,ACCEPTANCE,DONE,unit-of-work flushAudit + audit schema grants
+ACC-23,PRD §28.23,One correlation ID traces synchronous/asynchronous business flows,platform,0-7,ACCEPTANCE,DONE,"correlationId propagated through middleware, outbox and consumers"
 ACC-24,PRD §28.24,"Dead-letter, replay, rebuild and reconciliation actions are permissioned and audited",platform,0-7,ACCEPTANCE,PLANNED,
 ACC-25,PRD §28.25,"English/Albanian, responsive and WCAG 2.2 AA critical flows pass acceptance",platform,0-7,ACCEPTANCE,PLANNED,
 ACC-26,PRD §28.26,"Cross-tenant, cross-company, cross-project and external isolation suites pass with zero leakage",platform,0-7,ACCEPTANCE,PLANNED,
 ACC-27,PRD §28.27,"Production backup/restore, RPO/RTO and incident runbooks are verified",platform,0-7,ACCEPTANCE,PLANNED,
-ISO-01,PRD §26.2,Company A cannot read Company B list/detail,platform,0,ISOLATION,PLANNED,
-ISO-02,PRD §26.2,Company A cannot create a record referencing Company B ID,platform,0,ISOLATION,PLANNED,
-ISO-03,PRD §26.2,Company A cannot update/delete/archive Company B record,platform,0,ISOLATION,PLANNED,
-ISO-04,PRD §26.2,Company A cannot infer Company B through count/facet/search/autocomplete,platform,0,ISOLATION,PLANNED,
+ISO-01,PRD §26.2,Company A cannot read Company B list/detail,platform,0,ISOLATION,DONE,isolation.integration.test.ts
+ISO-02,PRD §26.2,Company A cannot create a record referencing Company B ID,platform,0,ISOLATION,DONE,isolation.integration.test.ts
+ISO-03,PRD §26.2,Company A cannot update/delete/archive Company B record,platform,0,ISOLATION,DONE,isolation.integration.test.ts
+ISO-04,PRD §26.2,Company A cannot infer Company B through count/facet/search/autocomplete,platform,0,ISOLATION,DONE,isolation.integration.test.ts
 ISO-05,PRD §26.2,Project A member cannot access unauthorized Project B,platform,0,ISOLATION,PLANNED,
 ISO-06,PRD §26.2,External Company B sees only published scope from Company A,platform,0,ISOLATION,PLANNED,
 ISO-07,PRD §26.2,Public user sees only published profile/job data,platform,0,ISOLATION,PLANNED,
@@ -49,7 +49,7 @@ E2E-10,PRD §26.3.10,"QA inspection fails, creates corrective action, passes rei
 E2E-11,PRD §26.3.11,Company connection and project invitation expose only selected external projection; revocation removes access,"network,portals",6,E2E,PLANNED,
 E2E-12,PRD §26.3.12,Professional connection proves no ERP access,network,6,E2E,PLANNED,
 E2E-13,PRD §26.3.13,Candidate is marked Hired but no employee/account is created until HR/IT acts,"jobs,hr",6,E2E,PLANNED,
-E2E-14,PRD §26.3.14,"Company enters read-only grace, all mutations fail consistently, then lock revokes sessions",foundation,1,E2E,PLANNED,
+E2E-14,PRD §26.3.14,"Company enters read-only grace, all mutations fail consistently, then lock revokes sessions",foundation,1,E2E,DONE,domains/foundation lifecycle.integration.test.ts
 E2E-15,PRD §26.3.15,"Cross-tenant attack suite passes through UI, API, relation IDs, files, search, exports, jobs and events",platform,0-7,E2E,PLANNED,
 FIN-01,PRD §26.4,Decimal precision/rounding by currency,finance,4,FINANCIAL,PLANNED,
 FIN-02,PRD §26.4,Reversal instead of edit,finance,4,FINANCIAL,PLANNED,
@@ -67,24 +67,24 @@ PERF-06,PRD §25.1,RPO <= 15 minutes,platform,0-7,NFR,PLANNED,
 PERF-07,PRD §25.1,RTO <= 4 hours,platform,0-7,NFR,PLANNED,
 PERF-08,PRD §25.1,Cross-tenant leakage: zero tolerance,platform,0-7,NFR,PLANNED,
 PERF-09,PRD §25.1,Zero open P0/P1 defects at release,platform,0-7,NFR,PLANNED,
-P0-01,PRD §27 Phase 0,"Monorepo, lint/type/test/CI conventions",foundation,0,FEATURE,PLANNED,
-P0-02,PRD §27 Phase 0,Membership/security-stamp role resolution replaces stale token roles,foundation,0,FEATURE,PLANNED,
-P0-03,PRD §27 Phase 0,Company Admin separated from Owner authority,foundation,0,FEATURE,PLANNED,
-P0-04,PRD §27 Phase 0,Cross-tenant nested-write validation and public IDOR closed,foundation,0,FEATURE,PLANNED,
-P0-05,PRD §27 Phase 0,Server-side approval authorization enforced,foundation,0,FEATURE,PLANNED,
-P0-06,PRD §27 Phase 0,Money stored as Decimal with explicit currency,foundation,0,FEATURE,PLANNED,
-P0-07,PRD §27 Phase 0,"PostgreSQL schemas, RLS, indexes, audit, outbox, jobs and object storage established",foundation,0,FEATURE,PLANNED,
-P0-08,PRD §27 Phase 0,Negative isolation and concurrency harness,foundation,0,FEATURE,PLANNED,
-P1-01,PRD §27 Phase 1,Company Web and Platform Admin separated,"foundation,identity,authorization,organization,projects,notifications",1,FEATURE,PLANNED,
-P1-02,PRD §27 Phase 1,"Identity, sessions, MFA, invitations and recovery","foundation,identity,authorization,organization,projects,notifications",1,FEATURE,PLANNED,
-P1-03,PRD §27 Phase 1,Tenant/company context and policy engine,"foundation,identity,authorization,organization,projects,notifications",1,FEATURE,PLANNED,
-P1-04,PRD §27 Phase 1,"Company lifecycle, commercial metadata and activation","foundation,identity,authorization,organization,projects,notifications",1,FEATURE,PLANNED,
-P1-05,PRD §27 Phase 1,Legal versions and acceptance,"foundation,identity,authorization,organization,projects,notifications",1,FEATURE,PLANNED,
-P1-06,PRD §27 Phase 1,"Organization, departments, memberships and Owner safeguards","foundation,identity,authorization,organization,projects,notifications",1,FEATURE,PLANNED,
-P1-07,PRD §27 Phase 1,Guided onboarding,"foundation,identity,authorization,organization,projects,notifications",1,FEATURE,PLANNED,
-P1-08,PRD §27 Phase 1,Protected template/version system,"foundation,identity,authorization,organization,projects,notifications",1,FEATURE,PLANNED,
-P1-09,PRD §27 Phase 1,First project provisioning,"foundation,identity,authorization,organization,projects,notifications",1,FEATURE,PLANNED,
-P1-10,PRD §27 Phase 1,"Audit, notification foundation, Help Center and localization","foundation,identity,authorization,organization,projects,notifications",1,FEATURE,PLANNED,
+P0-01,PRD §27 Phase 0,"Monorepo, lint/type/test/CI conventions",foundation,0,FEATURE,DONE,"pnpm/turbo monorepo, tsconfig presets, CI workflow"
+P0-02,PRD §27 Phase 0,Membership/security-stamp role resolution replaces stale token roles,foundation,0,FEATURE,DONE,packages/auth: token carries no role; authority read live per request
+P0-03,PRD §27 Phase 0,Company Admin separated from Owner authority,foundation,0,FEATURE,DONE,packages/policy: OWNER_ONLY checked before grants (engine.test.ts)
+P0-04,PRD §27 Phase 0,Cross-tenant nested-write validation and public IDOR closed,foundation,0,FEATURE,DONE,packages/database client extension + RLS (isolation.integration.test.ts)
+P0-05,PRD §27 Phase 0,Server-side approval authorization enforced,foundation,0,FEATURE,DONE,packages/policy evaluate() with mutating gate
+P0-06,PRD §27 Phase 0,Money stored as Decimal with explicit currency,foundation,0,FEATURE,DONE,packages/money Money value object; architecture test bans Float in schema
+P0-07,PRD §27 Phase 0,"PostgreSQL schemas, RLS, indexes, audit, outbox, jobs and object storage established",foundation,0,FEATURE,DONE,"22 schemas, RLS forced, roles, audit append-only, outbox, MinIO adapter"
+P0-08,PRD §27 Phase 0,Negative isolation and concurrency harness,foundation,0,FEATURE,DONE,isolation.integration.test.ts + concurrency.integration.test.ts
+P1-01,PRD §27 Phase 1,Company Web and Platform Admin separated,"foundation,identity,authorization,organization,projects,notifications",1,FEATURE,IN_PROGRESS,
+P1-02,PRD §27 Phase 1,"Identity, sessions, MFA, invitations and recovery","foundation,identity,authorization,organization,projects,notifications",1,FEATURE,IN_PROGRESS,
+P1-03,PRD §27 Phase 1,Tenant/company context and policy engine,"foundation,identity,authorization,organization,projects,notifications",1,FEATURE,IN_PROGRESS,
+P1-04,PRD §27 Phase 1,"Company lifecycle, commercial metadata and activation","foundation,identity,authorization,organization,projects,notifications",1,FEATURE,IN_PROGRESS,
+P1-05,PRD §27 Phase 1,Legal versions and acceptance,"foundation,identity,authorization,organization,projects,notifications",1,FEATURE,IN_PROGRESS,
+P1-06,PRD §27 Phase 1,"Organization, departments, memberships and Owner safeguards","foundation,identity,authorization,organization,projects,notifications",1,FEATURE,IN_PROGRESS,
+P1-07,PRD §27 Phase 1,Guided onboarding,"foundation,identity,authorization,organization,projects,notifications",1,FEATURE,IN_PROGRESS,
+P1-08,PRD §27 Phase 1,Protected template/version system,"foundation,identity,authorization,organization,projects,notifications",1,FEATURE,IN_PROGRESS,
+P1-09,PRD §27 Phase 1,First project provisioning,"foundation,identity,authorization,organization,projects,notifications",1,FEATURE,IN_PROGRESS,
+P1-10,PRD §27 Phase 1,"Audit, notification foundation, Help Center and localization","foundation,identity,authorization,organization,projects,notifications",1,FEATURE,IN_PROGRESS,
 P2-01,PRD §27 Phase 2,Project lifecycle/team/access,"projects,project-core,tasks",2,FEATURE,PLANNED,
 P2-02,PRD §27 Phase 2,Physical hierarchy and WBS,"projects,project-core,tasks",2,FEATURE,PLANNED,
 P2-03,PRD §27 Phase 2,"Tasks, contributors/watchers, checklists and comments","projects,project-core,tasks",2,FEATURE,PLANNED,

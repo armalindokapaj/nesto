@@ -1,0 +1,32 @@
+{
+  "name": "@nesto/domain-projects",
+  "version": "1.0.0",
+  "private": true,
+  "main": "dist/index.js",
+  "types": "dist/index.d.ts",
+  "exports": {
+    ".": { "types": "./dist/index.d.ts", "default": "./dist/index.js" },
+    "./contracts": { "types": "./dist/contracts/index.d.ts", "default": "./dist/contracts/index.js" }
+  },
+  "scripts": {
+    "build": "tsc -p tsconfig.json",
+    "dev": "tsc -p tsconfig.json --watch --preserveWatchOutput",
+    "typecheck": "tsc -p tsconfig.json --noEmit",
+    "test": "vitest run",
+    "test:integration": "vitest run --config vitest.integration.config.ts"
+  },
+  "dependencies": {
+    "@nesto/contracts": "workspace:*",
+    "@nesto/database": "workspace:*",
+    "@nesto/observability": "workspace:*",
+    "@nesto/policy": "workspace:*",
+    "zod": "^3.24.1"
+  },
+  "devDependencies": {
+    "@nesto/config": "workspace:*",
+    "@types/node": "^22.10.5",
+    "dotenv": "^16.4.7",
+    "typescript": "^5.7.3",
+    "vitest": "^2.1.8"
+  }
+}

@@ -1,0 +1,235 @@
+// ---------------------------------------------------------------------------
+// projects — templates, project identity, provisioning and participation.
+// PRD §9.5, §9.6, §12.2.
+//
+// Plan *structure* is not here: physical hierarchy, WBS, dependencies and
+// baselines belong to project_core (§4.2). This schema answers "which project,
+// owned by whom, in what state, provisioned from which template version".
+// ---------------------------------------------------------------------------
+
+/// The protected Nesto master template family. Companies cannot author one
+/// (§9.5); Platform Admin publishes immutable versions of it.
+model TemplateFamily {
+  id          String  @id @db.Uuid
+  key         String  @unique
+  name        String
+  description String?
+  isProtected Boolean @default(true)
+
+  createdAt DateTime @default(now()) @db.Timestamptz(6)
+  createdBy String   @db.Uuid
+  updatedAt DateTime @updatedAt @db.Timestamptz(6)
+  updatedBy String   @db.Uuid
+
+  versions   TemplateVersion[]
+  variations CompanyTemplateVariation[]
+
+  @@map("template_family")
+  @@schema("projects")
+}
+
+/// Immutable once published. The hash is what a project's snapshot pins to, so
+/// a later edit cannot retroactively change what a live project was built from.
+model TemplateVersion {
+  id       String @id @db.Uuid
+  familyId String @db.Uuid
+  version  String
+
+  payload     Json
+  payloadHash String
+  changeNotes String?
+
+  publishedAt DateTime  @db.Timestamptz(6)
+  publishedBy String    @db.Uuid
+  retiredAt   DateTime? @db.Timestamptz(6)
+
+  createdAt DateTime @default(now()) @db.Timestamptz(6)
+
+  family     TemplateFamily             @relation(fields: [familyId], references: [id], onDelete: Restrict)
+  variations CompanyTemplateVariation[]
+  snapshots  ProjectTemplateSnapshot[]
+
+  @@unique([familyId, version])
+  @@index([familyId, publishedAt(sort: Desc)])
+  @@map("template_version")
+  @@schema("projects")
+}
+
+/// Platform-Admin-owned, based on a published version. A company cannot create
+/// or edit one — that is the difference between a controlled variation and the
+/// arbitrary templates §9.5 defers.
+model CompanyTemplateVariation {
+  id       String @id @db.Uuid
+  tenantId String @db.Uuid
+  owningCompanyId String @db.Uuid
+
+  familyId       String @db.Uuid
+  baseVersionId  String @db.Uuid
+  name           String
+  overrides      Json
+  overridesHash  String
+
+  lifecycleStatus String   @default("ACTIVE")
+  recordVersion   Int      @default(1)
+  createdAt       DateTime @default(now()) @db.Timestamptz(6)
+  createdBy       String   @db.Uuid
+  updatedAt       DateTime @updatedAt @db.Timestamptz(6)
+  updatedBy       String   @db.Uuid
+
+  family      TemplateFamily  @relation(fields: [familyId], references: [id], onDelete: Restrict)
+  baseVersion TemplateVersion @relation(fields: [baseVersionId], references: [id], onDelete: Restrict)
+
+  @@unique([owningCompanyId, familyId, name])
+  @@index([tenantId, owningCompanyId])
+  @@map("company_template_variation")
+  @@schema("projects")
+}
+
+model Project {
+  id              String @id @db.Uuid
+  tenantId        String @db.Uuid
+  owningCompanyId String @db.Uuid
+
+  code String
+  name String
+  description String?
+  /// BUILDING | INFRASTRUCTURE | INDUSTRIAL | FITOUT | OTHER — drives which
+  /// activation gates apply (§12.3, e.g. a Site node where required).
+  projectType String @default("BUILDING")
+
+  /// PROVISIONING | DRAFT | ACTIVE | ON_HOLD | CLOSED | ARCHIVED (§12.2).
+  /// Company lifecycle always overrides this.
+  lifecycleStatus String @default("PROVISIONING")
+  statusReason    String?
+
+  /// Project-local wall time. Calendar arithmetic and deadline display both
+  /// depend on it (§11.7), so it is required rather than inherited silently.
+  timezone String @default("Europe/Tirane")
+  currency String @default("EUR") @db.Char(3)
+
+  plannedStart DateTime? @db.Date
+  plannedFinish DateTime? @db.Date
+  actualStart  DateTime? @db.Date
+  actualFinish DateTime? @db.Date
+
+  /// The accountable manager's membership. Required before activation (§12.3).
+  managerMembershipId String? @db.Uuid
+  clientId            String? @db.Uuid
+
+  /// ON_TRACK | AT_RISK | DELAYED | UNKNOWN, computed (§12.9). UNKNOWN is the
+  /// honest default: a project with no weighted rollup has unknown health, not
+  /// good health.
+  computedHealth   String    @default("UNKNOWN")
+  healthOverride   String?
+  healthOverrideReason String?
+  healthOverrideExpiresAt DateTime? @db.Timestamptz(6)
+
+  activatedAt DateTime? @db.Timestamptz(6)
+  closedAt    DateTime? @db.Timestamptz(6)
+
+  recordVersion Int       @default(1)
+  createdAt     DateTime  @default(now()) @db.Timestamptz(6)
+  createdBy     String    @db.Uuid
+  updatedAt     DateTime  @updatedAt @db.Timestamptz(6)
+  updatedBy     String    @db.Uuid
+  archivedAt    DateTime? @db.Timestamptz(6)
+  archivedBy    String?   @db.Uuid
+
+  snapshot         ProjectTemplateSnapshot?
+  provisioningSteps ProvisioningStep[]
+  memberships      ProjectMembership[]
+
+  @@unique([owningCompanyId, code])
+  @@index([tenantId, owningCompanyId, lifecycleStatus])
+  @@index([tenantId, owningCompanyId, createdAt(sort: Desc)])
+  @@map("project")
+  @@schema("projects")
+}
+
+/// The immutable resolved template a project was built from (§9.5). Existing
+/// projects never receive a silent template change; an upgrade is an explicit,
+/// previewed, audited migration.
+model ProjectTemplateSnapshot {
+  id        String @id @db.Uuid
+  tenantId  String @db.Uuid
+  projectId String @unique @db.Uuid
+
+  familyId    String  @db.Uuid
+  versionId   String  @db.Uuid
+  variationId String? @db.Uuid
+  version     String
+  payload     Json
+  payloadHash String
+
+  createdAt DateTime @default(now()) @db.Timestamptz(6)
+
+  project Project         @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  templateVersion TemplateVersion @relation(fields: [versionId], references: [id], onDelete: Restrict)
+
+  @@index([tenantId])
+  @@map("project_template_snapshot")
+  @@schema("projects")
+}
+
+/// One row per registered provisioning handler (§9.6). Retry resumes only the
+/// incomplete ones and cannot duplicate seeded data — which is why the state
+/// lives in a table rather than in the job.
+model ProvisioningStep {
+  id        String @id @db.Uuid
+  tenantId  String @db.Uuid
+  projectId String @db.Uuid
+
+  handler   String
+  sequence  Int
+  mandatory Boolean @default(true)
+
+  /// PENDING | RUNNING | SUCCEEDED | FAILED
+  status   String @default("PENDING")
+  attempts Int    @default(0)
+  /// A reference to the log entry, not the stack trace — a provisioning screen
+  /// must be safe to show a customer (§9.6 "safe error reference").
+  errorRef String?
+  startedAt   DateTime? @db.Timestamptz(6)
+  completedAt DateTime? @db.Timestamptz(6)
+
+  createdAt DateTime @default(now()) @db.Timestamptz(6)
+
+  project Project @relation(fields: [projectId], references: [id], onDelete: Cascade)
+
+  @@unique([projectId, handler])
+  @@index([tenantId, projectId, status])
+  @@map("provisioning_step")
+  @@schema("projects")
+}
+
+/// Participation, which is not access (§8.3). The user must already hold a
+/// valid company membership; this adds a project role on top.
+model ProjectMembership {
+  id        String @id @db.Uuid
+  tenantId  String @db.Uuid
+  owningCompanyId String @db.Uuid
+  projectId String @db.Uuid
+
+  membershipId String @db.Uuid
+  /// MANAGER | PLANNER | COORDINATOR | CONTRIBUTOR | VIEWER (§8.3).
+  projectRole  String
+
+  /// SCHEDULED | ACTIVE | ENDED (§7.4).
+  status        String    @default("ACTIVE")
+  effectiveFrom DateTime? @db.Date
+  effectiveTo   DateTime? @db.Date
+
+  recordVersion Int      @default(1)
+  createdAt     DateTime @default(now()) @db.Timestamptz(6)
+  createdBy     String   @db.Uuid
+  updatedAt     DateTime @updatedAt @db.Timestamptz(6)
+  updatedBy     String   @db.Uuid
+
+  project Project @relation(fields: [projectId], references: [id], onDelete: Cascade)
+
+  @@unique([projectId, membershipId])
+  @@index([tenantId, projectId, status])
+  @@index([membershipId, status])
+  @@map("project_membership")
+  @@schema("projects")
+}

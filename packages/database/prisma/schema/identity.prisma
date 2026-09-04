@@ -1,0 +1,255 @@
+// ---------------------------------------------------------------------------
+// identity — accounts, credentials, sessions, MFA, invitations, onboarding.
+// PRD §7, ADR-0003.
+//
+// The separation §7.1 insists on is visible in what is *absent* here: there is
+// no role column on User. A role belongs to a membership in one company, and a
+// person may hold different roles in different companies. Putting one on the
+// global account is how "stale role in a token" becomes "stale role in the
+// database".
+// ---------------------------------------------------------------------------
+
+/// The global sign-in identity. Nothing about employment, authority or company
+/// lives here.
+model User {
+  id String @id @db.Uuid
+
+  /// Lower-cased and dot/plus-folded at write time, so two spellings of the
+  /// same mailbox cannot become two accounts.
+  normalizedEmail String @unique
+  /// As the person typed it, for display and for addressing mail.
+  email           String
+  displayName     String
+  avatarFileId    String? @db.Uuid
+
+  /// INVITED | ACTIVE | DISABLED (§7.4). Disabling blocks every audience.
+  status String @default("INVITED")
+
+  locale   String @default("sq")
+  timezone String @default("Europe/Tirane")
+
+  /// Platform administrators are a property of the account, not a company role:
+  /// they operate in a different audience entirely (§3.1, §24.5).
+  isPlatformAdmin Boolean @default(false)
+
+  emailVerifiedAt DateTime? @db.Timestamptz(6)
+  lastSignInAt    DateTime? @db.Timestamptz(6)
+
+  recordVersion Int       @default(1)
+  createdAt     DateTime  @default(now()) @db.Timestamptz(6)
+  createdBy     String    @db.Uuid
+  updatedAt     DateTime  @updatedAt @db.Timestamptz(6)
+  updatedBy     String    @db.Uuid
+  archivedAt    DateTime? @db.Timestamptz(6)
+
+  credential    Credential?
+  securityStamp SecurityStamp?
+  sessions      Session[]
+  mfaMethods    MfaMethod[]
+  recoveryCodes RecoveryCode[]
+
+  @@index([status])
+  @@map("user")
+  @@schema("identity")
+}
+
+model Credential {
+  id     String @id @db.Uuid
+  userId String @unique @db.Uuid
+
+  /// Argon2id, with its cost parameters inside the string so they can be raised
+  /// later without invalidating anything (ADR-0003).
+  passwordHash  String
+  passwordSetAt DateTime @default(now()) @db.Timestamptz(6)
+  /// Counts consecutive failures for lockout; reset on success.
+  failedAttempts Int      @default(0)
+  lockedUntil    DateTime? @db.Timestamptz(6)
+
+  createdAt DateTime @default(now()) @db.Timestamptz(6)
+  updatedAt DateTime @updatedAt @db.Timestamptz(6)
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@map("credential")
+  @@schema("identity")
+}
+
+/// Bumped on password, MFA, role, membership, lifecycle or privileged-access
+/// change. A request whose token carries a stale stamp is rejected, which is
+/// what makes revocation immediate rather than eventual (§7.2).
+model SecurityStamp {
+  id        String   @id @db.Uuid
+  userId    String   @unique @db.Uuid
+  stamp     String
+  updatedAt DateTime @updatedAt @db.Timestamptz(6)
+  reason    String?
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@map("security_stamp")
+  @@schema("identity")
+}
+
+/// A rotating refresh-token family. Presenting a token that has already been
+/// rotated means it was captured, so the whole family is revoked (§7.2).
+model Session {
+  id     String @id @db.Uuid
+  userId String @db.Uuid
+
+  /// COMPANY | PLATFORM | EXTERNAL_PORTAL — a session is usable in exactly one.
+  audience      String
+  tokenFamilyId String @db.Uuid
+  /// HMAC of the token with a server-side pepper: a database read alone cannot
+  /// reconstruct a usable token.
+  refreshTokenHash String @unique
+  /// ACTIVE | ROTATED | REVOKED | EXPIRED
+  status           String @default("ACTIVE")
+  /// Set when this token was exchanged, so a replay can be recognised.
+  rotatedToId      String? @db.Uuid
+
+  /// The company this session selected. Still validated against live membership
+  /// on every request — the session records a choice, not an entitlement.
+  activeCompanyId String? @db.Uuid
+  activeProjectId String? @db.Uuid
+
+  ipClass     String?
+  deviceLabel String?
+  userAgent   String?
+
+  /// Drives the recent-authentication window for privileged actions (§7.2).
+  lastStrongAuthAt DateTime? @db.Timestamptz(6)
+  lastUsedAt       DateTime? @db.Timestamptz(6)
+  expiresAt        DateTime  @db.Timestamptz(6)
+  revokedAt        DateTime? @db.Timestamptz(6)
+  revokedReason    String?
+  createdAt        DateTime  @default(now()) @db.Timestamptz(6)
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId, status])
+  @@index([tokenFamilyId])
+  @@index([expiresAt])
+  @@map("session")
+  @@schema("identity")
+}
+
+model MfaMethod {
+  id     String @id @db.Uuid
+  userId String @db.Uuid
+
+  /// TOTP is the only V1 factor (§2).
+  kind String @default("TOTP")
+  /// Envelope-encrypted (ADR-0017); the key id travels with the ciphertext so a
+  /// KEK rotation re-wraps without re-encrypting.
+  encryptedSecret String
+  encryptionKeyId String
+
+  /// The last accepted step counter, so a code cannot be replayed inside its
+  /// own 30-second window.
+  lastUsedCounter BigInt?
+  verifiedAt      DateTime? @db.Timestamptz(6)
+  createdAt       DateTime  @default(now()) @db.Timestamptz(6)
+  disabledAt      DateTime? @db.Timestamptz(6)
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, kind])
+  @@map("mfa_method")
+  @@schema("identity")
+}
+
+model RecoveryCode {
+  id       String    @id @db.Uuid
+  userId   String    @db.Uuid
+  /// Argon2id-hashed and single use. Never readable back.
+  codeHash String
+  usedAt   DateTime? @db.Timestamptz(6)
+  createdAt DateTime @default(now()) @db.Timestamptz(6)
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId, usedAt])
+  @@map("recovery_code")
+  @@schema("identity")
+}
+
+/// Single-use, expiring, stored as a hash. Revoked, accepted and expired
+/// invitations are immutable history (§7.3).
+model Invitation {
+  id       String  @id @db.Uuid
+  tenantId String  @db.Uuid
+  owningCompanyId String @db.Uuid
+
+  email           String
+  normalizedEmail String
+  /// The base role the membership will carry on acceptance.
+  role            String
+  departmentId    String? @db.Uuid
+
+  tokenHash String @unique
+  /// PENDING | ACCEPTED | REVOKED | EXPIRED
+  status    String @default("PENDING")
+  expiresAt DateTime @db.Timestamptz(6)
+
+  /// Resend rotates the token and preserves lineage rather than mutating the
+  /// original, so the history of who invited whom stays intact (§7.3).
+  resendOfId String? @db.Uuid
+  resendOf   Invitation?  @relation("resend", fields: [resendOfId], references: [id], onDelete: SetNull)
+  resends    Invitation[] @relation("resend")
+
+  acceptedAt     DateTime? @db.Timestamptz(6)
+  acceptedUserId String?   @db.Uuid
+  revokedAt      DateTime? @db.Timestamptz(6)
+  revokedReason  String?
+
+  message   String?
+  createdAt DateTime @default(now()) @db.Timestamptz(6)
+  createdBy String   @db.Uuid
+  updatedAt DateTime @updatedAt @db.Timestamptz(6)
+  updatedBy String   @db.Uuid
+
+  @@index([tenantId, owningCompanyId, status])
+  @@index([normalizedEmail, status])
+  @@map("invitation")
+  @@schema("identity")
+}
+
+/// Server-persisted, autosaved, versioned and resumable (§9.4). `stepData` is a
+/// per-step map so a half-finished step survives a browser closing.
+model OnboardingProgress {
+  id       String @id @db.Uuid
+  tenantId String @db.Uuid
+  owningCompanyId String @unique @db.Uuid
+
+  currentStep    String @default("WELCOME")
+  completedSteps String[]
+  stepData       Json   @default("{}")
+  /// Bumped on every autosave, so a stale tab cannot overwrite newer input.
+  revision       Int    @default(1)
+  completedAt    DateTime? @db.Timestamptz(6)
+
+  createdAt DateTime @default(now()) @db.Timestamptz(6)
+  createdBy String   @db.Uuid
+  updatedAt DateTime @updatedAt @db.Timestamptz(6)
+  updatedBy String   @db.Uuid
+
+  @@index([tenantId])
+  @@map("onboarding_progress")
+  @@schema("identity")
+}
+
+/// Sign-in attempts, for lockout and for the security event trail. Kept
+/// separate from AuditEvent because it is high-volume and short-lived.
+model LoginAttempt {
+  id              String   @id @db.Uuid
+  normalizedEmail String
+  ipClass         String?
+  audience        String
+  succeeded       Boolean
+  failureReason   String?
+  attemptedAt     DateTime @default(now()) @db.Timestamptz(6)
+
+  @@index([normalizedEmail, attemptedAt(sort: Desc)])
+  @@map("login_attempt")
+  @@schema("identity")
+}

@@ -1,0 +1,80 @@
+// ---------------------------------------------------------------------------
+// organization — departments and company memberships. PRD §14.7, §8.
+//
+// The rule this schema exists to hold: **Department is not permission** (§2,
+// §14.7). A department organises reporting and nothing else. There is no
+// permission column on Department and there never will be; access comes from
+// the role on the membership and from explicit grants.
+// ---------------------------------------------------------------------------
+
+model Department {
+  id              String  @id @db.Uuid
+  tenantId        String  @db.Uuid
+  owningCompanyId String  @db.Uuid
+  parentId        String? @db.Uuid
+
+  name String
+  code String
+  /// Reporting metadata only. Naming a manager grants that person nothing.
+  managerMembershipId String? @db.Uuid
+
+  lifecycleStatus String    @default("ACTIVE")
+  recordVersion   Int       @default(1)
+  createdAt       DateTime  @default(now()) @db.Timestamptz(6)
+  createdBy       String    @db.Uuid
+  updatedAt       DateTime  @updatedAt @db.Timestamptz(6)
+  updatedBy       String    @db.Uuid
+  archivedAt      DateTime? @db.Timestamptz(6)
+
+  parent      Department?         @relation("departmentTree", fields: [parentId], references: [id], onDelete: Restrict)
+  children    Department[]        @relation("departmentTree")
+  memberships CompanyMembership[]
+
+  @@unique([owningCompanyId, code])
+  @@index([tenantId, owningCompanyId])
+  @@map("department")
+  @@schema("organization")
+}
+
+/// One person's role inside one legal company.
+///
+/// `isPrimaryOwner` is guarded by a partial unique index (added in migration):
+/// at most one live Owner per company, enforced by the database rather than by
+/// a service check that a concurrent request could race (§8.6, ACC-13).
+model CompanyMembership {
+  id              String @id @db.Uuid
+  tenantId        String @db.Uuid
+  owningCompanyId String @db.Uuid
+  userId          String @db.Uuid
+
+  /// One of the 14 protected base roles of §8.2.
+  role         String
+  departmentId String? @db.Uuid
+  /// Reporting line, not authority.
+  managerMembershipId String? @db.Uuid
+  jobTitle     String?
+
+  isPrimaryOwner Boolean @default(false)
+
+  /// PENDING | ACTIVE | SUSPENDED | ENDED (§7.4).
+  status    String    @default("PENDING")
+  startedAt DateTime? @db.Timestamptz(6)
+  endedAt   DateTime? @db.Timestamptz(6)
+  endReason String?
+
+  recordVersion Int       @default(1)
+  createdAt     DateTime  @default(now()) @db.Timestamptz(6)
+  createdBy     String    @db.Uuid
+  updatedAt     DateTime  @updatedAt @db.Timestamptz(6)
+  updatedBy     String    @db.Uuid
+  archivedAt    DateTime? @db.Timestamptz(6)
+
+  department Department? @relation(fields: [departmentId], references: [id], onDelete: SetNull)
+
+  @@unique([owningCompanyId, userId])
+  @@index([tenantId, owningCompanyId, status])
+  @@index([userId, status])
+  @@index([owningCompanyId, role])
+  @@map("company_membership")
+  @@schema("organization")
+}
